@@ -1,0 +1,15 @@
+# ── Secrets ──────────────────────────────────────────
+# config.json holds live credentials — NEVER commit this file.
+# Use config.example.json as the committed template.
+config.json
+
+# ── OS / Editor noise ────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Logs ─────────────────────────────────────────────
+*.log

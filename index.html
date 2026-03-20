@@ -97,6 +97,67 @@
     .toast-success { background: #2d6a4f; color: white; }
     .toast-error { background: #9b2226; color: white; }
 
+    /* Image preview lightbox */
+    .lightbox-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(26, 26, 46, 0.85);
+      backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .lightbox-overlay.open { opacity: 1; pointer-events: auto; }
+    .lightbox-inner {
+      position: relative; max-width: 90vw; max-height: 88vh;
+      animation: fadeUp 0.3s ease-out;
+    }
+    .lightbox-inner img {
+      max-width: 90vw; max-height: 82vh;
+      border-radius: 16px; box-shadow: 0 24px 80px rgba(0,0,0,0.4);
+      object-fit: contain;
+    }
+    .lightbox-close {
+      position: absolute; top: -14px; right: -14px;
+      width: 36px; height: 36px; border-radius: 50%;
+      background: white; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      font-size: 18px; color: #1a1a2e; font-weight: 700;
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+    .lightbox-close:hover { background: #9b2226; color: white; transform: scale(1.1); }
+    .lightbox-label {
+      text-align: center; margin-top: 12px;
+      font-family: 'Outfit', sans-serif; font-size: 13px;
+      color: rgba(255,255,255,0.6); font-weight: 400;
+    }
+    .lightbox-nav {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 40px; height: 40px; border-radius: 50%;
+      background: rgba(255,255,255,0.15); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 20px; transition: background 0.2s ease;
+    }
+    .lightbox-nav:hover { background: rgba(255,255,255,0.3); }
+    .lightbox-nav.prev { left: -56px; }
+    .lightbox-nav.next { right: -56px; }
+    @media (max-width: 640px) {
+      .lightbox-nav.prev { left: 8px; }
+      .lightbox-nav.next { right: 8px; }
+    }
+
+    /* Thumbnail preview hint */
+    .thumb-preview-hint {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      background: linear-gradient(transparent, rgba(26,26,46,0.6));
+      padding: 20px 8px 8px; text-align: center;
+      font-family: 'Outfit', sans-serif; font-size: 10px;
+      color: rgba(255,255,255,0.8); letter-spacing: 0.3px;
+      opacity: 0; transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+    .thumb-card:hover .thumb-preview-hint { opacity: 1; }
+
     /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -275,6 +336,17 @@
     </div>
   </footer>
 
+  <!-- Image Preview Lightbox -->
+  <div id="lightbox" class="lightbox-overlay" role="dialog" aria-label="Image preview">
+    <div class="lightbox-inner">
+      <button class="lightbox-close" id="lightboxClose" aria-label="Close preview">&times;</button>
+      <button class="lightbox-nav prev" id="lightboxPrev" aria-label="Previous image">&#8249;</button>
+      <button class="lightbox-nav next" id="lightboxNext" aria-label="Next image">&#8250;</button>
+      <img id="lightboxImg" src="" alt="Preview" />
+      <p class="lightbox-label" id="lightboxLabel"></p>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div id="toast" class="toast"></div>
 
@@ -285,20 +357,55 @@
   (() => {
     'use strict';
 
-    // ─── Configuration ─────────────────────────────
-    const CONFIG = {
-      n8nWebhookUrl: 'https://n8n-67295956827.africa-south1.run.app/webhook/d2d-convert',          // Replace with your n8n production webhook URL
-      googleClientId: '730237345425-i08jvribm9k9rgm26ui0jq4gdvcjbplb.apps.googleusercontent.com',          // Replace with your GCP OAuth 2.0 Client ID
-      googleScopes: 'https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.file',
-      devEmail: 'jay-leigh.v@conversionscience.co.za',
-      maxImages: 15,
-      compression: {
-        maxSizeMB: 0.8,
-        maxWidthOrHeight: 1600,
-        useWebWorker: true,
-        fileType: 'image/jpeg',
-      },
-    };
+    // ─── Configuration Loader ──────────────────────
+    // CONFIG is loaded at runtime from config.json (git-ignored).
+    // This keeps secrets out of source control and inspect element source tab.
+    // The values ARE visible in Network tab — see README for full threat model.
+    let CONFIG = null;
+
+    async function loadConfig() {
+      try {
+        const res = await fetch('./config.json', { cache: 'no-store' });
+        if (!res.ok) throw new Error(`config.json responded with ${res.status}`);
+        const json = await res.json();
+
+        // Merge with safe non-secret defaults
+        CONFIG = {
+          googleScopes: 'https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.file',
+          maxImages: 15,
+          compression: {
+            maxSizeMB: 0.8,
+            maxWidthOrHeight: 1600,
+            useWebWorker: true,
+            fileType: 'image/jpeg',
+          },
+          // Override with values from config.json
+          ...json,
+        };
+
+        // Validate required keys are present
+        const required = ['n8nWebhookUrl', 'googleClientId', 'devEmail'];
+        const missing = required.filter(k => !CONFIG[k]);
+        if (missing.length) throw new Error(`config.json is missing required keys: ${missing.join(', ')}`);
+
+      } catch (err) {
+        // Show a clear setup error — prevents silent failure in dev
+        document.body.innerHTML = `
+          <div style="font-family:sans-serif;max-width:540px;margin:80px auto;padding:32px;border:1px solid #e8d5b7;border-radius:16px;background:#faf8f5;color:#1a1a2e">
+            <h2 style="margin:0 0 12px;font-size:20px">⚙️ Configuration Missing</h2>
+            <p style="margin:0 0 16px;opacity:.6;font-size:14px;line-height:1.6">
+              <code>config.json</code> could not be loaded. Create it in the project root (same folder as <code>index.html</code>) with the following structure:
+            </p>
+            <pre style="background:#fff;padding:16px;border-radius:8px;border:1px solid #e8d5b7;font-size:13px;overflow:auto">{
+  "n8nWebhookUrl": "YOUR_N8N_WEBHOOK_URL",
+  "googleClientId": "YOUR_CLIENT_ID.apps.googleusercontent.com",
+  "devEmail": "your@email.com"
+}</pre>
+            <p style="margin:16px 0 0;font-size:12px;opacity:.4">Error: ${err.message}</p>
+          </div>`;
+        throw err; // Halt execution
+      }
+    }
 
     // ─── State ──────────────────────────────────────
     const state = {
@@ -307,6 +414,7 @@
       googleTokenClient: null,
       googleAccessToken: null,
       dragSourceIndex: null,
+      lightboxIndex: -1,
     };
 
     // ─── DOM Refs ───────────────────────────────────
@@ -338,6 +446,14 @@
 
       errorMessage: document.getElementById('errorMessage'),
       toast: document.getElementById('toast'),
+
+      // Lightbox
+      lightbox: document.getElementById('lightbox'),
+      lightboxImg: document.getElementById('lightboxImg'),
+      lightboxLabel: document.getElementById('lightboxLabel'),
+      lightboxClose: document.getElementById('lightboxClose'),
+      lightboxPrev: document.getElementById('lightboxPrev'),
+      lightboxNext: document.getElementById('lightboxNext'),
     };
 
     // ─── Utilities ──────────────────────────────────
@@ -445,15 +561,24 @@
           <div class="absolute inset-0 bg-gradient-to-t from-ink/50 to-transparent opacity-0 group-hover:opacity-100 transition"></div>
           <span class="absolute top-2 left-2 bg-white/90 text-ink text-[11px] font-body font-semibold px-2 py-0.5 rounded-lg shadow-sm">${index + 1}</span>
           <button class="thumb-remove absolute top-2 right-2 w-6 h-6 bg-white/90 hover:bg-red-500 hover:text-white rounded-full flex items-center justify-center text-ink/50 opacity-0 group-hover:opacity-100 transition text-xs font-bold shadow-sm" data-id="${img.id}" aria-label="Remove image">&times;</button>
+          <div class="thumb-preview-hint">Click to preview</div>
         `;
 
-        // Drag events for reordering
-        card.addEventListener('dragstart', onDragStart);
+        // Click to open lightbox (only if not dragging)
+        let isDragging = false;
+        card.addEventListener('dragstart', (e) => { isDragging = true; onDragStart(e); });
+        card.addEventListener('dragend', (e) => { setTimeout(() => isDragging = false, 100); onDragEnd(e); });
+        card.addEventListener('click', (e) => {
+          // Don't open lightbox if clicking the remove button or if dragging
+          if (e.target.closest('.thumb-remove') || isDragging) return;
+          openLightbox(index);
+        });
+
+        // Remaining drag events for reorder targets
         card.addEventListener('dragover', onDragOver);
         card.addEventListener('dragenter', onDragEnter);
         card.addEventListener('dragleave', onDragLeave);
         card.addEventListener('drop', onDrop);
-        card.addEventListener('dragend', onDragEnd);
 
         dom.thumbGrid.appendChild(card);
       });
@@ -509,6 +634,45 @@
       state.dragSourceIndex = null;
       dom.thumbGrid.querySelectorAll('.thumb-card').forEach(c => c.classList.remove('drag-over'));
     }
+
+    // ─── Image Preview Lightbox ────────────────────
+    function openLightbox(index) {
+      if (index < 0 || index >= state.images.length) return;
+      state.lightboxIndex = index;
+      const img = state.images[index];
+      dom.lightboxImg.src = img.thumbUrl;
+      dom.lightboxLabel.textContent = `Page ${index + 1} of ${state.images.length}`;
+      dom.lightboxPrev.style.display = index > 0 ? '' : 'none';
+      dom.lightboxNext.style.display = index < state.images.length - 1 ? '' : 'none';
+      dom.lightbox.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+      dom.lightbox.classList.remove('open');
+      document.body.style.overflow = '';
+      state.lightboxIndex = -1;
+    }
+
+    function lightboxNav(direction) {
+      const next = state.lightboxIndex + direction;
+      if (next >= 0 && next < state.images.length) openLightbox(next);
+    }
+
+    // Lightbox event bindings
+    dom.lightboxClose.addEventListener('click', closeLightbox);
+    dom.lightboxPrev.addEventListener('click', () => lightboxNav(-1));
+    dom.lightboxNext.addEventListener('click', () => lightboxNav(1));
+    dom.lightbox.addEventListener('click', (e) => {
+      // Close if clicking the dark overlay (not the inner content)
+      if (e.target === dom.lightbox) closeLightbox();
+    });
+    document.addEventListener('keydown', (e) => {
+      if (state.lightboxIndex < 0) return;
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft') lightboxNav(-1);
+      if (e.key === 'ArrowRight') lightboxNav(1);
+    });
 
     // ─── Drop Zone Events ───────────────────────────
     dom.dropzone.addEventListener('click', () => dom.fileInput.click());
@@ -774,7 +938,10 @@
     dom.btnRetry.addEventListener('click', resetApp);
 
     // ─── Init ───────────────────────────────────────
-    window.addEventListener('load', () => {
+    // Boot sequence: load config first, then wire up GIS
+    window.addEventListener('load', async () => {
+      await loadConfig(); // Halts if config.json missing or malformed
+
       // Attempt Google OAuth init after GIS script loads
       const gisInterval = setInterval(() => {
         if (typeof google !== 'undefined' && google.accounts) {
