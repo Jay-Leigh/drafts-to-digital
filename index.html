@@ -260,10 +260,37 @@
 
     <!-- SECTION: Result -->
     <section id="sectionResult" class="hidden fade-up">
-      <div class="mb-6">
-        <h2 class="text-2xl mb-1">Your converted text</h2>
-        <p class="font-body font-light text-ink/50 text-sm">Review, edit if needed, then export.</p>
-      </div>
+<div class="mb-6">
+  <h2 class="text-2xl mb-1">Your converted text</h2>
+  <p class="font-body font-light text-ink/50 text-sm">Review, edit if needed, then export.</p>
+</div>
+
+<!-- Word Count Stats Bar -->
+<div id="textStatsBar" class="flex flex-wrap items-center gap-4 sm:gap-6 mb-4 px-1">
+  <div class="flex items-center gap-2">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c4703f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7">
+      <path d="M4 7h16M4 12h10M4 17h12"/>
+    </svg>
+    <span class="font-body text-xs text-ink/40 uppercase tracking-wider">Words</span>
+    <span id="statWords" class="font-body text-sm font-semibold text-ink/70">—</span>
+  </div>
+  <div class="w-px h-4 bg-warm/60 hidden sm:block"></div>
+  <div class="flex items-center gap-2">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c4703f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7">
+      <polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/>
+    </svg>
+    <span class="font-body text-xs text-ink/40 uppercase tracking-wider">Chars</span>
+    <span id="statChars" class="font-body text-sm font-semibold text-ink/70">—</span>
+  </div>
+  <div class="w-px h-4 bg-warm/60 hidden sm:block"></div>
+  <div class="flex items-center gap-2">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#c4703f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7">
+      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+    </svg>
+    <span class="font-body text-xs text-ink/40 uppercase tracking-wider">Read</span>
+    <span id="statReadTime" class="font-body text-sm font-semibold text-ink/70">—</span>
+  </div>
+</div>
 
       <textarea id="resultText" class="result-area w-full p-6 min-h-[350px]" spellcheck="true"></textarea>
 
@@ -443,6 +470,10 @@
       btnExportDocs: document.getElementById('btnExportDocs'),
       btnStartOver: document.getElementById('btnStartOver'),
       btnRetry: document.getElementById('btnRetry'),
+
+      statWords:       document.getElementById('statWords'),
+      statChars:       document.getElementById('statChars'),
+      statReadTime:    document.getElementById('statReadTime'),
 
       errorMessage: document.getElementById('errorMessage'),
       toast: document.getElementById('toast'),
@@ -717,6 +748,23 @@
       });
     }
 
+// ─── Text Statistics ────────────────────────────
+function computeTextStats(text) {
+  const trimmed = text.trim();
+  const wordCount = trimmed ? trimmed.split(/\s+/).length : 0;
+  const charCount = trimmed.length;
+  const readMins = Math.ceil(wordCount / 200); // ~200 wpm average reading speed
+  const readLabel = readMins < 1 ? '< 1 min' : `${readMins} min${readMins > 1 ? 's' : ''}`;
+  return { wordCount, charCount, readLabel };
+}
+
+function renderTextStats(text) {
+  const { wordCount, charCount, readLabel } = computeTextStats(text);
+  dom.statWords.textContent = wordCount.toLocaleString();
+  dom.statChars.textContent = charCount.toLocaleString();
+  dom.statReadTime.textContent = readLabel;
+}
+
     // ─── Processing Progress UI ─────────────────────
     function updateProgress(percent, label) {
       dom.progressBar.style.width = `${percent}%`;
@@ -785,10 +833,11 @@
         updateProgress(100, 'Done!');
         await new Promise(r => setTimeout(r, 400));
 
-        // Show result
-        dom.resultText.value = state.resultText;
-        showSection('sectionResult');
-        showToast('Conversion complete!');
+// Show result
+dom.resultText.value = state.resultText;
+renderTextStats(state.resultText);
+showSection('sectionResult');
+showToast('Conversion complete!');
 
       } catch (error) {
         handleAppError(
@@ -924,6 +973,7 @@
       dom.fileInput.value = '';
       dom.thumbGrid.innerHTML = '';
       dom.resultText.value = '';
+      [dom.statWords, dom.statChars, dom.statReadTime].forEach(el => { el.textContent = '—'; });
       updateUploadMeta();
       showSection('sectionUpload');
     }
@@ -936,6 +986,7 @@
     dom.btnExportDocs.addEventListener('click', triggerGoogleExport);
     dom.btnStartOver.addEventListener('click', resetApp);
     dom.btnRetry.addEventListener('click', resetApp);
+    dom.resultText.addEventListener('input', () => renderTextStats(dom.resultText.value));
 
     // ─── Init ───────────────────────────────────────
     // Boot sequence: load config first, then wire up GIS
