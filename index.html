@@ -197,8 +197,8 @@
       <div class="text-center mb-8">
         <h2 class="text-3xl mb-2">Upload your handwritten pages</h2>
         <p class="font-body font-light text-ink/50 max-w-lg mx-auto">
-          Drop or select up to 15 clear images of your notes, essays, or mind maps.
-          Drag thumbnails to set the reading order.
+          Drop or select as many pages as you need — notes, essays, or mind maps.
+          Drag thumbnails to set the reading order before converting.
         </p>
       </div>
 
@@ -214,7 +214,7 @@
             <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
           <p class="font-body font-medium text-ink/60">Drop images here or <span class="text-accent underline">browse</span></p>
-          <p class="font-body text-xs text-ink/35 mt-1">JPG, PNG, HEIC &middot; Max 15 images</p>
+          <p class="font-body text-xs text-ink/35 mt-1">JPG, PNG, HEIC &middot; No limit &middot; All images compressed automatically</p>
         </div>
       </div>
 
@@ -247,7 +247,7 @@
         </div>
         <h2 class="text-2xl mb-3" id="processingTitle">Preparing your pages&hellip;</h2>
         <p class="font-body font-light text-ink/50 mb-8 max-w-md mx-auto" id="processingSubtext">
-          This may take 30&ndash;60 seconds for larger batches. Please stay on this page.
+          Processing time scales with your page count. Please stay on this page.
         </p>
         <div class="max-w-sm mx-auto">
           <div class="w-full h-2 bg-warm/40 rounded-full overflow-hidden">
@@ -399,7 +399,6 @@
         // Merge with safe non-secret defaults
         CONFIG = {
           googleScopes: 'https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.file',
-          maxImages: 15,
           compression: {
             maxSizeMB: 0.8,
             maxWidthOrHeight: 1600,
@@ -511,7 +510,8 @@
       }
       dom.uploadControls.classList.remove('hidden');
       dom.uploadControls.classList.add('flex');
-      dom.uploadCount.textContent = `${count} / ${CONFIG.maxImages} image${count !== 1 ? 's' : ''} selected`;
+      const estSecs = count <= 5 ? '15–30 seconds' : count <= 15 ? '30–60 seconds' : `${Math.ceil(count * 4 / 60)}–${Math.ceil(count * 6 / 60)} minutes`;
+      dom.uploadCount.textContent = `${count} image${count !== 1 ? 's' : ''} selected · est. ${estSecs} to process`;
     }
 
     // ─── Error Reporting ────────────────────────────
@@ -554,19 +554,9 @@
 
     function handleFiles(fileList) {
       const files = Array.from(fileList).filter(isValidImage);
-      const remaining = CONFIG.maxImages - state.images.length;
+      if (!files.length) return;
 
-      if (remaining <= 0) {
-        showToast(`Maximum of ${CONFIG.maxImages} images reached.`, 'error');
-        return;
-      }
-
-      const toAdd = files.slice(0, remaining);
-      if (files.length > toAdd.length) {
-        showToast(`Only ${remaining} more image${remaining !== 1 ? 's' : ''} allowed. Some were skipped.`, 'error');
-      }
-
-      toAdd.forEach(file => {
+      files.forEach(file => {
         const id = generateId();
         const thumbUrl = URL.createObjectURL(file);
         state.images.push({ id, file, compressedBase64: null, thumbUrl });
@@ -795,6 +785,13 @@ function renderTextStats(text) {
           'Gemini is analysing each page, understanding context and order.'
         );
         updateProgress(35, 'Sending to AI engine...');
+
+        const imgCount = state.images.length;
+        const timeHint = imgCount <= 5 ? '15–30 seconds' : imgCount <= 15 ? '30–60 seconds' : `${Math.ceil(imgCount * 4 / 60)}–${Math.ceil(imgCount * 6 / 60)} minutes`;
+        setProcessingStage(
+          'AI is reading your handwriting\u2026',
+          `Gemini is analysing ${imgCount} page${imgCount !== 1 ? 's' : ''}. This will take approximately ${timeHint} \u2014 please stay on this page.`
+        );
 
         const response = await fetch(CONFIG.n8nWebhookUrl, {
           method: 'POST',
