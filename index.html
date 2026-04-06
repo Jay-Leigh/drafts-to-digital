@@ -801,32 +801,57 @@ function renderTextStats(text) {
         );
 
         const textParts = [];
+        const MAX_RETRIES = 3;
+        const BATCH_DELAY_MS = 5000; // 5s pause between batches to avoid Gemini rate limits
+
         for (let bIdx = 0; bIdx < batches.length; bIdx++) {
           const batch = batches[bIdx];
           const progressBase = 35 + Math.round((bIdx / batches.length) * 40);
           updateProgress(progressBase, `Sending batch ${bIdx + 1} of ${batches.length} to AI...`);
 
-          const response = await fetch(CONFIG.n8nWebhookUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: 'convert',
-              imageCount: batch.length,
-              totalImageCount: compressedImages.length,
-              batchIndex: bIdx + 1,
-              totalBatches: batches.length,
-              images: batch,
-            }),
-          });
+          let lastErr = null;
+          for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+            try {
+              if (attempt > 0) {
+                const backoff = Math.pow(2, attempt) * 2000; // 4s, 8s
+                updateProgress(progressBase, `Batch ${bIdx + 1}: retrying in ${backoff / 1000}s (attempt ${attempt + 1}/${MAX_RETRIES})...`);
+                await new Promise(r => setTimeout(r, backoff));
+              }
 
-          if (!response.ok) {
-            const errBody = await response.text();
-            throw new Error(`n8n responded with ${response.status} on batch ${bIdx + 1}: ${errBody}`);
+              const response = await fetch(CONFIG.n8nWebhookUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  type: 'convert',
+                  imageCount: batch.length,
+                  totalImageCount: compressedImages.length,
+                  batchIndex: bIdx + 1,
+                  totalBatches: batches.length,
+                  images: batch,
+                }),
+              });
+
+              if (!response.ok) {
+                const errBody = await response.text();
+                throw new Error(`n8n responded with ${response.status} on batch ${bIdx + 1}: ${errBody}`);
+              }
+
+              const data = await response.json();
+              const part = data.text || data.result || '';
+              if (part.trim()) textParts.push(part.trim());
+              lastErr = null;
+              break; // success — exit retry loop
+            } catch (err) {
+              lastErr = err;
+            }
           }
 
-          const data = await response.json();
-          const part = data.text || data.result || '';
-          if (part.trim()) textParts.push(part.trim());
+          if (lastErr) throw lastErr;
+
+          // Pause between batches to avoid Gemini rate limits
+          if (bIdx < batches.length - 1) {
+            await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+          }
         }
 
         updateProgress(80, 'AI is assembling your text...');
