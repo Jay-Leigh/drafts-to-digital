@@ -723,7 +723,14 @@
           const base64 = await fileToBase64(compressedFile);
           compressed.push({ index: i + 1, base64 });
         } catch (err) {
-          throw new Error(`Failed to compress image ${i + 1}: ${err.message}`);
+          // Compression failed — fall back to the original file so the conversion isn't blocked
+          console.warn(`Compression failed for image ${i + 1}, using original:`, err);
+          try {
+            const base64 = await fileToBase64(images[i].file);
+            compressed.push({ index: i + 1, base64 });
+          } catch (readErr) {
+            throw new Error(`Failed to read image ${i + 1}: ${readErr && readErr.message ? readErr.message : String(readErr)}`);
+          }
         }
       }
       return compressed;
@@ -779,38 +786,50 @@ function renderTextStats(text) {
         );
         const compressedImages = await compressAllImages(state.images);
 
-        // Stage 2: Send to n8n webhook
-        setProcessingStage(
-          'AI is reading your handwriting\u2026',
-          'Gemini is analysing each page, understanding context and order.'
-        );
-        updateProgress(35, 'Sending to AI engine...');
-
+        // Stage 2: Send to n8n webhook in batches to avoid payload limits
         const imgCount = state.images.length;
+        const BATCH_SIZE = 5;
+        const batches = [];
+        for (let b = 0; b < compressedImages.length; b += BATCH_SIZE) {
+          batches.push(compressedImages.slice(b, b + BATCH_SIZE));
+        }
+
         const timeHint = imgCount <= 5 ? '15–30 seconds' : imgCount <= 15 ? '30–60 seconds' : `${Math.ceil(imgCount * 4 / 60)}–${Math.ceil(imgCount * 6 / 60)} minutes`;
         setProcessingStage(
           'AI is reading your handwriting\u2026',
           `Gemini is analysing ${imgCount} page${imgCount !== 1 ? 's' : ''}. This will take approximately ${timeHint} \u2014 please stay on this page.`
         );
 
-        const response = await fetch(CONFIG.n8nWebhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'convert',
-            imageCount: compressedImages.length,
-            images: compressedImages,
-          }),
-        });
+        const textParts = [];
+        for (let bIdx = 0; bIdx < batches.length; bIdx++) {
+          const batch = batches[bIdx];
+          const progressBase = 35 + Math.round((bIdx / batches.length) * 40);
+          updateProgress(progressBase, `Sending batch ${bIdx + 1} of ${batches.length} to AI...`);
 
-        updateProgress(75, 'AI is assembling your text...');
+          const response = await fetch(CONFIG.n8nWebhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'convert',
+              imageCount: batch.length,
+              totalImageCount: compressedImages.length,
+              batchIndex: bIdx + 1,
+              totalBatches: batches.length,
+              images: batch,
+            }),
+          });
 
-        if (!response.ok) {
-          const errBody = await response.text();
-          throw new Error(`n8n responded with ${response.status}: ${errBody}`);
+          if (!response.ok) {
+            const errBody = await response.text();
+            throw new Error(`n8n responded with ${response.status} on batch ${bIdx + 1}: ${errBody}`);
+          }
+
+          const data = await response.json();
+          const part = data.text || data.result || '';
+          if (part.trim()) textParts.push(part.trim());
         }
 
-        const data = await response.json();
+        updateProgress(80, 'AI is assembling your text...');
 
         // Stage 3: Finalize
         setProcessingStage(
@@ -821,7 +840,7 @@ function renderTextStats(text) {
 
         await new Promise(r => setTimeout(r, 600)); // Brief pause for UX
 
-        state.resultText = data.text || data.result || '';
+        state.resultText = textParts.join('\n\n');
 
         if (!state.resultText.trim()) {
           throw new Error('AI returned empty text. The handwriting may be unclear.');
