@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Tools Hub</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%232c5f2d%22><path d=%22M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3zm6.82 6L12 12.72 5.18 9 12 5.28 18.82 9zM17 15.99l-5 2.73-5-2.73v-3.72L12 15l5-2.73v3.72z%22/></svg>">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- CDN Libraries -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['"DM Serif Display"', 'serif'],
+            body: ['"Outfit"', 'sans-serif'],
+          },
+          colors: {
+            ink: '#1a2e1c',
+            parchment: '#f5f0e1',
+            warm: '#d4c9a8',
+            accent: '#2c5f2d',
+            'accent-deep': '#1e4620',
+            sage: '#6b8f71',
+            mist: '#eae5d6',
+            surface: '#faf7f0',
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Outfit', sans-serif; background: #f5f0e1; color: #1a2e1c; }
+    h1, h2, h3 { font-family: 'DM Serif Display', serif; }
+
+    /* Mode cards */
+    .mode-card { transition: all 0.3s ease; cursor: pointer; }
+    .mode-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(44,95,45,0.08); }
+    .mode-card.active { border-color: #2c5f2d !important; background: rgba(44,95,45,0.05); box-shadow: 0 6px 16px rgba(44,95,45,0.12); }
+    .mode-card .mode-icon { transition: all 0.3s ease; }
+    .mode-card.active .mode-icon { background: rgba(44,95,45,0.12); }
+
+    /* Drop zones */
+    .dropzone { transition: all 0.3s ease; }
+    .dropzone.dragover { border-color: #2c5f2d; background: rgba(44,95,45,0.04); transform: scale(1.005); }
+
+    /* File cards */
+    .file-card { transition: all 0.25s ease; }
+    .file-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+
+    /* Progress bar */
+    .progress-fill { transition: width 0.6s cubic-bezier(0.4,0,0.2,1); }
+
+    /* Animations */
+    @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+    .fade-up { animation: fadeUp 0.4s ease-out forwards; }
+    @keyframes softPulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
+    .pulse-text { animation: softPulse 2s ease-in-out infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-spinner {
+      width: 32px; height: 32px;
+      border: 3px solid rgba(44,95,45,0.2);
+      border-top-color: #2c5f2d;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    .zone-enter { animation: fadeUp 0.35s ease-out forwards; opacity: 0; }
+
+    /* Result area */
+    .result-area {
+      background: white; border: 1px solid #d4c9a8; border-radius: 12px;
+      font-family: 'Outfit', sans-serif; font-size: 15px; line-height: 1.75; resize: vertical;
+    }
+    .result-area:focus { outline: none; border-color: #2c5f2d; box-shadow: 0 0 0 3px rgba(44,95,45,0.1); }
+
+    /* Rendered markdown */
+    .result-prose { background: white; border: 1px solid #d4c9a8; border-radius: 12px; font-family: 'Outfit', sans-serif; font-size: 15px; line-height: 1.75; }
+    .result-prose h1, .result-prose h2, .result-prose h3, .result-prose h4 { font-family: 'DM Serif Display', serif; color: #1a2e1c; margin-top: 1.4em; margin-bottom: 0.4em; }
+    .result-prose h1 { font-size: 1.5em; } .result-prose h2 { font-size: 1.3em; } .result-prose h3 { font-size: 1.15em; }
+    .result-prose p { margin: 0.6em 0; } .result-prose ul, .result-prose ol { padding-left: 1.5em; margin: 0.6em 0; }
+    .result-prose li { margin: 0.25em 0; } .result-prose strong { font-weight: 600; color: #1a2e1c; }
+    .result-prose code { background: rgba(44,95,45,0.06); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+    .result-prose blockquote { border-left: 3px solid #2c5f2d; padding-left: 1em; color: rgba(26,46,28,0.65); margin: 1em 0; font-style: italic; }
+    .result-prose hr { border: none; border-top: 1px solid #d4c9a8; margin: 1.5em 0; }
+    .result-prose table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+    .result-prose th, .result-prose td { border: 1px solid #d4c9a8; padding: 8px 12px; text-align: left; }
+    .result-prose th { background: #eae5d6; font-weight: 600; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 100;
+      padding: 14px 22px; border-radius: 10px; font-size: 14px; font-weight: 500;
+      transform: translateY(80px); opacity: 0; transition: all 0.35s ease;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast-success { background: #2c5f2d; color: white; }
+    .toast-error { background: #9b2226; color: white; }
+
+    /* Lightbox */
+    .lightbox-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(26,46,28,0.85); backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+    }
+    .lightbox-overlay.open { opacity: 1; pointer-events: auto; }
+    .lightbox-inner { position: relative; max-width: 90vw; max-height: 88vh; animation: fadeUp 0.3s ease-out; }
+    .lightbox-inner img { max-width: 90vw; max-height: 82vh; border-radius: 16px; box-shadow: 0 24px 80px rgba(0,0,0,0.4); object-fit: contain; }
+    .lightbox-close {
+      position: absolute; top: -14px; right: -14px; width: 36px; height: 36px; border-radius: 50%;
+      background: white; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2); font-size: 18px; color: #1a2e1c; font-weight: 700;
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+    .lightbox-close:hover { background: #9b2226; color: white; transform: scale(1.1); }
+    .lightbox-label { text-align: center; margin-top: 12px; font-family: 'Outfit', sans-serif; font-size: 13px; color: rgba(255,255,255,0.6); }
+    .lightbox-nav {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      width: 40px; height: 40px; border-radius: 50%;
+      background: rgba(255,255,255,0.15); border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 20px; transition: background 0.2s ease;
+    }
+    .lightbox-nav:hover { background: rgba(255,255,255,0.3); }
+    .lightbox-nav.prev { left: -56px; } .lightbox-nav.next { right: -56px; }
+    @media (max-width: 640px) { .lightbox-nav.prev { left: 8px; } .lightbox-nav.next { right: 8px; } }
+
+    /* Login gate */
+    .login-overlay {
+      position: fixed; inset: 0; z-index: 300;
+      background: #f5f0e1;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity 0.4s ease, visibility 0.4s ease;
+    }
+    .login-overlay.dismissed { opacity: 0; visibility: hidden; pointer-events: none; }
+    .login-card {
+      width: 100%; max-width: 420px; margin: 0 16px;
+      background: white; border: 1px solid #d4c9a8; border-radius: 20px;
+      padding: 40px 32px; box-shadow: 0 12px 40px rgba(26,46,28,0.08);
+    }
+    .login-input {
+      width: 100%; padding: 14px 16px; border: 2px solid #d4c9a8; border-radius: 12px;
+      font-family: 'Outfit', sans-serif; font-size: 15px; background: #faf7f0;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      outline: none; letter-spacing: 2px;
+    }
+    .login-input:focus { border-color: #2c5f2d; box-shadow: 0 0 0 3px rgba(44,95,45,0.1); }
+    .login-input.shake {
+      animation: loginShake 0.5s ease;
+      border-color: #9b2226;
+    }
+    @keyframes loginShake {
+      0%,100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-5px); }
+      80% { transform: translateX(5px); }
+    }
+    .login-error {
+      color: #9b2226; font-size: 13px; font-family: 'Outfit', sans-serif;
+      margin-top: 10px; min-height: 20px; transition: opacity 0.2s ease;
+    }
+    .app-content { display: none; }
+    .app-content.unlocked { display: block; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #c4b896; border-radius: 3px; }
+  </style>
+</head>
+
+<body class="min-h-screen bg-parchment">
+
+  <!-- ======== LOGIN GATE ======== -->
+  <div id="loginOverlay" class="login-overlay">
+    <div class="login-card">
+      <div class="text-center mb-6">
+        <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-accent/10 flex items-center justify-center">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <h2 class="text-2xl" style="font-family:'DM Serif Display',serif;color:#1a2e1c">Student Tools Hub</h2>
+        <p class="font-body text-sm text-ink/45 mt-1">Enter your access code to continue</p>
+      </div>
+      <form id="loginForm" autocomplete="off">
+        <input type="password" id="loginInput" class="login-input" placeholder="Access code" autofocus />
+        <p id="loginError" class="login-error">&nbsp;</p>
+        <button type="submit" id="loginBtn"
+                class="w-full mt-2 font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white py-3.5 rounded-xl transition shadow-lg shadow-accent/20">
+          Unlock
+        </button>
+      </form>
+      <p class="font-body text-[11px] text-ink/25 text-center mt-6">Access restricted to authorised students</p>
+    </div>
+  </div>
+
+  <!-- ======== APP CONTENT (hidden until authenticated) ======== -->
+  <div id="appContent" class="app-content">
+
+  <!-- ======== HEADER ======== -->
+  <header class="border-b border-warm/50 bg-parchment/80 backdrop-blur-sm sticky top-0 z-50">
+    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3z"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-xl leading-tight">Student Tools Hub</h1>
+          <p class="text-xs text-ink/40 font-body font-light tracking-wide">AI-powered academic assistant</p>
+        </div>
+      </div>
+      <span class="text-[11px] font-body font-light text-ink/30 tracking-widest uppercase">v2.0</span>
+    </div>
+  </header>
+
+  <!-- ======== MAIN ======== -->
+  <main class="max-w-5xl mx-auto px-6 py-10">
+
+    <!-- SECTION: Upload -->
+    <section id="sectionUpload">
+      <div class="text-center mb-8">
+        <h2 class="text-3xl mb-2">What would you like to do?</h2>
+        <p class="font-body font-light text-ink/50 max-w-lg mx-auto">Choose a tool, upload your documents, and let AI handle the rest.</p>
+      </div>
+
+      <!-- Mode Selector -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8" id="modeSelector">
+        <div class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center" data-mode="transcribe">
+          <div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+            </svg>
+          </div>
+          <h3 class="text-lg mt-3">Transcribe</h3>
+          <p class="font-body text-sm text-ink/45 mt-1">Convert handwritten pages to digital text</p>
+        </div>
+        <div class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center" data-mode="template">
+          <div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>
+            </svg>
+          </div>
+          <h3 class="text-lg mt-3">Template Generator</h3>
+          <p class="font-body text-sm text-ink/45 mt-1">Get a structured essay outline from your assignment</p>
+        </div>
+        <div class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center" data-mode="reviewer">
+          <div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+              <path d="M9 15l2 2 4-4"/>
+            </svg>
+          </div>
+          <h3 class="text-lg mt-3">Essay Reviewer</h3>
+          <p class="font-body text-sm text-ink/45 mt-1">Get AI feedback on your draft essay</p>
+        </div>
+      </div>
+
+      <!-- Dynamic Upload Zones (rendered by JS) -->
+      <div id="uploadZonesContainer" class="space-y-5"></div>
+
+      <!-- Action Controls -->
+      <div id="actionArea" class="hidden items-center justify-between gap-4 mt-6">
+        <p id="fileCount" class="font-body text-sm text-ink/40"></p>
+        <div class="flex gap-3">
+          <button id="btnClearAll" class="font-body text-sm font-medium text-ink/40 hover:text-red-500 transition px-4 py-2">Clear All</button>
+          <button id="btnAction" disabled
+                  class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-8 py-3 rounded-xl transition shadow-lg shadow-accent/20 hover:shadow-accent/30 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-accent">
+            Select a mode
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: Processing -->
+    <section id="sectionProcessing" class="hidden">
+      <div class="text-center py-20 fade-up">
+        <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-accent/10 flex items-center justify-center">
+          <div class="loading-spinner"></div>
+        </div>
+        <h2 class="text-2xl mb-3" id="processingTitle">Analyzing your documents&hellip;</h2>
+        <p class="font-body font-light text-ink/50 mb-8 max-w-md mx-auto" id="processingSubtext">This may take a moment. Please stay on this page.</p>
+        <div class="max-w-sm mx-auto">
+          <div class="w-full h-2 bg-warm/40 rounded-full overflow-hidden">
+            <div id="progressBar" class="progress-fill h-full bg-accent rounded-full" style="width: 0%"></div>
+          </div>
+          <p id="progressLabel" class="font-body text-xs text-ink/35 mt-2 pulse-text">Initializing&hellip;</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: Result -->
+    <section id="sectionResult" class="hidden fade-up">
+      <div class="mb-6">
+        <h2 class="text-2xl mb-1" id="resultHeading">Your result</h2>
+        <p class="font-body font-light text-ink/50 text-sm" id="resultSubheading">Review, edit if needed, then export.</p>
+      </div>
+
+      <!-- Stats Bar -->
+      <div id="textStatsBar" class="flex flex-wrap items-center gap-4 sm:gap-6 mb-4 px-1">
+        <div class="flex items-center gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"><path d="M4 7h16M4 12h10M4 17h12"/></svg>
+          <span class="font-body text-xs text-ink/40 uppercase tracking-wider">Words</span>
+          <span id="statWords" class="font-body text-sm font-semibold text-ink/70">&mdash;</span>
+        </div>
+        <div class="w-px h-4 bg-warm/60 hidden sm:block"></div>
+        <div class="flex items-center gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+          <span class="font-body text-xs text-ink/40 uppercase tracking-wider">Chars</span>
+          <span id="statChars" class="font-body text-sm font-semibold text-ink/70">&mdash;</span>
+        </div>
+        <div class="w-px h-4 bg-warm/60 hidden sm:block"></div>
+        <div class="flex items-center gap-2">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span class="font-body text-xs text-ink/40 uppercase tracking-wider">Read</span>
+          <span id="statReadTime" class="font-body text-sm font-semibold text-ink/70">&mdash;</span>
+        </div>
+      </div>
+
+      <!-- Transcription: editable textarea -->
+      <textarea id="resultTextarea" class="result-area w-full p-6 min-h-[350px] hidden" spellcheck="true"></textarea>
+      <!-- Template/Reviewer: rendered markdown -->
+      <div id="resultContent" class="result-prose p-8 min-h-[350px] hidden overflow-auto"></div>
+
+      <div class="flex flex-wrap gap-3 mt-6">
+        <button id="btnCopy" class="font-body font-medium text-sm border border-warm hover:border-accent text-ink/70 hover:text-accent px-6 py-2.5 rounded-xl transition flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy
+        </button>
+        <button id="btnDownload" class="font-body font-medium text-sm border border-warm hover:border-accent text-ink/70 hover:text-accent px-6 py-2.5 rounded-xl transition flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span id="downloadLabel">Download</span>
+        </button>
+        <button id="btnExportDocs" class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-6 py-2.5 rounded-xl transition shadow-lg shadow-accent/20 flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Export to Google Docs
+        </button>
+        <button id="btnStartOver" class="font-body font-medium text-sm text-ink/35 hover:text-ink/60 px-4 py-2.5 transition ml-auto">&larr; Start Over</button>
+      </div>
+    </section>
+
+    <!-- SECTION: Error -->
+    <section id="sectionError" class="hidden fade-up">
+      <div class="text-center py-16">
+        <div class="w-14 h-14 mx-auto mb-5 rounded-2xl bg-red-50 flex items-center justify-center">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9b2226" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        </div>
+        <h2 class="text-xl mb-2">Something went wrong</h2>
+        <p id="errorMessage" class="font-body font-light text-ink/50 max-w-md mx-auto mb-6"></p>
+        <button id="btnRetry" class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-8 py-3 rounded-xl transition">Try Again</button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ======== FOOTER ======== -->
+  <footer class="border-t border-warm/30 mt-20">
+    <div class="max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
+      <p class="font-body text-xs text-ink/25">&copy; 2026 Student Tools Hub &middot; Conversion Science</p>
+      <p class="font-body text-xs text-ink/25">Powered by Gemini AI</p>
+    </div>
+  </footer>
+
+  </div><!-- /appContent -->
+
+  <!-- Lightbox -->
+  <div id="lightbox" class="lightbox-overlay" role="dialog" aria-label="Image preview">
+    <div class="lightbox-inner">
+      <button class="lightbox-close" id="lightboxClose" aria-label="Close preview">&times;</button>
+      <button class="lightbox-nav prev" id="lightboxPrev" aria-label="Previous image">&#8249;</button>
+      <button class="lightbox-nav next" id="lightboxNext" aria-label="Next image">&#8250;</button>
+      <img id="lightboxImg" src="" alt="Preview" />
+      <p class="lightbox-label" id="lightboxLabel"></p>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <!-- ======== APPLICATION LOGIC ======== -->
+  <script>
+  (() => {
+    'use strict';
+
+    // ─── Constants ──────────────────────────────────
+    const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15 MB
+    const ACCEPTED_TYPES = '.jpg,.jpeg,.png,.pdf,.docx,.txt';
+    const BATCH_SIZE = 5;
+    const BATCH_DELAY_MS = 5000;
+    const REQUEST_TIMEOUT_MS = 300000; // 5 min
+    const MAX_RETRIES = 3;
+
+    const ZONE_CONFIGS = {
+      transcribe: [
+        { role: 'pages', label: 'Handwritten Pages', required: true, hint: 'Images or scanned PDFs of your handwritten work' },
+      ],
+      template: [
+        { role: 'instructions', label: 'Assignment Instructions', required: true, hint: 'The assignment brief or question sheet' },
+        { role: 'rubric', label: 'Grading Rubric', required: false, hint: 'Marking criteria for your assignment' },
+        { role: 'sources', label: 'Source Materials', required: false, hint: 'Study guides, articles, or reference documents' },
+      ],
+      reviewer: [
+        { role: 'essay', label: 'Your Essay / Draft', required: true, hint: 'Your written work to be reviewed' },
+        { role: 'instructions', label: 'Assignment Instructions', required: true, hint: 'The assignment brief or question sheet' },
+        { role: 'rubric', label: 'Grading Rubric', required: false, hint: 'Marking criteria for your assignment' },
+        { role: 'sources', label: 'Source Materials', required: false, hint: 'Study guides, articles, or reference documents' },
+      ],
+    };
+
+    const MODE_META = {
+      transcribe: { btnLabel: 'Transcribe', resultTitle: 'Your Transcribed Text', resultSub: 'Review, edit if needed, then export.', ext: 'txt' },
+      template:   { btnLabel: 'Generate Template', resultTitle: 'Your Essay Template', resultSub: 'A structured outline to guide your writing.', ext: 'md' },
+      reviewer:   { btnLabel: 'Review Essay', resultTitle: 'Your Essay Review', resultSub: 'Actionable feedback to strengthen your draft.', ext: 'md' },
+    };
+
+    const LOADING_MESSAGES = {
+      transcribe: [
+        { title: 'Compressing your images\u2026', sub: 'Optimizing each page for fast processing.' },
+        { title: 'AI is reading your handwriting\u2026', sub: 'Carefully parsing every word on the page.' },
+        { title: 'Transcribing your content\u2026', sub: 'Converting handwriting to clean digital text.' },
+        { title: 'Almost there\u2026', sub: 'Finalizing your transcription.' },
+      ],
+      template: [
+        { title: 'Analyzing your assignment\u2026', sub: 'Reading through instructions and rubric.' },
+        { title: 'Mapping source materials\u2026', sub: 'Cross-referencing your uploaded resources.' },
+        { title: 'Building your template\u2026', sub: 'Creating a structured outline with word targets.' },
+        { title: 'Adding the finishing touches\u2026', sub: 'Inserting specific references and section guidance.' },
+      ],
+      reviewer: [
+        { title: 'Reading your essay\u2026', sub: 'Carefully analyzing your draft submission.' },
+        { title: 'Checking against the rubric\u2026', sub: 'Evaluating each criterion from your marking guide.' },
+        { title: 'Identifying key feedback\u2026', sub: 'Finding strengths and areas for improvement.' },
+        { title: 'Generating your review\u2026', sub: 'Preparing constructive, actionable feedback.' },
+      ],
+    };
+
+    // ─── Encrypted Configuration (AES-256-GCM) ─────
+    // The webhook URL, Google Client ID, and dev email are encrypted.
+    // Without the correct password, the app literally cannot function.
+    const ENCRYPTED_BLOB = {"salt":"Mj2ztE0XUtD4waGyPbI3dA==","iv":"AbjKn28LsAcIJiHN","authTag":"/fZLfruNwbH1ZST5uUgMHg==","iterations":100000,"ciphertext":"3lx2cUcmRJZvrug9R0fxgOoc2qyDjNeZYVmjv1M433Mu2zoar918VCuV5CF0xXQ7NfVixter/8jpEKCr6V2ygsSXK0VYhZVet8+GLCEjhA+pwwp1UdyAF2BaISWTX7/Zm/W93R/sEiaRKM0KlQql2PilgwdY41lYl+la0ccN4GXizV4nh/pcOZ//wwpMzLEzDweSkf1Bxg3Qfmv8eUOB3CT9/Gql0jR0E/TtWZ5P7qGN5nIJdXFCLtH/sh5QEzAiiFbs4MQJ4zgEl95ywjr3VSDFITDgEU8jfzULp230gYMEsLtG"};
+
+    const SESSION_KEY = 'sth_session';
+    const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+    let CONFIG = null;
+    let loginAttempts = 0;
+
+    // ─── Crypto helpers (Web Crypto API) ────────────
+    function b64ToBytes(b64) {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    }
+
+    async function deriveKey(password, salt, iterations) {
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+      return crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['decrypt']
+      );
+    }
+
+    async function decryptConfig(password) {
+      const salt = b64ToBytes(ENCRYPTED_BLOB.salt);
+      const iv = b64ToBytes(ENCRYPTED_BLOB.iv);
+      const authTag = b64ToBytes(ENCRYPTED_BLOB.authTag);
+      const ciphertext = b64ToBytes(ENCRYPTED_BLOB.ciphertext);
+
+      // Combine ciphertext + authTag (Web Crypto expects them concatenated)
+      const combined = new Uint8Array(ciphertext.length + authTag.length);
+      combined.set(ciphertext);
+      combined.set(authTag, ciphertext.length);
+
+      const key = await deriveKey(password, salt, ENCRYPTED_BLOB.iterations);
+      const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, combined);
+      return JSON.parse(new TextDecoder().decode(decrypted));
+    }
+
+    async function unlockApp(password) {
+      const sensitive = await decryptConfig(password);
+      CONFIG = {
+        googleScopes: 'https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.file',
+        compression: { maxSizeMB: 0.8, maxWidthOrHeight: 1600, useWebWorker: true, fileType: 'image/jpeg' },
+        ...sensitive,
+      };
+
+      // Save session
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ ts: Date.now(), p: btoa(password) }));
+
+      // Show app
+      document.getElementById('loginOverlay').classList.add('dismissed');
+      document.getElementById('appContent').classList.add('unlocked');
+    }
+
+    function checkSession() {
+      try {
+        const raw = localStorage.getItem(SESSION_KEY);
+        if (!raw) return null;
+        const session = JSON.parse(raw);
+        if (Date.now() - session.ts > SESSION_TTL) {
+          localStorage.removeItem(SESSION_KEY);
+          return null;
+        }
+        return atob(session.p);
+      } catch { localStorage.removeItem(SESSION_KEY); return null; }
+    }
+
+    // ─── State ──────────────────────────────────────
+    const state = {
+      mode: null,
+      zones: {},          // { role: [{ id, file, name, type, mime, thumbUrl, size }] }
+      userNotes: '',
+      resourceUrl: '',
+      resultText: '',
+      resultMode: null,
+      googleTokenClient: null,
+      googleAccessToken: null,
+      lightboxIndex: -1,
+      lightboxRole: null,
+    };
+
+    // ─── DOM Refs ───────────────────────────────────
+    const dom = {
+      modeSelector:        document.getElementById('modeSelector'),
+      uploadZonesContainer:document.getElementById('uploadZonesContainer'),
+      actionArea:          document.getElementById('actionArea'),
+      fileCount:           document.getElementById('fileCount'),
+      btnClearAll:         document.getElementById('btnClearAll'),
+      btnAction:           document.getElementById('btnAction'),
+
+      sectionUpload:       document.getElementById('sectionUpload'),
+      sectionProcessing:   document.getElementById('sectionProcessing'),
+      sectionResult:       document.getElementById('sectionResult'),
+      sectionError:        document.getElementById('sectionError'),
+
+      processingTitle:     document.getElementById('processingTitle'),
+      processingSubtext:   document.getElementById('processingSubtext'),
+      progressBar:         document.getElementById('progressBar'),
+      progressLabel:       document.getElementById('progressLabel'),
+
+      resultHeading:       document.getElementById('resultHeading'),
+      resultSubheading:    document.getElementById('resultSubheading'),
+      resultTextarea:      document.getElementById('resultTextarea'),
+      resultContent:       document.getElementById('resultContent'),
+      downloadLabel:       document.getElementById('downloadLabel'),
+      statWords:           document.getElementById('statWords'),
+      statChars:           document.getElementById('statChars'),
+      statReadTime:        document.getElementById('statReadTime'),
+
+      btnCopy:             document.getElementById('btnCopy'),
+      btnDownload:         document.getElementById('btnDownload'),
+      btnExportDocs:       document.getElementById('btnExportDocs'),
+      btnStartOver:        document.getElementById('btnStartOver'),
+      btnRetry:            document.getElementById('btnRetry'),
+
+      errorMessage:        document.getElementById('errorMessage'),
+      toast:               document.getElementById('toast'),
+
+      lightbox:            document.getElementById('lightbox'),
+      lightboxImg:         document.getElementById('lightboxImg'),
+      lightboxLabel:       document.getElementById('lightboxLabel'),
+      lightboxClose:       document.getElementById('lightboxClose'),
+      lightboxPrev:        document.getElementById('lightboxPrev'),
+      lightboxNext:        document.getElementById('lightboxNext'),
+    };
+
+    // ─── Utilities ──────────────────────────────────
+    const generateId = () => `f_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    function showSection(id) {
+      ['sectionUpload', 'sectionProcessing', 'sectionResult', 'sectionError'].forEach(s => {
+        dom[s].classList.toggle('hidden', s !== id);
+      });
+    }
+
+    function showToast(msg, type = 'success') {
+      dom.toast.textContent = msg;
+      dom.toast.className = `toast toast-${type} show`;
+      setTimeout(() => dom.toast.classList.remove('show'), 3500);
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    function getFileType(file) {
+      if (file.type.startsWith('image/')) return 'image';
+      if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) return 'pdf';
+      if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.toLowerCase().endsWith('.docx')) return 'docx';
+      if (file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt')) return 'txt';
+      return null;
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = () => reject(new Error('FileReader failed'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function fileToText(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('FileReader failed'));
+        reader.readAsText(file);
+      });
+    }
+
+    function normalizeUrl(url) {
+      url = (url || '').trim();
+      if (!url) return '';
+      if (!/^https?:\/\//.test(url)) url = 'https://' + url;
+      try { new URL(url); return url; } catch { return ''; }
+    }
+
+    // ─── Text Statistics ────────────────────────────
+    function renderTextStats(text) {
+      const t = text.trim();
+      const words = t ? t.split(/\s+/).length : 0;
+      const chars = t.length;
+      const mins = Math.ceil(words / 200);
+      dom.statWords.textContent = words.toLocaleString();
+      dom.statChars.textContent = chars.toLocaleString();
+      dom.statReadTime.textContent = mins < 1 ? '< 1 min' : `${mins} min${mins > 1 ? 's' : ''}`;
+    }
+
+    // ─── Error Reporting ────────────────────────────
+    async function reportErrorToDev(errorPayload) {
+      try {
+        await fetch(CONFIG.n8nWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mode: 'error_report',
+            recipient: CONFIG.devEmail,
+            timestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+            error: errorPayload,
+          }),
+        });
+      } catch (e) {
+        console.error('[STH] Failed to send error report:', e);
+      }
+    }
+
+    function handleAppError(userMessage, technicalDetail) {
+      console.error('[STH] Error:', technicalDetail);
+      dom.errorMessage.textContent = userMessage;
+      showSection('sectionError');
+      reportErrorToDev({
+        userMessage,
+        technicalDetail: typeof technicalDetail === 'object'
+          ? JSON.stringify(technicalDetail, Object.getOwnPropertyNames(technicalDetail))
+          : String(technicalDetail),
+      });
+    }
+
+    // ─── Mode Selection ─────────────────────────────
+    function selectMode(mode) {
+      if (state.mode === mode) return;
+
+      // Clear previous uploads
+      Object.values(state.zones).forEach(files =>
+        files.forEach(f => f.thumbUrl && URL.revokeObjectURL(f.thumbUrl))
+      );
+      state.zones = {};
+      state.userNotes = '';
+      state.resourceUrl = '';
+
+      state.mode = mode;
+
+      // Update card styles
+      document.querySelectorAll('.mode-card').forEach(card => {
+        card.classList.toggle('active', card.dataset.mode === mode);
+      });
+
+      renderUploadZones();
+      updateActionState();
+    }
+
+    // ─── Upload Zone Rendering ──────────────────────
+    function renderUploadZones() {
+      const container = dom.uploadZonesContainer;
+      container.innerHTML = '';
+      if (!state.mode) return;
+
+      const zones = ZONE_CONFIGS[state.mode];
+      zones.forEach((cfg, i) => {
+        const el = createUploadZone(cfg);
+        el.style.animationDelay = `${i * 0.08}s`;
+        container.appendChild(el);
+      });
+
+      // URL + Notes for template/reviewer
+      if (state.mode !== 'transcribe') {
+        const extras = document.createElement('div');
+        extras.className = 'zone-enter space-y-4';
+        extras.style.animationDelay = `${zones.length * 0.08}s`;
+        extras.innerHTML = `
+          <div>
+            <label class="block text-sm font-body font-semibold text-ink/70 mb-2">Online Resource URL <span class="text-ink/30 text-xs font-normal">(optional)</span></label>
+            <input type="url" id="urlInput" placeholder="https://example.com/study-guide"
+                   class="w-full px-4 py-3 border border-warm rounded-xl font-body text-sm bg-white focus:outline-none focus:border-accent transition" />
+          </div>
+          <div>
+            <label class="block text-sm font-body font-semibold text-ink/70 mb-2">Your Questions / Notes <span class="text-ink/30 text-xs font-normal">(optional)</span></label>
+            <textarea id="notesInput" rows="3" placeholder="Any specific questions or instructions for the AI..."
+                      class="w-full px-4 py-3 border border-warm rounded-xl font-body text-sm bg-white focus:outline-none focus:border-accent transition resize-y"></textarea>
+          </div>`;
+        container.appendChild(extras);
+
+        // Bind inputs
+        const urlIn = extras.querySelector('#urlInput');
+        const notesIn = extras.querySelector('#notesInput');
+        urlIn.addEventListener('input', () => { state.resourceUrl = urlIn.value; });
+        notesIn.addEventListener('input', () => { state.userNotes = notesIn.value; });
+      }
+
+      // Show action area
+      dom.actionArea.classList.remove('hidden');
+      dom.actionArea.classList.add('flex');
+    }
+
+    function createUploadZone(cfg) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'upload-zone-wrapper zone-enter';
+      wrapper.dataset.role = cfg.role;
+
+      const reqBadge = cfg.required
+        ? '<span class="text-red-500 text-xs ml-1">*</span>'
+        : '<span class="text-ink/30 text-xs font-normal ml-1">(optional)</span>';
+
+      wrapper.innerHTML = `
+        <label class="block text-sm font-body font-semibold text-ink/70 mb-2">${cfg.label}${reqBadge}</label>
+        <div class="dropzone border-2 border-dashed border-warm rounded-xl p-6 text-center cursor-pointer hover:border-accent/50 transition-all">
+          <input type="file" accept="${ACCEPTED_TYPES}" multiple class="hidden" />
+          <div class="pointer-events-none">
+            <svg class="mx-auto mb-2" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.4">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <p class="font-body text-sm font-medium text-ink/50">Drop files here or <span class="text-accent underline cursor-pointer">browse</span></p>
+            <p class="font-body text-[11px] text-ink/30 mt-1">${cfg.hint} &middot; Max 15 MB per file</p>
+          </div>
+        </div>
+        <div class="file-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2"></div>`;
+
+      // Wire events
+      const dz = wrapper.querySelector('.dropzone');
+      const input = wrapper.querySelector('input[type="file"]');
+
+      dz.addEventListener('click', () => input.click());
+      dz.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') input.click(); });
+      input.addEventListener('change', e => { handleFilesForZone(cfg.role, e.target.files); input.value = ''; });
+
+      ['dragenter', 'dragover'].forEach(evt =>
+        dz.addEventListener(evt, e => { e.preventDefault(); dz.classList.add('dragover'); })
+      );
+      ['dragleave', 'drop'].forEach(evt =>
+        dz.addEventListener(evt, e => { e.preventDefault(); dz.classList.remove('dragover'); })
+      );
+      dz.addEventListener('drop', e => handleFilesForZone(cfg.role, e.dataTransfer.files));
+
+      return wrapper;
+    }
+
+    // ─── File Handling ──────────────────────────────
+    function handleFilesForZone(role, fileList) {
+      const files = Array.from(fileList);
+      let added = 0;
+
+      for (const file of files) {
+        if (file.size > MAX_FILE_SIZE) {
+          showToast(`${file.name} exceeds the 15 MB limit`, 'error');
+          continue;
+        }
+        const ft = getFileType(file);
+        if (!ft) {
+          showToast(`${file.name} is not a supported file type`, 'error');
+          continue;
+        }
+        if (!state.zones[role]) state.zones[role] = [];
+        state.zones[role].push({
+          id: generateId(), file, name: file.name, type: ft,
+          mime: file.type, thumbUrl: ft === 'image' ? URL.createObjectURL(file) : null,
+          size: file.size,
+        });
+        added++;
+      }
+
+      if (added) {
+        renderFileGrid(role);
+        updateActionState();
+      }
+    }
+
+    function renderFileGrid(role) {
+      const wrapper = document.querySelector(`.upload-zone-wrapper[data-role="${role}"]`);
+      if (!wrapper) return;
+      const grid = wrapper.querySelector('.file-grid');
+      grid.innerHTML = '';
+
+      const files = state.zones[role] || [];
+      files.forEach((f, idx) => {
+        const card = document.createElement('div');
+
+        if (f.type === 'image') {
+          card.className = 'file-card relative rounded-lg overflow-hidden border border-warm/40 bg-white aspect-[3/4] group cursor-pointer';
+          card.innerHTML = `
+            <img src="${f.thumbUrl}" alt="${f.name}" class="w-full h-full object-cover" />
+            <span class="absolute top-1.5 left-1.5 bg-white/90 text-ink text-[10px] font-body font-semibold px-1.5 py-0.5 rounded-md shadow-sm">${idx + 1}</span>
+            <button class="rm-btn absolute top-1.5 right-1.5 w-5 h-5 bg-white/90 hover:bg-red-500 hover:text-white rounded-full flex items-center justify-center text-ink/50 opacity-0 group-hover:opacity-100 transition text-xs font-bold shadow-sm" data-id="${f.id}" data-role="${role}">&times;</button>
+            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-ink/40 to-transparent p-1.5 text-center opacity-0 group-hover:opacity-100 transition pointer-events-none">
+              <span class="text-white text-[9px] font-body">Click to preview</span>
+            </div>`;
+          card.addEventListener('click', e => {
+            if (!e.target.closest('.rm-btn')) openLightbox(role, idx);
+          });
+        } else {
+          card.className = 'file-card relative rounded-lg border border-warm/40 bg-white p-3 flex items-center gap-2 group';
+          const ext = f.name.split('.').pop().toUpperCase();
+          const colorMap = { PDF: 'text-red-600 bg-red-50', DOCX: 'text-blue-600 bg-blue-50', DOC: 'text-blue-600 bg-blue-50', TXT: 'text-ink/50 bg-mist' };
+          const clr = colorMap[ext] || 'text-ink/50 bg-mist';
+          card.innerHTML = `
+            <div class="w-9 h-9 rounded-lg ${clr} flex items-center justify-center flex-shrink-0">
+              <span class="text-[9px] font-bold">${ext}</span>
+            </div>
+            <div class="min-w-0 flex-1">
+              <p class="text-xs font-medium text-ink/70 truncate">${f.name}</p>
+              <p class="text-[10px] text-ink/30">${formatSize(f.size)}</p>
+            </div>
+            <button class="rm-btn w-5 h-5 rounded-full bg-mist hover:bg-red-500 hover:text-white flex items-center justify-center text-ink/30 transition text-xs font-bold flex-shrink-0" data-id="${f.id}" data-role="${role}">&times;</button>`;
+        }
+
+        grid.appendChild(card);
+      });
+
+      // Remove handlers
+      grid.querySelectorAll('.rm-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          const id = btn.dataset.id;
+          const r = btn.dataset.role;
+          const obj = (state.zones[r] || []).find(x => x.id === id);
+          if (obj && obj.thumbUrl) URL.revokeObjectURL(obj.thumbUrl);
+          state.zones[r] = (state.zones[r] || []).filter(x => x.id !== id);
+          renderFileGrid(r);
+          updateActionState();
+        });
+      });
+    }
+
+    // ─── Action Button State ────────────────────────
+    function updateActionState() {
+      if (!state.mode) {
+        dom.actionArea.classList.add('hidden');
+        dom.actionArea.classList.remove('flex');
+        return;
+      }
+
+      const meta = MODE_META[state.mode];
+      const zones = ZONE_CONFIGS[state.mode];
+      const requiredOk = zones.filter(z => z.required).every(z => (state.zones[z.role] || []).length > 0);
+      const totalFiles = Object.values(state.zones).reduce((s, a) => s + a.length, 0);
+
+      dom.btnAction.textContent = meta.btnLabel;
+      dom.btnAction.disabled = !requiredOk;
+      dom.fileCount.textContent = totalFiles > 0 ? `${totalFiles} file${totalFiles !== 1 ? 's' : ''} selected` : '';
+
+      dom.actionArea.classList.remove('hidden');
+      dom.actionArea.classList.add('flex');
+    }
+
+    // ─── Image Lightbox ─────────────────────────────
+    function openLightbox(role, idx) {
+      const files = state.zones[role] || [];
+      const imageFiles = files.filter(f => f.type === 'image');
+      const file = files[idx];
+      if (!file || file.type !== 'image') return;
+      const imgIdx = imageFiles.indexOf(file);
+      if (imgIdx < 0) return;
+
+      state.lightboxRole = role;
+      state.lightboxIndex = imgIdx;
+      updateLightbox();
+      dom.lightbox.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function updateLightbox() {
+      const imageFiles = (state.zones[state.lightboxRole] || []).filter(f => f.type === 'image');
+      const img = imageFiles[state.lightboxIndex];
+      if (!img) return;
+      dom.lightboxImg.src = img.thumbUrl;
+      dom.lightboxLabel.textContent = `${img.name} (${state.lightboxIndex + 1} of ${imageFiles.length})`;
+      dom.lightboxPrev.style.display = state.lightboxIndex > 0 ? '' : 'none';
+      dom.lightboxNext.style.display = state.lightboxIndex < imageFiles.length - 1 ? '' : 'none';
+    }
+
+    function closeLightbox() {
+      dom.lightbox.classList.remove('open');
+      document.body.style.overflow = '';
+      state.lightboxIndex = -1;
+    }
+
+    function lightboxNav(dir) {
+      const imageFiles = (state.zones[state.lightboxRole] || []).filter(f => f.type === 'image');
+      const next = state.lightboxIndex + dir;
+      if (next >= 0 && next < imageFiles.length) {
+        state.lightboxIndex = next;
+        updateLightbox();
+      }
+    }
+
+    dom.lightboxClose.addEventListener('click', closeLightbox);
+    dom.lightboxPrev.addEventListener('click', () => lightboxNav(-1));
+    dom.lightboxNext.addEventListener('click', () => lightboxNav(1));
+    dom.lightbox.addEventListener('click', e => { if (e.target === dom.lightbox) closeLightbox(); });
+    document.addEventListener('keydown', e => {
+      if (state.lightboxIndex < 0) return;
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft') lightboxNav(-1);
+      if (e.key === 'ArrowRight') lightboxNav(1);
+    });
+
+    // ─── File Processing ────────────────────────────
+    async function processFileObj(fileObj) {
+      if (fileObj.type === 'image') {
+        try {
+          const compressed = await imageCompression(fileObj.file, CONFIG.compression);
+          const base64 = await fileToBase64(compressed);
+          return { role: fileObj.role, type: 'inline', base64, mime_type: 'image/jpeg', name: fileObj.name };
+        } catch (err) {
+          console.warn('Compression failed, using original:', err);
+          const base64 = await fileToBase64(fileObj.file);
+          return { role: fileObj.role, type: 'inline', base64, mime_type: fileObj.mime || 'image/jpeg', name: fileObj.name };
+        }
+      }
+      if (fileObj.type === 'pdf') {
+        const base64 = await fileToBase64(fileObj.file);
+        return { role: fileObj.role, type: 'inline', base64, mime_type: 'application/pdf', name: fileObj.name };
+      }
+      if (fileObj.type === 'docx') {
+        if (typeof mammoth === 'undefined') throw new Error('DOCX support not available. Please convert to PDF.');
+        const buf = await fileObj.file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer: buf });
+        return { role: fileObj.role, type: 'text', content: result.value, name: fileObj.name };
+      }
+      if (fileObj.type === 'txt') {
+        const content = await fileToText(fileObj.file);
+        return { role: fileObj.role, type: 'text', content, name: fileObj.name };
+      }
+      throw new Error(`Unsupported file type: ${fileObj.type}`);
+    }
+
+    // ─── Progress UI ────────────────────────────────
+    let loadingInterval = null;
+    let loadingMsgIdx = 0;
+
+    function updateProgress(pct, label) {
+      if (pct !== null) dom.progressBar.style.width = `${pct}%`;
+      if (label) dom.progressLabel.textContent = label;
+    }
+
+    function startLoadingMessages() {
+      const msgs = LOADING_MESSAGES[state.mode] || LOADING_MESSAGES.transcribe;
+      loadingMsgIdx = 0;
+      const tick = () => {
+        const m = msgs[loadingMsgIdx % msgs.length];
+        dom.processingTitle.textContent = m.title;
+        dom.processingSubtext.textContent = m.sub;
+        loadingMsgIdx++;
+      };
+      tick();
+      loadingInterval = setInterval(tick, 6000);
+    }
+
+    function stopLoadingMessages() {
+      if (loadingInterval) { clearInterval(loadingInterval); loadingInterval = null; }
+    }
+
+    // ─── Webhook Request ────────────────────────────
+    async function sendToWebhook(payload) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      let lastErr = null;
+
+      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        try {
+          if (attempt > 0) {
+            const backoff = Math.pow(2, attempt) * 2000;
+            updateProgress(null, `Retrying in ${backoff / 1000}s (attempt ${attempt + 1}/${MAX_RETRIES})\u2026`);
+            await new Promise(r => setTimeout(r, backoff));
+          }
+          const res = await fetch(CONFIG.n8nWebhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: controller.signal,
+          });
+          clearTimeout(timeout);
+          if (!res.ok) {
+            const errBody = await res.text();
+            throw new Error(`Server responded ${res.status}: ${errBody}`);
+          }
+          return await res.json();
+        } catch (err) {
+          lastErr = err;
+          if (err.name === 'AbortError') { clearTimeout(timeout); throw new Error('Request timed out (5 min). Please try with fewer/smaller files.'); }
+        }
+      }
+      clearTimeout(timeout);
+      throw lastErr;
+    }
+
+    // ─── Core Processing Flow ───────────────────────
+    async function runProcess() {
+      if (!state.mode) return;
+
+      showSection('sectionProcessing');
+      startLoadingMessages();
+      updateProgress(0, 'Preparing your files\u2026');
+
+      try {
+        // 1. Process all files into documents array
+        const documents = [];
+        const allFiles = [];
+        for (const [role, files] of Object.entries(state.zones)) {
+          for (const f of files) allFiles.push({ ...f, role });
+        }
+
+        for (let i = 0; i < allFiles.length; i++) {
+          updateProgress(Math.round((i / allFiles.length) * 35), `Processing ${allFiles[i].name}\u2026`);
+          const doc = await processFileObj(allFiles[i]);
+          documents.push(doc);
+        }
+
+        updateProgress(40, 'Sending to AI\u2026');
+
+        let resultText = '';
+        const url = normalizeUrl(state.resourceUrl);
+
+        if (state.mode === 'transcribe') {
+          // Batch for transcription
+          const batches = [];
+          for (let i = 0; i < documents.length; i += BATCH_SIZE) batches.push(documents.slice(i, i + BATCH_SIZE));
+
+          const parts = [];
+          for (let bIdx = 0; bIdx < batches.length; bIdx++) {
+            const pct = 40 + Math.round((bIdx / batches.length) * 45);
+            updateProgress(pct, `Sending batch ${bIdx + 1} of ${batches.length}\u2026`);
+
+            const data = await sendToWebhook({
+              mode: 'transcribe',
+              documents: batches[bIdx],
+              batchIndex: bIdx + 1,
+              totalBatches: batches.length,
+              userNotes: state.userNotes,
+              url: '',
+            });
+            const txt = data.text || data.result || '';
+            if (txt.trim()) parts.push(txt.trim());
+
+            if (bIdx < batches.length - 1) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+          }
+          resultText = parts.join('\n\n');
+        } else {
+          // Single request for template/reviewer
+          updateProgress(50, 'AI is analyzing your documents\u2026');
+          const data = await sendToWebhook({
+            mode: state.mode,
+            documents,
+            userNotes: state.userNotes,
+            url,
+          });
+          resultText = data.text || data.result || '';
+        }
+
+        if (!resultText.trim()) throw new Error('AI returned an empty response. Please try again.');
+
+        updateProgress(100, 'Done!');
+        await new Promise(r => setTimeout(r, 400));
+
+        state.resultText = resultText;
+        state.resultMode = state.mode;
+        displayResult();
+        showSection('sectionResult');
+        showToast('Processing complete!');
+
+      } catch (error) {
+        handleAppError(
+          'We couldn\u2019t process your files right now. Our team has been notified \u2014 please try again shortly.',
+          error
+        );
+      } finally {
+        stopLoadingMessages();
+      }
+    }
+
+    // ─── Result Display ─────────────────────────────
+    function displayResult() {
+      const meta = MODE_META[state.resultMode];
+      dom.resultHeading.textContent = meta.resultTitle;
+      dom.resultSubheading.textContent = meta.resultSub;
+      dom.downloadLabel.textContent = `Download .${meta.ext}`;
+
+      if (state.resultMode === 'transcribe') {
+        dom.resultTextarea.classList.remove('hidden');
+        dom.resultContent.classList.add('hidden');
+        dom.resultTextarea.value = state.resultText;
+      } else {
+        dom.resultTextarea.classList.add('hidden');
+        dom.resultContent.classList.remove('hidden');
+        try {
+          dom.resultContent.innerHTML = marked.parse(state.resultText);
+        } catch {
+          dom.resultContent.textContent = state.resultText;
+        }
+      }
+
+      renderTextStats(state.resultText);
+    }
+
+    // ─── Export: Copy ───────────────────────────────
+    async function copyToClipboard() {
+      const text = state.resultMode === 'transcribe' ? dom.resultTextarea.value : state.resultText;
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('Copied to clipboard!');
+      } catch {
+        const ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('Copied to clipboard!');
+      }
+    }
+
+    // ─── Export: Download ───────────────────────────
+    function downloadResult() {
+      const text = state.resultMode === 'transcribe' ? dom.resultTextarea.value : state.resultText;
+      const meta = MODE_META[state.resultMode];
+      const mime = meta.ext === 'md' ? 'text/markdown' : 'text/plain';
+      const blob = new Blob([text], { type: `${mime};charset=utf-8` });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `student-tools-${state.resultMode}-${new Date().toISOString().slice(0, 10)}.${meta.ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('File downloaded!');
+    }
+
+    // ─── Export: Google Docs ────────────────────────
+    function initGoogleOAuth() {
+      if (typeof google === 'undefined' || !google.accounts) return;
+      state.googleTokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CONFIG.googleClientId,
+        scope: CONFIG.googleScopes,
+        callback: onGoogleTokenResponse,
+      });
+    }
+
+    function onGoogleTokenResponse(tokenResponse) {
+      if (tokenResponse.error) {
+        handleAppError('Google sign-in was cancelled or failed.', tokenResponse);
+        return;
+      }
+      state.googleAccessToken = tokenResponse.access_token;
+      createGoogleDoc();
+    }
+
+    async function createGoogleDoc() {
+      try {
+        const text = state.resultMode === 'transcribe' ? dom.resultTextarea.value : state.resultText;
+        const meta = MODE_META[state.resultMode];
+        const title = `Student Tools Hub - ${meta.resultTitle} - ${new Date().toLocaleDateString('en-ZA')}`;
+
+        const createRes = await fetch('https://docs.googleapis.com/v1/documents', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${state.googleAccessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title }),
+        });
+        if (!createRes.ok) throw new Error(`Docs create failed: ${createRes.status}`);
+        const doc = await createRes.json();
+
+        const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${doc.documentId}:batchUpdate`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${state.googleAccessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requests: [{ insertText: { location: { index: 1 }, text } }] }),
+        });
+        if (!updateRes.ok) throw new Error(`Docs update failed: ${updateRes.status}`);
+
+        showToast('Exported to Google Docs!');
+        window.open(`https://docs.google.com/document/d/${doc.documentId}/edit`, '_blank');
+      } catch (error) {
+        handleAppError('Couldn\u2019t create Google Doc. Check permissions and try again.', error);
+      }
+    }
+
+    function triggerGoogleExport() {
+      if (!state.googleTokenClient) {
+        initGoogleOAuth();
+        if (!state.googleTokenClient) {
+          showToast('Google services still loading. Try again in a moment.', 'error');
+          return;
+        }
+      }
+      if (state.googleAccessToken) createGoogleDoc();
+      else state.googleTokenClient.requestAccessToken();
+    }
+
+    // ─── Reset ──────────────────────────────────────
+    function resetApp() {
+      Object.values(state.zones).forEach(files =>
+        files.forEach(f => f.thumbUrl && URL.revokeObjectURL(f.thumbUrl))
+      );
+      state.zones = {};
+      state.resultText = '';
+      state.resultMode = null;
+      state.userNotes = '';
+      state.resourceUrl = '';
+      state.googleAccessToken = null;
+      dom.resultTextarea.value = '';
+      dom.resultContent.innerHTML = '';
+      [dom.statWords, dom.statChars, dom.statReadTime].forEach(el => { el.textContent = '\u2014'; });
+
+      // Re-render current mode zones
+      if (state.mode) renderUploadZones();
+      updateActionState();
+      showSection('sectionUpload');
+    }
+
+    // ─── Event Bindings ─────────────────────────────
+    dom.modeSelector.addEventListener('click', e => {
+      const card = e.target.closest('.mode-card');
+      if (card) selectMode(card.dataset.mode);
+    });
+
+    dom.btnAction.addEventListener('click', runProcess);
+    dom.btnClearAll.addEventListener('click', resetApp);
+    dom.btnCopy.addEventListener('click', copyToClipboard);
+    dom.btnDownload.addEventListener('click', downloadResult);
+    dom.btnExportDocs.addEventListener('click', triggerGoogleExport);
+    dom.btnStartOver.addEventListener('click', resetApp);
+    dom.btnRetry.addEventListener('click', resetApp);
+    dom.resultTextarea.addEventListener('input', () => renderTextStats(dom.resultTextarea.value));
+
+    // ─── Login Gate ────────────────────────────────
+    const loginForm = document.getElementById('loginForm');
+    const loginInput = document.getElementById('loginInput');
+    const loginError = document.getElementById('loginError');
+
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const pwd = loginInput.value;
+      loginAttempts++;
+
+      // Ruse: first attempt ALWAYS fails with fake requirements message
+      if (loginAttempts === 1) {
+        loginError.textContent = 'Password must contain all character types (uppercase, lowercase, numbers, symbols) and be at least 10 characters.';
+        loginInput.classList.add('shake');
+        setTimeout(() => loginInput.classList.remove('shake'), 600);
+        loginInput.value = '';
+        loginInput.focus();
+        return;
+      }
+
+      // Real validation from attempt 2 onward
+      try {
+        loginError.textContent = 'Verifying\u2026';
+        loginError.style.color = '#6b8f71';
+        await unlockApp(pwd);
+        initAfterAuth();
+      } catch {
+        loginError.style.color = '#9b2226';
+        loginError.textContent = 'Incorrect access code. Please try again.';
+        loginInput.classList.add('shake');
+        setTimeout(() => loginInput.classList.remove('shake'), 600);
+        loginInput.value = '';
+        loginInput.focus();
+      }
+    });
+
+    function initAfterAuth() {
+      // Attempt Google OAuth init
+      const gisInterval = setInterval(() => {
+        if (typeof google !== 'undefined' && google.accounts) {
+          initGoogleOAuth();
+          clearInterval(gisInterval);
+        }
+      }, 500);
+      setTimeout(() => clearInterval(gisInterval), 10000);
+    }
+
+    // ─── Init ───────────────────────────────────────
+    window.addEventListener('load', async () => {
+      // Check for valid session
+      const savedPwd = checkSession();
+      if (savedPwd) {
+        try {
+          await unlockApp(savedPwd);
+          initAfterAuth();
+          return;
+        } catch {
+          // Session password no longer valid — clear and show login
+          localStorage.removeItem(SESSION_KEY);
+        }
+      }
+      // No valid session — show login gate (it's visible by default)
+      loginInput.focus();
+    });
+
+  })();
+  </script>
+</body>
+</html>

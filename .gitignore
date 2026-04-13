@@ -1,0 +1,24 @@
+# ── Secrets ──────────────────────────────────────────
+# config.json holds live credentials — NEVER commit this file.
+# Use config.example.json as the committed template.
+config.json
+
+# encrypt-config.js contains the plaintext password — NEVER commit.
+encrypt-config.js
+
+# Google OAuth client secrets — NEVER commit.
+client_secret_*.json
+
+# Claude Code local settings — not relevant to the project.
+.claude/
+
+# ── OS / Editor noise ────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Logs ─────────────────────────────────────────────
+*.log
