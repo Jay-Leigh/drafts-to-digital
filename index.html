@@ -138,6 +138,44 @@
     .lightbox-nav.prev { left: -56px; } .lightbox-nav.next { right: -56px; }
     @media (max-width: 640px) { .lightbox-nav.prev { left: 8px; } .lightbox-nav.next { right: 8px; } }
 
+    /* Login gate */
+    .login-overlay {
+      position: fixed; inset: 0; z-index: 300;
+      background: #f5f0e1;
+      display: flex; align-items: center; justify-content: center;
+      transition: opacity 0.4s ease, visibility 0.4s ease;
+    }
+    .login-overlay.dismissed { opacity: 0; visibility: hidden; pointer-events: none; }
+    .login-card {
+      width: 100%; max-width: 420px; margin: 0 16px;
+      background: white; border: 1px solid #d4c9a8; border-radius: 20px;
+      padding: 40px 32px; box-shadow: 0 12px 40px rgba(26,46,28,0.08);
+    }
+    .login-input {
+      width: 100%; padding: 14px 16px; border: 2px solid #d4c9a8; border-radius: 12px;
+      font-family: 'Outfit', sans-serif; font-size: 15px; background: #faf7f0;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      outline: none; letter-spacing: 2px;
+    }
+    .login-input:focus { border-color: #2c5f2d; box-shadow: 0 0 0 3px rgba(44,95,45,0.1); }
+    .login-input.shake {
+      animation: loginShake 0.5s ease;
+      border-color: #9b2226;
+    }
+    @keyframes loginShake {
+      0%,100% { transform: translateX(0); }
+      20% { transform: translateX(-8px); }
+      40% { transform: translateX(8px); }
+      60% { transform: translateX(-5px); }
+      80% { transform: translateX(5px); }
+    }
+    .login-error {
+      color: #9b2226; font-size: 13px; font-family: 'Outfit', sans-serif;
+      margin-top: 10px; min-height: 20px; transition: opacity 0.2s ease;
+    }
+    .app-content { display: none; }
+    .app-content.unlocked { display: block; }
+
     /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -146,6 +184,33 @@
 </head>
 
 <body class="min-h-screen bg-parchment">
+
+  <!-- ======== LOGIN GATE ======== -->
+  <div id="loginOverlay" class="login-overlay">
+    <div class="login-card">
+      <div class="text-center mb-6">
+        <div class="w-14 h-14 mx-auto mb-4 rounded-2xl bg-accent/10 flex items-center justify-center">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <h2 class="text-2xl" style="font-family:'DM Serif Display',serif;color:#1a2e1c">Student Tools Hub</h2>
+        <p class="font-body text-sm text-ink/45 mt-1">Enter your access code to continue</p>
+      </div>
+      <form id="loginForm" autocomplete="off">
+        <input type="password" id="loginInput" class="login-input" placeholder="Access code" autofocus />
+        <p id="loginError" class="login-error">&nbsp;</p>
+        <button type="submit" id="loginBtn"
+                class="w-full mt-2 font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white py-3.5 rounded-xl transition shadow-lg shadow-accent/20">
+          Unlock
+        </button>
+      </form>
+      <p class="font-body text-[11px] text-ink/25 text-center mt-6">Access restricted to authorised students</p>
+    </div>
+  </div>
+
+  <!-- ======== APP CONTENT (hidden until authenticated) ======== -->
+  <div id="appContent" class="app-content">
 
   <!-- ======== HEADER ======== -->
   <header class="border-b border-warm/50 bg-parchment/80 backdrop-blur-sm sticky top-0 z-50">
@@ -312,6 +377,8 @@
     </div>
   </footer>
 
+  </div><!-- /appContent -->
+
   <!-- Lightbox -->
   <div id="lightbox" class="lightbox-overlay" role="dialog" aria-label="Image preview">
     <div class="lightbox-inner">
@@ -383,37 +450,80 @@
       ],
     };
 
-    // ─── Configuration ──────────────────────────────
-    let CONFIG = null;
+    // ─── Encrypted Configuration (AES-256-GCM) ─────
+    // The webhook URL, Google Client ID, and dev email are encrypted.
+    // Without the correct password, the app literally cannot function.
+    const ENCRYPTED_BLOB = {"salt":"Mj2ztE0XUtD4waGyPbI3dA==","iv":"AbjKn28LsAcIJiHN","authTag":"/fZLfruNwbH1ZST5uUgMHg==","iterations":100000,"ciphertext":"3lx2cUcmRJZvrug9R0fxgOoc2qyDjNeZYVmjv1M433Mu2zoar918VCuV5CF0xXQ7NfVixter/8jpEKCr6V2ygsSXK0VYhZVet8+GLCEjhA+pwwp1UdyAF2BaISWTX7/Zm/W93R/sEiaRKM0KlQql2PilgwdY41lYl+la0ccN4GXizV4nh/pcOZ//wwpMzLEzDweSkf1Bxg3Qfmv8eUOB3CT9/Gql0jR0E/TtWZ5P7qGN5nIJdXFCLtH/sh5QEzAiiFbs4MQJ4zgEl95ywjr3VSDFITDgEU8jfzULp230gYMEsLtG"};
 
-    async function loadConfig() {
+    const SESSION_KEY = 'sth_session';
+    const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
+    let CONFIG = null;
+    let loginAttempts = 0;
+
+    // ─── Crypto helpers (Web Crypto API) ────────────
+    function b64ToBytes(b64) {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return bytes;
+    }
+
+    async function deriveKey(password, salt, iterations) {
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
+      return crypto.subtle.deriveKey(
+        { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['decrypt']
+      );
+    }
+
+    async function decryptConfig(password) {
+      const salt = b64ToBytes(ENCRYPTED_BLOB.salt);
+      const iv = b64ToBytes(ENCRYPTED_BLOB.iv);
+      const authTag = b64ToBytes(ENCRYPTED_BLOB.authTag);
+      const ciphertext = b64ToBytes(ENCRYPTED_BLOB.ciphertext);
+
+      // Combine ciphertext + authTag (Web Crypto expects them concatenated)
+      const combined = new Uint8Array(ciphertext.length + authTag.length);
+      combined.set(ciphertext);
+      combined.set(authTag, ciphertext.length);
+
+      const key = await deriveKey(password, salt, ENCRYPTED_BLOB.iterations);
+      const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, combined);
+      return JSON.parse(new TextDecoder().decode(decrypted));
+    }
+
+    async function unlockApp(password) {
+      const sensitive = await decryptConfig(password);
+      CONFIG = {
+        googleScopes: 'https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.file',
+        compression: { maxSizeMB: 0.8, maxWidthOrHeight: 1600, useWebWorker: true, fileType: 'image/jpeg' },
+        ...sensitive,
+      };
+
+      // Save session
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ ts: Date.now(), p: btoa(password) }));
+
+      // Show app
+      document.getElementById('loginOverlay').classList.add('dismissed');
+      document.getElementById('appContent').classList.add('unlocked');
+    }
+
+    function checkSession() {
       try {
-        const res = await fetch('./config.json', { cache: 'no-store' });
-        if (!res.ok) throw new Error(`config.json responded with ${res.status}`);
-        const json = await res.json();
-        CONFIG = {
-          googleScopes: 'https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.file',
-          compression: { maxSizeMB: 0.8, maxWidthOrHeight: 1600, useWebWorker: true, fileType: 'image/jpeg' },
-          ...json,
-        };
-        const required = ['n8nWebhookUrl', 'googleClientId', 'devEmail'];
-        const missing = required.filter(k => !CONFIG[k]);
-        if (missing.length) throw new Error(`config.json missing: ${missing.join(', ')}`);
-      } catch (err) {
-        document.body.innerHTML = `
-          <div style="font-family:sans-serif;max-width:540px;margin:80px auto;padding:32px;border:1px solid #d4c9a8;border-radius:16px;background:#f5f0e1;color:#1a2e1c">
-            <h2 style="margin:0 0 12px;font-size:20px">Configuration Missing</h2>
-            <p style="margin:0 0 16px;opacity:.6;font-size:14px;line-height:1.6">
-              <code>config.json</code> could not be loaded. Create it in the project root with:</p>
-            <pre style="background:#fff;padding:16px;border-radius:8px;border:1px solid #d4c9a8;font-size:13px;overflow:auto">{
-  "n8nWebhookUrl": "YOUR_N8N_WEBHOOK_URL",
-  "googleClientId": "YOUR_CLIENT_ID.apps.googleusercontent.com",
-  "devEmail": "your@email.com"
-}</pre>
-            <p style="margin:16px 0 0;font-size:12px;opacity:.4">Error: ${err.message}</p>
-          </div>`;
-        throw err;
-      }
+        const raw = localStorage.getItem(SESSION_KEY);
+        if (!raw) return null;
+        const session = JSON.parse(raw);
+        if (Date.now() - session.ts > SESSION_TTL) {
+          localStorage.removeItem(SESSION_KEY);
+          return null;
+        }
+        return atob(session.p);
+      } catch { localStorage.removeItem(SESSION_KEY); return null; }
     }
 
     // ─── State ──────────────────────────────────────
@@ -1162,10 +1272,43 @@
     dom.btnRetry.addEventListener('click', resetApp);
     dom.resultTextarea.addEventListener('input', () => renderTextStats(dom.resultTextarea.value));
 
-    // ─── Init ───────────────────────────────────────
-    window.addEventListener('load', async () => {
-      await loadConfig();
+    // ─── Login Gate ────────────────────────────────
+    const loginForm = document.getElementById('loginForm');
+    const loginInput = document.getElementById('loginInput');
+    const loginError = document.getElementById('loginError');
 
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const pwd = loginInput.value;
+      loginAttempts++;
+
+      // Ruse: first attempt ALWAYS fails with fake requirements message
+      if (loginAttempts === 1) {
+        loginError.textContent = 'Password must contain all character types (uppercase, lowercase, numbers, symbols) and be at least 10 characters.';
+        loginInput.classList.add('shake');
+        setTimeout(() => loginInput.classList.remove('shake'), 600);
+        loginInput.value = '';
+        loginInput.focus();
+        return;
+      }
+
+      // Real validation from attempt 2 onward
+      try {
+        loginError.textContent = 'Verifying\u2026';
+        loginError.style.color = '#6b8f71';
+        await unlockApp(pwd);
+        initAfterAuth();
+      } catch {
+        loginError.style.color = '#9b2226';
+        loginError.textContent = 'Incorrect access code. Please try again.';
+        loginInput.classList.add('shake');
+        setTimeout(() => loginInput.classList.remove('shake'), 600);
+        loginInput.value = '';
+        loginInput.focus();
+      }
+    });
+
+    function initAfterAuth() {
       // Attempt Google OAuth init
       const gisInterval = setInterval(() => {
         if (typeof google !== 'undefined' && google.accounts) {
@@ -1174,6 +1317,24 @@
         }
       }, 500);
       setTimeout(() => clearInterval(gisInterval), 10000);
+    }
+
+    // ─── Init ───────────────────────────────────────
+    window.addEventListener('load', async () => {
+      // Check for valid session
+      const savedPwd = checkSession();
+      if (savedPwd) {
+        try {
+          await unlockApp(savedPwd);
+          initAfterAuth();
+          return;
+        } catch {
+          // Session password no longer valid — clear and show login
+          localStorage.removeItem(SESSION_KEY);
+        }
+      }
+      // No valid session — show login gate (it's visible by default)
+      loginInput.focus();
     });
 
   })();

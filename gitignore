@@ -3,6 +3,9 @@
 # Use config.example.json as the committed template.
 config.json
 
+# encrypt-config.js contains the plaintext password — NEVER commit.
+encrypt-config.js
+
 # ── OS / Editor noise ────────────────────────────────
 .DS_Store
 Thumbs.db
