@@ -945,7 +945,7 @@
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
               <p class="font-body text-sm font-medium text-ink/60">Drop resources here or <span class="text-accent underline cursor-pointer">browse</span></p>
-              <p class="font-body text-[11px] text-ink/35 mt-1">PDF, DOCX, TXT or images &middot; Max 15 MB per file &middot; Stored in your browser</p>
+              <p class="font-body text-[11px] text-ink/35 mt-1">PDF, DOCX, TXT or images &middot; Max 30 MB per file &middot; Stored in your browser</p>
             </div>
           </div>
 
@@ -1096,7 +1096,7 @@
     }
 
     // ─── Constants ──────────────────────────────────
-    const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15 MB
+    const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30 MB
     const ACCEPTED_TYPES = '.jpg,.jpeg,.png,.pdf,.docx,.txt';
     const BATCH_SIZE = 5;
     const BATCH_DELAY_MS = 5000;
@@ -1487,7 +1487,7 @@
       },
 
       async add(file) {
-        if (file.size > MAX_FILE_SIZE) throw new Error(`${file.name} exceeds the 15 MB limit`);
+        if (file.size > MAX_FILE_SIZE) throw new Error(`${file.name} exceeds the 30 MB limit`);
         const ft = getFileType(file);
         if (!ft) throw new Error(`${file.name} is not a supported file type`);
 
@@ -1916,7 +1916,7 @@
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
             <p class="font-body text-sm font-medium text-ink/50">Drop files here or <span class="text-accent underline cursor-pointer">browse</span></p>
-            <p class="font-body text-[11px] text-ink/30 mt-1">${cfg.hint} &middot; Max 15 MB per file</p>
+            <p class="font-body text-[11px] text-ink/30 mt-1">${cfg.hint} &middot; Max 30 MB per file</p>
           </div>
         </div>
         <div class="file-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2"></div>`;
@@ -1950,7 +1950,7 @@
 
       for (const file of files) {
         if (file.size > MAX_FILE_SIZE) {
-          showToast(`${file.name} exceeds the 15 MB limit`, 'error');
+          showToast(`${file.name} exceeds the 30 MB limit`, 'error');
           continue;
         }
         const ft = getFileType(file);
