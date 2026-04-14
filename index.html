@@ -449,6 +449,79 @@
     }
     .kb-row-peek:hover { background: rgba(44,95,45,0.08); border-color: rgba(44,95,45,0.35); color: #2c5f2d; }
 
+    /* ───────── KB URL INPUT ROW ───────── */
+    .kb-url-row {
+      display: flex; gap: 8px; margin-bottom: 18px;
+    }
+    .kb-url-input {
+      flex: 1; font-family: 'Outfit', sans-serif; font-size: 14px;
+      padding: 10px 14px; border-radius: 10px;
+      border: 1.5px solid rgba(212,201,168,0.7); background: white;
+      color: #1a2e1c; outline: none; transition: border-color 0.2s;
+    }
+    .kb-url-input:focus { border-color: #2c5f2d; }
+    .kb-url-input::placeholder { color: rgba(26,46,28,0.35); }
+    .kb-url-btn {
+      flex-shrink: 0; font-family: 'Outfit', sans-serif; font-weight: 600;
+      font-size: 13px; padding: 10px 16px; border-radius: 10px;
+      background: #2c5f2d; color: white; border: none; cursor: pointer;
+      transition: background 0.2s; white-space: nowrap;
+    }
+    .kb-url-btn:hover { background: #1a3d1c; }
+    .kb-url-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* ───────── URL TYPE CARD THUMB ───────── */
+    .kb-card .kb-thumb .url-thumb {
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .kb-card .kb-thumb .url-thumb svg { opacity: 0.5; }
+    .kb-card .kb-thumb .url-thumb span {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.05em;
+      color: rgba(26,46,28,0.45); font-family: 'Outfit', sans-serif;
+    }
+
+    /* ───────── SCRAPE PREVIEW MODAL ───────── */
+    .scrape-preview-box { max-width: 660px; }
+    .scrape-preview-content {
+      font-family: 'Outfit', sans-serif; font-size: 13px; line-height: 1.7;
+      color: #1a2e1c; white-space: pre-wrap; word-break: break-word;
+      background: #fdfcf9; border: 1px solid rgba(212,201,168,0.4);
+      border-radius: 10px; padding: 14px 16px;
+      max-height: 280px; overflow-y: auto;
+    }
+    .scrape-name-input {
+      width: 100%; font-family: 'Outfit', sans-serif; font-size: 14px;
+      padding: 9px 12px; border-radius: 9px;
+      border: 1.5px solid rgba(212,201,168,0.7); background: white;
+      color: #1a2e1c; outline: none; transition: border-color 0.2s;
+      margin-bottom: 10px;
+    }
+    .scrape-name-input:focus { border-color: #2c5f2d; }
+
+    /* ───────── KB READER RENAME ───────── */
+    .kb-reader-title-input {
+      font-family: 'DM Serif Display', serif; font-size: 1.125rem;
+      color: #1a2e1c; background: transparent; border: none;
+      border-bottom: 1.5px solid transparent; outline: none;
+      width: 100%; padding: 0 0 2px; transition: border-color 0.15s;
+    }
+    .kb-reader-title-input:hover { border-bottom-color: rgba(212,201,168,0.7); }
+    .kb-reader-title-input:focus { border-bottom-color: #2c5f2d; }
+
+    /* ───────── READING LINK BUBBLE ───────── */
+    .chat-bubble.reading-link {
+      align-self: flex-start; background: #f0f4f0;
+      border: 1px solid rgba(44,95,45,0.15);
+      color: rgba(26,46,28,0.55); font-style: italic;
+      font-size: 13px; display: flex; align-items: center; gap: 8px;
+    }
+    .reading-link-spinner {
+      width: 14px; height: 14px; border-radius: 50%;
+      border: 2px solid rgba(44,95,45,0.2);
+      border-top-color: #2c5f2d;
+      animation: spin 0.8s linear infinite; flex-shrink: 0;
+    }
+
     /* ───────── CONFIRM DIALOG ───────── */
     .confirm-overlay {
       position: fixed; inset: 0; z-index: 300;
@@ -993,7 +1066,7 @@
             </div>
           </div>
 
-          <div class="dropzone border-2 border-dashed border-warm rounded-xl p-7 text-center cursor-pointer hover:border-accent/50 transition-all mb-6" id="kbDropzone">
+          <div class="dropzone border-2 border-dashed border-warm rounded-xl p-7 text-center cursor-pointer hover:border-accent/50 transition-all mb-4" id="kbDropzone">
             <input type="file" id="kbFileInput" accept=".jpg,.jpeg,.png,.pdf,.docx,.txt" multiple class="hidden" />
             <div class="pointer-events-none">
               <svg class="mx-auto mb-2" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.45">
@@ -1004,9 +1077,24 @@
             </div>
           </div>
 
+          <div class="flex items-center gap-3 mb-6">
+            <div class="flex-1 h-px bg-warm/60"></div>
+            <span class="text-xs text-ink/35 font-body font-medium">or add a link</span>
+            <div class="flex-1 h-px bg-warm/60"></div>
+          </div>
+
+          <div class="kb-url-row">
+            <input type="url" id="kbUrlInput" class="kb-url-input" placeholder="Paste a URL to scrape (article, course page, notes…)" />
+            <button id="kbUrlBtn" class="kb-url-btn">Fetch</button>
+          </div>
+
           <div id="kbExtractingNote" class="hidden mb-4 text-sm text-ink/55 font-body">
             <span class="mini-spinner"></span>
             <span id="kbExtractingLabel" class="ml-2">Extracting text from your file&hellip;</span>
+          </div>
+          <div id="kbScrapingNote" class="hidden mb-4 text-sm text-ink/55 font-body flex items-center gap-2">
+            <span class="mini-spinner"></span>
+            <span>Scraping website&hellip; this may take a few seconds</span>
           </div>
 
           <div class="flex items-center justify-between mb-3">
@@ -1104,12 +1192,37 @@
 
   </div><!-- /appContent -->
 
+  <!-- ============ SCRAPE PREVIEW MODAL ============ -->
+  <div id="scrapePreviewModal" class="modal-overlay">
+    <div class="modal-box scrape-preview-box">
+      <div class="modal-head">
+        <div>
+          <h3 class="text-lg font-serif">Save to Knowledge Bay?</h3>
+          <p class="text-xs text-ink/45 mt-0.5">Review the content before saving</p>
+        </div>
+        <button class="btn-nav" id="scrapePreviewClose">✕</button>
+      </div>
+      <div class="modal-body">
+        <label class="block text-xs font-semibold text-ink/50 uppercase tracking-wide mb-1.5 font-body">Name</label>
+        <input id="scrapePreviewName" type="text" class="scrape-name-input" placeholder="Give this source a name…" />
+        <div id="scrapePreviewMeta" class="text-xs text-ink/40 mb-3 font-body"></div>
+        <div id="scrapePreviewContent" class="scrape-preview-content"></div>
+      </div>
+      <div class="modal-foot">
+        <div style="margin-right:auto">
+          <button id="scrapePreviewDiscard" class="btn-nav">Discard</button>
+        </div>
+        <button id="scrapePreviewSave" class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-5 py-2 rounded-lg transition">Save to Knowledge Bay</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ KB FILE READER MODAL ============ -->
   <div id="kbReaderModal" class="modal-overlay">
     <div class="modal-box kb-reader-box">
       <div class="modal-head">
         <div style="flex:1;min-width:0;margin-right:14px">
-          <h3 id="kbReaderTitle" class="text-lg font-serif" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">File</h3>
+          <input id="kbReaderTitle" type="text" class="kb-reader-title-input" title="Click to rename" />
           <p id="kbReaderSubtitle" class="text-xs text-ink/45 mt-0.5"></p>
         </div>
         <button class="btn-nav" id="kbReaderClose">✕</button>
@@ -1311,6 +1424,7 @@
       kbPickerRole: null,
       kbPickerSelection: new Set(),
       tutorTyping: false,
+      tutorScraping: false,
     };
 
     // ─── DOM Refs ───────────────────────────────────
@@ -1414,6 +1528,20 @@
       kbReaderCopy:         $('kbReaderCopy'),
       kbReaderDelete:       $('kbReaderDelete'),
       kbReaderDone:         $('kbReaderDone'),
+
+      // KB URL scrape
+      kbUrlInput:           $('kbUrlInput'),
+      kbUrlBtn:             $('kbUrlBtn'),
+      kbScrapingNote:       $('kbScrapingNote'),
+
+      // Scrape preview modal
+      scrapePreviewModal:   $('scrapePreviewModal'),
+      scrapePreviewName:    $('scrapePreviewName'),
+      scrapePreviewMeta:    $('scrapePreviewMeta'),
+      scrapePreviewContent: $('scrapePreviewContent'),
+      scrapePreviewClose:   $('scrapePreviewClose'),
+      scrapePreviewDiscard: $('scrapePreviewDiscard'),
+      scrapePreviewSave:    $('scrapePreviewSave'),
     };
 
     // ─── Utilities ──────────────────────────────────
@@ -1471,6 +1599,38 @@
     function formatDate(ts) {
       const d = new Date(ts);
       return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    }
+
+    // Lightweight scrape request — no retry, 20s timeout
+    async function scrapeUrl(url) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+      try {
+        const res = await fetch(CONFIG.n8nWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'scrape', url }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+        if (!res.ok) throw new Error(`Webhook ${res.status}`);
+        return await res.json();
+      } catch (err) {
+        clearTimeout(timeout);
+        if (err.name === 'AbortError') return { error: true, message: 'Request timed out. The site may be too slow.' };
+        return { error: true, message: err.message };
+      }
+    }
+
+    function formatDomainPath(url) {
+      try {
+        const u = new URL(url);
+        const path = u.pathname.replace(/\/$/, '');
+        const short = (u.hostname + path).slice(0, 60);
+        return short + (short.length === 60 ? '…' : '');
+      } catch {
+        return url.slice(0, 60);
+      }
     }
 
     function getFileType(file) {
@@ -1635,6 +1795,35 @@
           ? `data:${entry.mime || 'image/jpeg'};base64,${entry.content}`
           : null;
       },
+
+      getByUrl(url) {
+        return this.cache.find(i => i.type === 'url' && i.originalUrl === url);
+      },
+
+      async addFromScrape(originalUrl, displayName, text) {
+        const LIMIT = 40000;
+        const content = text.length > LIMIT ? text.slice(0, LIMIT) + '\n\n_[Truncated at 40,000 chars]_' : text;
+        const entry = {
+          id: generateId(),
+          name: displayName,
+          originalUrl,
+          type: 'url',
+          mime: 'text/plain',
+          size: content.length,
+          timestamp: Date.now(),
+          content,
+        };
+        this.cache.push(entry);
+        await this.store.setItem('knowledge_bay', this.cache);
+        return entry;
+      },
+
+      async rename(id, newName) {
+        const item = this.cache.find(i => i.id === id);
+        if (!item || !newName.trim()) return;
+        item.name = newName.trim();
+        await this.store.setItem('knowledge_bay', this.cache);
+      },
     };
 
     async function kbHandleFiles(fileList) {
@@ -1673,7 +1862,9 @@
         card.className = 'kb-card';
         const thumb = item.type === 'image'
           ? `<img src="${kb.imageDataUrl(item)}" alt="${escapeHtml(item.name)}" />`
-          : `<span class="ext-badge">${item.type.toUpperCase()}</span>`;
+          : item.type === 'url'
+            ? `<div class="url-thumb"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>URL</span></div>`
+            : `<span class="ext-badge">${item.type.toUpperCase()}</span>`;
 
         card.innerHTML = `
           <div class="kb-thumb">${thumb}</div>
@@ -1720,7 +1911,7 @@
       _kbReaderCurrentId = id;
       _kbReaderSource = source;
 
-      dom.kbReaderTitle.textContent = item.name;
+      dom.kbReaderTitle.value = item.name;
 
       // Meta bar: type badge + size + date + word count for text
       const wordCount = item.type !== 'image' && item.content
@@ -1761,6 +1952,16 @@
       _kbReaderSource = 'grid';
     }
 
+    async function saveKbReaderRename() {
+      if (!_kbReaderCurrentId) return;
+      const newName = dom.kbReaderTitle.value.trim();
+      if (!newName) return;
+      await kb.rename(_kbReaderCurrentId, newName);
+      renderKbGrid();
+      if (_kbReaderSource === 'picker') renderKbPickerList();
+      else if (_kbReaderSource === 'tutorAttach') renderTutorAttachList();
+    }
+
     // Wire KB dropzone
     function wireKbDropzone() {
       dom.kbDropzone.addEventListener('click', () => dom.kbFileInput.click());
@@ -1775,6 +1976,57 @@
         dom.kbDropzone.addEventListener(evt, e => { e.preventDefault(); dom.kbDropzone.classList.remove('dragover'); })
       );
       dom.kbDropzone.addEventListener('drop', e => kbHandleFiles(e.dataTransfer.files));
+    }
+
+    // ─── KB URL Scrape ──────────────────────────────
+    let _scrapePreviewPending = null; // { url, text }
+
+    async function kbAddUrl() {
+      const url = dom.kbUrlInput.value.trim();
+      if (!url) return;
+      try { new URL(url); } catch { showToast('Please enter a valid URL (starting with https://)', 'error'); return; }
+
+      dom.kbUrlBtn.disabled = true;
+      dom.kbScrapingNote.classList.remove('hidden');
+
+      const data = await scrapeUrl(url);
+
+      dom.kbScrapingNote.classList.add('hidden');
+      dom.kbUrlBtn.disabled = false;
+
+      if (data.error) {
+        showToast(data.message || 'We couldn\'t read this website. Please copy-paste the text manually.', 'error');
+        return;
+      }
+
+      dom.kbUrlInput.value = '';
+      openScrapePreview(url, data.text);
+    }
+
+    function openScrapePreview(url, text) {
+      _scrapePreviewPending = { url, text };
+      const displayName = formatDomainPath(url);
+      dom.scrapePreviewName.value = displayName;
+      const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+      dom.scrapePreviewMeta.textContent = `${wordCount.toLocaleString()} words · ${text.length.toLocaleString()} chars · ${url}`;
+      // Show first 1200 chars as preview
+      dom.scrapePreviewContent.textContent = text.slice(0, 1200) + (text.length > 1200 ? '\n\n[…preview truncated — full content will be saved]' : '');
+      dom.scrapePreviewModal.classList.add('open');
+    }
+
+    function closeScrapePreview() {
+      dom.scrapePreviewModal.classList.remove('open');
+      _scrapePreviewPending = null;
+    }
+
+    async function confirmScrapePreview() {
+      if (!_scrapePreviewPending) return closeScrapePreview();
+      const { url, text } = _scrapePreviewPending;
+      const name = dom.scrapePreviewName.value.trim() || formatDomainPath(url);
+      closeScrapePreview();
+      await kb.addFromScrape(url, name, text);
+      renderKbGrid();
+      showToast('Saved to Knowledge Bay');
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -2637,7 +2889,7 @@
 
       async send(text) {
         const c = this.current();
-        if (!c || !text.trim() || state.tutorTyping) return;
+        if (!c || !text.trim() || state.tutorTyping || state.tutorScraping) return;
 
         c.messages.push({ role: 'user', text: text.trim() });
         c.updated = Date.now();
@@ -2648,8 +2900,35 @@
         this.renderChat();
         this.renderSidebarList();
 
-        // Build attachedContext from text-based KB items
-        const attachedContext = [];
+        // ── URL detection: scrape any links in the message ──────
+        const URL_REGEX = /(https?:\/\/[^\s]+)/g;
+        const foundUrls = [...new Set((text.trim().match(URL_REGEX) || []))];
+        const extraContext = [];
+
+        if (foundUrls.length > 0) {
+          state.tutorScraping = true;
+          this.renderChat();
+          for (const url of foundUrls) {
+            const cached = kb.getByUrl(url);
+            if (cached) {
+              extraContext.push({ name: cached.name + ' (cached)', content: cached.content });
+              continue;
+            }
+            const data = await scrapeUrl(url);
+            if (data.error || !data.text) {
+              extraContext.push({
+                name: `[Link: ${formatDomainPath(url)}]`,
+                content: `[System Note: The user provided a link (${url}), but it could not be accessed — ${data.message || 'site blocked access'}. Acknowledge this to the user and ask them to paste the content manually if needed.]`,
+              });
+            } else {
+              extraContext.push({ name: formatDomainPath(url), content: data.text });
+            }
+          }
+          state.tutorScraping = false;
+        }
+
+        // Build attachedContext: URL-scraped content first, then KB items
+        const attachedContext = [...extraContext];
         for (const kid of (c.attachedKnowledgeIds || [])) {
           const item = await kb.get(kid);
           if (!item) continue;
@@ -2693,8 +2972,11 @@
 
       updateSendButton() {
         const hasText = dom.tutorInput.value.trim().length > 0;
-        dom.btnTutorSend.disabled = !hasText || state.tutorTyping;
-        dom.btnTutorSend.textContent = state.tutorTyping ? 'Thinking…' : 'Send';
+        const busy = state.tutorTyping || state.tutorScraping;
+        dom.btnTutorSend.disabled = !hasText || busy;
+        if (state.tutorScraping) dom.btnTutorSend.textContent = 'Reading…';
+        else if (state.tutorTyping) dom.btnTutorSend.textContent = 'Thinking…';
+        else dom.btnTutorSend.textContent = 'Send';
       },
 
       renderSidebarList() {
@@ -2778,7 +3060,12 @@
             }
             dom.tutorMessages.appendChild(bubble);
           }
-          if (state.tutorTyping) {
+          if (state.tutorScraping) {
+            const reading = document.createElement('div');
+            reading.className = 'chat-bubble reading-link';
+            reading.innerHTML = '<div class="reading-link-spinner"></div> Reading link…';
+            dom.tutorMessages.appendChild(reading);
+          } else if (state.tutorTyping) {
             const typing = document.createElement('div');
             typing.className = 'chat-bubble typing';
             typing.innerHTML = '<span></span><span></span><span></span>';
@@ -2895,10 +3182,20 @@
     dom.btnRetryFresh.addEventListener('click', resetApp);
     dom.resultTextarea.addEventListener('input', () => renderTextStats(dom.resultTextarea.value));
 
+    // KB URL scrape
+    dom.kbUrlBtn.addEventListener('click', kbAddUrl);
+    dom.kbUrlInput.addEventListener('keydown', e => { if (e.key === 'Enter') kbAddUrl(); });
+    dom.scrapePreviewClose.addEventListener('click', closeScrapePreview);
+    dom.scrapePreviewDiscard.addEventListener('click', closeScrapePreview);
+    dom.scrapePreviewSave.addEventListener('click', confirmScrapePreview);
+    dom.scrapePreviewModal.addEventListener('click', e => { if (e.target === dom.scrapePreviewModal) closeScrapePreview(); });
+
     // KB reader
     dom.kbReaderClose.addEventListener('click', closeKbReader);
     dom.kbReaderDone.addEventListener('click', closeKbReader);
     dom.kbReaderModal.addEventListener('click', e => { if (e.target === dom.kbReaderModal) closeKbReader(); });
+    dom.kbReaderTitle.addEventListener('blur', saveKbReaderRename);
+    dom.kbReaderTitle.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); dom.kbReaderTitle.blur(); } });
     dom.kbReaderCopy.addEventListener('click', () => {
       const item = kb.cache.find(i => i.id === _kbReaderCurrentId);
       if (!item || !item.content) return;
