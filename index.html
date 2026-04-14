@@ -363,7 +363,14 @@
         </div>
         <h2 class="text-xl mb-2">Something went wrong</h2>
         <p id="errorMessage" class="font-body font-light text-ink/50 max-w-md mx-auto mb-6"></p>
-        <button id="btnRetry" class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-8 py-3 rounded-xl transition">Try Again</button>
+        <div class="flex flex-col sm:flex-row items-center justify-center gap-3 mt-2">
+          <button id="btnRetry" class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-8 py-3 rounded-xl transition">
+            Try Again &mdash; Keep My Files
+          </button>
+          <button id="btnRetryFresh" class="font-body font-medium text-sm text-ink/40 hover:text-ink/60 px-6 py-3 rounded-xl transition">
+            Start Fresh
+          </button>
+        </div>
       </div>
     </section>
 
@@ -573,6 +580,7 @@
       btnExportDocs:       document.getElementById('btnExportDocs'),
       btnStartOver:        document.getElementById('btnStartOver'),
       btnRetry:            document.getElementById('btnRetry'),
+      btnRetryFresh:       document.getElementById('btnRetryFresh'),
 
       errorMessage:        document.getElementById('errorMessage'),
       toast:               document.getElementById('toast'),
@@ -1236,7 +1244,30 @@
       else state.googleTokenClient.requestAccessToken();
     }
 
-    // ─── Reset ──────────────────────────────────────
+    // ─── Retry (keeps files intact) ─────────────────
+    // Called by the error screen's "Try Again" button.
+    // Goes back to the upload view with all previously uploaded files
+    // and the selected mode still in place — no re-uploading needed.
+    function retryFromError() {
+      // Re-render zones so the DOM is restored (it may have been in a
+      // different section), then re-populate each file grid from state.
+      renderUploadZones();
+
+      // Restore URL and notes inputs if present
+      const urlInput = document.getElementById('urlInput');
+      const notesInput = document.getElementById('notesInput');
+      if (urlInput) urlInput.value = state.resourceUrl;
+      if (notesInput) notesInput.value = state.userNotes;
+
+      // Re-draw file cards for every zone that has files
+      Object.keys(state.zones).forEach(role => renderFileGrid(role));
+
+      updateActionState();
+      showSection('sectionUpload');
+    }
+
+    // ─── Full Reset (clears everything) ─────────────
+    // Called by "Clear All" and the result screen's "Start Over" button.
     function resetApp() {
       Object.values(state.zones).forEach(files =>
         files.forEach(f => f.thumbUrl && URL.revokeObjectURL(f.thumbUrl))
@@ -1251,7 +1282,6 @@
       dom.resultContent.innerHTML = '';
       [dom.statWords, dom.statChars, dom.statReadTime].forEach(el => { el.textContent = '\u2014'; });
 
-      // Re-render current mode zones
       if (state.mode) renderUploadZones();
       updateActionState();
       showSection('sectionUpload');
@@ -1269,7 +1299,8 @@
     dom.btnDownload.addEventListener('click', downloadResult);
     dom.btnExportDocs.addEventListener('click', triggerGoogleExport);
     dom.btnStartOver.addEventListener('click', resetApp);
-    dom.btnRetry.addEventListener('click', resetApp);
+    dom.btnRetry.addEventListener('click', retryFromError);
+    dom.btnRetryFresh.addEventListener('click', resetApp);
     dom.resultTextarea.addEventListener('input', () => renderTextStats(dom.resultTextarea.value));
 
     // ─── Login Gate ────────────────────────────────
