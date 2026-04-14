@@ -440,6 +440,52 @@
     }
     .kb-reader-foot-left { margin-right: auto; }
 
+    /* ───────── CONFIRM DIALOG ───────── */
+    .confirm-overlay {
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(26,46,28,0.5); backdrop-filter: blur(3px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.2s ease;
+      padding: 20px;
+    }
+    .confirm-overlay.open { opacity: 1; pointer-events: auto; }
+    .confirm-box {
+      background: white; border-radius: 14px;
+      width: 100%; max-width: 380px;
+      padding: 28px 26px 22px;
+      box-shadow: 0 16px 48px rgba(26,46,28,0.28);
+      transform: scale(0.96); transition: transform 0.2s ease;
+      text-align: center;
+    }
+    .confirm-overlay.open .confirm-box { transform: scale(1); }
+    .confirm-icon {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: #fff1f1; border: 1.5px solid #fca5a5;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 14px; color: #dc2626;
+    }
+    .confirm-msg {
+      font-family: 'Outfit', sans-serif; font-size: 15px;
+      color: #1a2e1c; line-height: 1.5; margin-bottom: 22px;
+    }
+    .confirm-msg strong { font-weight: 600; }
+    .confirm-actions { display: flex; gap: 10px; justify-content: center; }
+    .confirm-btn-cancel {
+      flex: 1; font-family: 'Outfit', sans-serif; font-size: 14px;
+      font-weight: 500; padding: 9px 16px; border-radius: 9px;
+      border: 1px solid rgba(212,201,168,0.7); background: white;
+      color: rgba(26,46,28,0.65); cursor: pointer; transition: all 0.15s ease;
+    }
+    .confirm-btn-cancel:hover { background: #faf8f3; border-color: rgba(44,95,45,0.3); }
+    .confirm-btn-ok {
+      flex: 1; font-family: 'Outfit', sans-serif; font-size: 14px;
+      font-weight: 600; padding: 9px 16px; border-radius: 9px;
+      border: none; background: #dc2626; color: white;
+      cursor: pointer; transition: all 0.15s ease;
+    }
+    .confirm-btn-ok:hover { background: #b91c1c; }
+
     /* ───────── KB PICKER MODAL ───────── */
     .modal-overlay {
       position: fixed; inset: 0; z-index: 150;
@@ -1071,6 +1117,20 @@
     </div>
   </div>
 
+  <!-- ============ CONFIRM DIALOG ============ -->
+  <div id="confirmOverlay" class="confirm-overlay" role="dialog" aria-modal="true">
+    <div class="confirm-box">
+      <div class="confirm-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+      </div>
+      <p id="confirmMsg" class="confirm-msg">Are you sure?</p>
+      <div class="confirm-actions">
+        <button id="confirmCancel" class="confirm-btn-cancel">Cancel</button>
+        <button id="confirmOk" class="confirm-btn-ok">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Lightbox -->
   <div id="lightbox" class="lightbox-overlay" role="dialog" aria-label="Image preview">
     <div class="lightbox-inner">
@@ -1362,6 +1422,37 @@
       setTimeout(() => dom.toast.classList.remove('show'), 3500);
     }
 
+    // Promise-based in-UI confirm dialog (replaces browser confirm())
+    function showConfirm(message, okLabel = 'Delete') {
+      return new Promise(resolve => {
+        document.getElementById('confirmMsg').innerHTML = message;
+        document.getElementById('confirmOk').textContent = okLabel;
+        const overlay = document.getElementById('confirmOverlay');
+        overlay.classList.add('open');
+
+        const cleanup = (result) => {
+          overlay.classList.remove('open');
+          okBtn.removeEventListener('click', onOk);
+          cancelBtn.removeEventListener('click', onCancel);
+          overlay.removeEventListener('click', onBackdrop);
+          document.removeEventListener('keydown', onKey);
+          resolve(result);
+        };
+
+        const okBtn     = document.getElementById('confirmOk');
+        const cancelBtn = document.getElementById('confirmCancel');
+        const onOk      = () => cleanup(true);
+        const onCancel  = () => cleanup(false);
+        const onBackdrop = (e) => { if (e.target === overlay) cleanup(false); };
+        const onKey     = (e) => { if (e.key === 'Escape') cleanup(false); if (e.key === 'Enter') cleanup(true); };
+
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+        overlay.addEventListener('click', onBackdrop);
+        document.addEventListener('keydown', onKey);
+      });
+    }
+
     function formatSize(bytes) {
       if (bytes < 1024) return bytes + ' B';
       if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
@@ -1602,7 +1693,7 @@
           const id = btn.dataset.id;
           const item = await kb.get(id);
           if (!item) return;
-          if (!confirm(`Remove "${item.name}" from your Knowledge Bay?`)) return;
+          if (!await showConfirm(`Remove <strong>${escapeHtml(item.name)}</strong> from your Knowledge Bay?`)) return;
           await kb.remove(id);
           renderKbGrid();
           showToast('Removed from Knowledge Bay');
@@ -2486,7 +2577,7 @@
       async deleteChat(id) {
         const chat = this.chats.find(c => c.id === id);
         if (!chat) return;
-        if (!confirm(`Delete chat "${chat.title}"?`)) return;
+        if (!await showConfirm(`Delete chat <strong>${escapeHtml(chat.title)}</strong>?`)) return;
         this.chats = this.chats.filter(c => c.id !== id);
         await this.save();
         this.renderSidebarList();
@@ -2787,7 +2878,7 @@
     dom.kbReaderDelete.addEventListener('click', async () => {
       const item = kb.cache.find(i => i.id === _kbReaderCurrentId);
       if (!item) return;
-      if (!confirm(`Remove "${item.name}" from your Knowledge Bay?`)) return;
+      if (!await showConfirm(`Remove <strong>${escapeHtml(item.name)}</strong> from your Knowledge Bay?`)) return;
       closeKbReader();
       await kb.remove(item.id);
       renderKbGrid();
