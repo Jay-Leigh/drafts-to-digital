@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Drafts to Digital</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Image Compression Library -->
+  <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
+
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            display: ['"DM Serif Display"', 'serif'],
+            body: ['"Outfit"', 'sans-serif'],
+          },
+          colors: {
+            ink: '#1a1a2e',
+            parchment: '#faf8f5',
+            warm: '#e8d5b7',
+            accent: '#c4703f',
+            'accent-deep': '#9b4d2b',
+            sage: '#6b7c6e',
+            mist: '#f0ece6',
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: 'Outfit', sans-serif; background: #faf8f5; color: #1a1a2e; }
+    h1, h2, h3 { font-family: 'DM Serif Display', serif; }
+
+    /* Drag-and-drop zone */
+    .dropzone { transition: all 0.3s ease; }
+    .dropzone.dragover { border-color: #c4703f; background: rgba(196, 112, 63, 0.06); transform: scale(1.005); }
+
+    /* Thumbnail grid */
+    .thumb-card { transition: all 0.25s ease; cursor: grab; }
+    .thumb-card:active { cursor: grabbing; }
+    .thumb-card.dragging { opacity: 0.4; transform: scale(0.95); }
+    .thumb-card.drag-over { border-color: #c4703f; transform: translateY(-2px); }
+
+    /* Progress bar animation */
+    .progress-fill { transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
+
+    /* Pulse animation for processing states */
+    @keyframes softPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+    .pulse-text { animation: softPulse 2s ease-in-out infinite; }
+
+    /* Fade-in animation */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.5s ease-out forwards; }
+
+    /* Textarea styling */
+    .result-area {
+      background: white;
+      border: 1px solid #e8d5b7;
+      border-radius: 12px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 15px;
+      line-height: 1.75;
+      resize: vertical;
+    }
+    .result-area:focus { outline: none; border-color: #c4703f; box-shadow: 0 0 0 3px rgba(196, 112, 63, 0.1); }
+
+    /* Toast notification */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; z-index: 100;
+      padding: 14px 22px; border-radius: 10px;
+      font-size: 14px; font-weight: 500;
+      transform: translateY(80px); opacity: 0;
+      transition: all 0.35s ease;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast-success { background: #2d6a4f; color: white; }
+    .toast-error { background: #9b2226; color: white; }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #d4c5b0; border-radius: 3px; }
+  </style>
+</head>
+
+<body class="min-h-screen bg-parchment">
+
+  <!-- ============================================ -->
+  <!-- HEADER                                       -->
+  <!-- ============================================ -->
+  <header class="border-b border-warm/50 bg-parchment/80 backdrop-blur-sm sticky top-0 z-50">
+    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#c4703f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-xl leading-tight">Drafts to Digital</h1>
+          <p class="text-xs text-ink/40 font-body font-light tracking-wide">Handwriting &rarr; Text, powered by AI</p>
+        </div>
+      </div>
+      <span class="text-[11px] font-body font-light text-ink/30 tracking-widest uppercase">v1.0</span>
+    </div>
+  </header>
+
+  <!-- ============================================ -->
+  <!-- MAIN CONTENT                                 -->
+  <!-- ============================================ -->
+  <main class="max-w-5xl mx-auto px-6 py-10">
+
+    <!-- SECTION: Upload -->
+    <section id="sectionUpload">
+      <div class="text-center mb-8">
+        <h2 class="text-3xl mb-2">Upload your handwritten pages</h2>
+        <p class="font-body font-light text-ink/50 max-w-lg mx-auto">
+          Drop or select up to 15 clear images of your notes, essays, or mind maps.
+          Drag thumbnails to set the reading order.
+        </p>
+      </div>
+
+      <!-- Drop Zone -->
+      <div id="dropzone"
+           class="dropzone relative border-2 border-dashed border-warm rounded-2xl p-12 text-center cursor-pointer hover:border-accent/60 mb-6"
+           role="button" tabindex="0" aria-label="Upload images">
+        <input id="fileInput" type="file" accept="image/*" multiple class="hidden" />
+        <div class="pointer-events-none">
+          <svg class="mx-auto mb-4" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#c4703f" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.6">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <p class="font-body font-medium text-ink/60">Drop images here or <span class="text-accent underline">browse</span></p>
+          <p class="font-body text-xs text-ink/35 mt-1">JPG, PNG, HEIC &middot; Max 15 images</p>
+        </div>
+      </div>
+
+      <!-- Thumbnail Grid -->
+      <div id="thumbGrid" class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 mb-6" role="list" aria-label="Uploaded images"></div>
+
+      <!-- Upload Meta + Convert Button -->
+      <div id="uploadControls" class="hidden flex-col sm:flex-row items-center justify-between gap-4">
+        <p id="uploadCount" class="font-body text-sm text-ink/40"></p>
+        <div class="flex gap-3">
+          <button id="btnClearAll" class="font-body text-sm font-medium text-ink/40 hover:text-red-500 transition px-4 py-2">
+            Clear All
+          </button>
+          <button id="btnConvert"
+                  class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-8 py-3 rounded-xl transition shadow-lg shadow-accent/20 hover:shadow-accent/30">
+            Convert to Text
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: Processing -->
+    <section id="sectionProcessing" class="hidden">
+      <div class="text-center py-20 fade-up">
+        <div class="w-16 h-16 mx-auto mb-6 rounded-2xl bg-accent/10 flex items-center justify-center">
+          <svg class="pulse-text" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#c4703f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 6v6l4 2"/>
+          </svg>
+        </div>
+        <h2 class="text-2xl mb-3" id="processingTitle">Preparing your pages&hellip;</h2>
+        <p class="font-body font-light text-ink/50 mb-8 max-w-md mx-auto" id="processingSubtext">
+          This may take 30&ndash;60 seconds for larger batches. Please stay on this page.
+        </p>
+        <div class="max-w-sm mx-auto">
+          <div class="w-full h-2 bg-warm/40 rounded-full overflow-hidden">
+            <div id="progressBar" class="progress-fill h-full bg-accent rounded-full" style="width: 0%"></div>
+          </div>
+          <p id="progressLabel" class="font-body text-xs text-ink/35 mt-2 pulse-text">Initializing&hellip;</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION: Result -->
+    <section id="sectionResult" class="hidden fade-up">
+      <div class="mb-6">
+        <h2 class="text-2xl mb-1">Your converted text</h2>
+        <p class="font-body font-light text-ink/50 text-sm">Review, edit if needed, then export.</p>
+      </div>
+
+      <textarea id="resultText" class="result-area w-full p-6 min-h-[350px]" spellcheck="true"></textarea>
+
+      <div class="flex flex-wrap gap-3 mt-6">
+        <button id="btnCopy"
+                class="font-body font-medium text-sm border border-warm hover:border-accent text-ink/70 hover:text-accent px-6 py-2.5 rounded-xl transition flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+          Copy
+        </button>
+
+        <button id="btnDownload"
+                class="font-body font-medium text-sm border border-warm hover:border-accent text-ink/70 hover:text-accent px-6 py-2.5 rounded-xl transition flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download .txt
+        </button>
+
+        <button id="btnExportDocs"
+                class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-6 py-2.5 rounded-xl transition shadow-lg shadow-accent/20 flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          Export to Google Docs
+        </button>
+
+        <button id="btnStartOver"
+                class="font-body font-medium text-sm text-ink/35 hover:text-ink/60 px-4 py-2.5 transition ml-auto">
+          &larr; Start Over
+        </button>
+      </div>
+    </section>
+
+    <!-- SECTION: Error -->
+    <section id="sectionError" class="hidden fade-up">
+      <div class="text-center py-16">
+        <div class="w-14 h-14 mx-auto mb-5 rounded-2xl bg-red-50 flex items-center justify-center">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9b2226" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+        </div>
+        <h2 class="text-xl mb-2">Something went wrong</h2>
+        <p id="errorMessage" class="font-body font-light text-ink/50 max-w-md mx-auto mb-6"></p>
+        <button id="btnRetry"
+                class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-8 py-3 rounded-xl transition">
+          Try Again
+        </button>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ============================================ -->
+  <!-- FOOTER                                       -->
+  <!-- ============================================ -->
+  <footer class="border-t border-warm/30 mt-20">
+    <div class="max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
+      <p class="font-body text-xs text-ink/25">&copy; 2026 Drafts to Digital &middot; Conversion Science</p>
+      <p class="font-body text-xs text-ink/25">Powered by Gemini AI</p>
+    </div>
+  </footer>
+
+  <!-- Toast -->
+  <div id="toast" class="toast"></div>
+
+  <!-- ============================================ -->
+  <!-- APPLICATION LOGIC                            -->
+  <!-- ============================================ -->
+  <script>
+  (() => {
+    'use strict';
+
+    // ─── Configuration ─────────────────────────────
+    const CONFIG = {
+      n8nWebhookUrl: 'https://n8n-67295956827.africa-south1.run.app/webhook/d2d-convert',          // Replace with your n8n production webhook URL
+      googleClientId: '730237345425-i08jvribm9k9rgm26ui0jq4gdvcjbplb.apps.googleusercontent.com',          // Replace with your GCP OAuth 2.0 Client ID
+      googleScopes: 'https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.file',
+      devEmail: 'jay-leigh.v@conversionscience.co.za',
+      maxImages: 15,
+      compression: {
+        maxSizeMB: 0.8,
+        maxWidthOrHeight: 1600,
+        useWebWorker: true,
+        fileType: 'image/jpeg',
+      },
+    };
+
+    // ─── State ──────────────────────────────────────
+    const state = {
+      images: [],             // { id, file, compressedBase64, thumbUrl }
+      resultText: '',
+      googleTokenClient: null,
+      googleAccessToken: null,
+      dragSourceIndex: null,
+    };
+
+    // ─── DOM Refs ───────────────────────────────────
+    const dom = {
+      dropzone: document.getElementById('dropzone'),
+      fileInput: document.getElementById('fileInput'),
+      thumbGrid: document.getElementById('thumbGrid'),
+      uploadControls: document.getElementById('uploadControls'),
+      uploadCount: document.getElementById('uploadCount'),
+      btnClearAll: document.getElementById('btnClearAll'),
+      btnConvert: document.getElementById('btnConvert'),
+
+      sectionUpload: document.getElementById('sectionUpload'),
+      sectionProcessing: document.getElementById('sectionProcessing'),
+      sectionResult: document.getElementById('sectionResult'),
+      sectionError: document.getElementById('sectionError'),
+
+      processingTitle: document.getElementById('processingTitle'),
+      processingSubtext: document.getElementById('processingSubtext'),
+      progressBar: document.getElementById('progressBar'),
+      progressLabel: document.getElementById('progressLabel'),
+
+      resultText: document.getElementById('resultText'),
+      btnCopy: document.getElementById('btnCopy'),
+      btnDownload: document.getElementById('btnDownload'),
+      btnExportDocs: document.getElementById('btnExportDocs'),
+      btnStartOver: document.getElementById('btnStartOver'),
+      btnRetry: document.getElementById('btnRetry'),
+
+      errorMessage: document.getElementById('errorMessage'),
+      toast: document.getElementById('toast'),
+    };
+
+    // ─── Utilities ──────────────────────────────────
+    const generateId = () => `img_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    function showSection(sectionId) {
+      ['sectionUpload', 'sectionProcessing', 'sectionResult', 'sectionError'].forEach(id => {
+        dom[id].classList.toggle('hidden', id !== sectionId);
+      });
+    }
+
+    function showToast(message, type = 'success') {
+      dom.toast.textContent = message;
+      dom.toast.className = `toast toast-${type} show`;
+      setTimeout(() => dom.toast.classList.remove('show'), 3500);
+    }
+
+    function updateUploadMeta() {
+      const count = state.images.length;
+      if (count === 0) {
+        dom.uploadControls.classList.add('hidden');
+        dom.uploadControls.classList.remove('flex');
+        return;
+      }
+      dom.uploadControls.classList.remove('hidden');
+      dom.uploadControls.classList.add('flex');
+      dom.uploadCount.textContent = `${count} / ${CONFIG.maxImages} image${count !== 1 ? 's' : ''} selected`;
+    }
+
+    // ─── Error Reporting ────────────────────────────
+    async function reportErrorToDev(errorPayload) {
+      try {
+        // Send error details to n8n error-reporting webhook
+        // This uses a separate n8n workflow or the same webhook with an error flag
+        await fetch(CONFIG.n8nWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'error_report',
+            recipient: CONFIG.devEmail,
+            timestamp: new Date().toISOString(),
+            userAgent: navigator.userAgent,
+            error: errorPayload,
+          }),
+        });
+      } catch (e) {
+        console.error('[D2D] Failed to send error report:', e);
+      }
+    }
+
+    function handleAppError(userMessage, technicalDetail) {
+      console.error('[D2D] Error:', technicalDetail);
+      dom.errorMessage.textContent = userMessage;
+      showSection('sectionError');
+      reportErrorToDev({
+        userMessage,
+        technicalDetail: typeof technicalDetail === 'object'
+          ? JSON.stringify(technicalDetail, Object.getOwnPropertyNames(technicalDetail))
+          : String(technicalDetail),
+      });
+    }
+
+    // ─── File Handling ──────────────────────────────
+    function isValidImage(file) {
+      return file.type.startsWith('image/');
+    }
+
+    function handleFiles(fileList) {
+      const files = Array.from(fileList).filter(isValidImage);
+      const remaining = CONFIG.maxImages - state.images.length;
+
+      if (remaining <= 0) {
+        showToast(`Maximum of ${CONFIG.maxImages} images reached.`, 'error');
+        return;
+      }
+
+      const toAdd = files.slice(0, remaining);
+      if (files.length > toAdd.length) {
+        showToast(`Only ${remaining} more image${remaining !== 1 ? 's' : ''} allowed. Some were skipped.`, 'error');
+      }
+
+      toAdd.forEach(file => {
+        const id = generateId();
+        const thumbUrl = URL.createObjectURL(file);
+        state.images.push({ id, file, compressedBase64: null, thumbUrl });
+      });
+
+      renderThumbnails();
+      updateUploadMeta();
+    }
+
+    // ─── Thumbnail Rendering & Drag-to-Reorder ─────
+    function renderThumbnails() {
+      dom.thumbGrid.innerHTML = '';
+
+      state.images.forEach((img, index) => {
+        const card = document.createElement('div');
+        card.className = 'thumb-card relative rounded-xl overflow-hidden border-2 border-warm/40 bg-white aspect-[3/4] group';
+        card.draggable = true;
+        card.setAttribute('role', 'listitem');
+        card.dataset.index = index;
+
+        card.innerHTML = `
+          <img src="${img.thumbUrl}" alt="Page ${index + 1}" class="w-full h-full object-cover" />
+          <div class="absolute inset-0 bg-gradient-to-t from-ink/50 to-transparent opacity-0 group-hover:opacity-100 transition"></div>
+          <span class="absolute top-2 left-2 bg-white/90 text-ink text-[11px] font-body font-semibold px-2 py-0.5 rounded-lg shadow-sm">${index + 1}</span>
+          <button class="thumb-remove absolute top-2 right-2 w-6 h-6 bg-white/90 hover:bg-red-500 hover:text-white rounded-full flex items-center justify-center text-ink/50 opacity-0 group-hover:opacity-100 transition text-xs font-bold shadow-sm" data-id="${img.id}" aria-label="Remove image">&times;</button>
+        `;
+
+        // Drag events for reordering
+        card.addEventListener('dragstart', onDragStart);
+        card.addEventListener('dragover', onDragOver);
+        card.addEventListener('dragenter', onDragEnter);
+        card.addEventListener('dragleave', onDragLeave);
+        card.addEventListener('drop', onDrop);
+        card.addEventListener('dragend', onDragEnd);
+
+        dom.thumbGrid.appendChild(card);
+      });
+
+      // Remove button handlers
+      dom.thumbGrid.querySelectorAll('.thumb-remove').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = btn.dataset.id;
+          const imgObj = state.images.find(i => i.id === id);
+          if (imgObj) URL.revokeObjectURL(imgObj.thumbUrl);
+          state.images = state.images.filter(i => i.id !== id);
+          renderThumbnails();
+          updateUploadMeta();
+        });
+      });
+    }
+
+    // ─── Drag & Drop Reorder ────────────────────────
+    function onDragStart(e) {
+      state.dragSourceIndex = +e.currentTarget.dataset.index;
+      e.currentTarget.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function onDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    }
+
+    function onDragEnter(e) {
+      e.currentTarget.classList.add('drag-over');
+    }
+
+    function onDragLeave(e) {
+      e.currentTarget.classList.remove('drag-over');
+    }
+
+    function onDrop(e) {
+      e.preventDefault();
+      const targetIndex = +e.currentTarget.dataset.index;
+      e.currentTarget.classList.remove('drag-over');
+
+      if (state.dragSourceIndex !== null && state.dragSourceIndex !== targetIndex) {
+        const [moved] = state.images.splice(state.dragSourceIndex, 1);
+        state.images.splice(targetIndex, 0, moved);
+        renderThumbnails();
+      }
+    }
+
+    function onDragEnd(e) {
+      e.currentTarget.classList.remove('dragging');
+      state.dragSourceIndex = null;
+      dom.thumbGrid.querySelectorAll('.thumb-card').forEach(c => c.classList.remove('drag-over'));
+    }
+
+    // ─── Drop Zone Events ───────────────────────────
+    dom.dropzone.addEventListener('click', () => dom.fileInput.click());
+    dom.dropzone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') dom.fileInput.click();
+    });
+    dom.fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+    ['dragenter', 'dragover'].forEach(evt =>
+      dom.dropzone.addEventListener(evt, (e) => { e.preventDefault(); dom.dropzone.classList.add('dragover'); })
+    );
+    ['dragleave', 'drop'].forEach(evt =>
+      dom.dropzone.addEventListener(evt, (e) => { e.preventDefault(); dom.dropzone.classList.remove('dragover'); })
+    );
+    dom.dropzone.addEventListener('drop', (e) => handleFiles(e.dataTransfer.files));
+
+    // ─── Image Compression (Sequential) ─────────────
+    async function compressAllImages(images) {
+      const compressed = [];
+      for (let i = 0; i < images.length; i++) {
+        updateProgress(
+          Math.round(((i) / images.length) * 30),
+          `Compressing image ${i + 1} of ${images.length}...`
+        );
+        try {
+          const compressedFile = await imageCompression(images[i].file, CONFIG.compression);
+          const base64 = await fileToBase64(compressedFile);
+          compressed.push({ index: i + 1, base64 });
+        } catch (err) {
+          throw new Error(`Failed to compress image ${i + 1}: ${err.message}`);
+        }
+      }
+      return compressed;
+    }
+
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = () => reject(new Error('FileReader failed'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // ─── Processing Progress UI ─────────────────────
+    function updateProgress(percent, label) {
+      dom.progressBar.style.width = `${percent}%`;
+      dom.progressLabel.textContent = label;
+    }
+
+    function setProcessingStage(title, subtext) {
+      dom.processingTitle.textContent = title;
+      dom.processingSubtext.textContent = subtext;
+    }
+
+    // ─── Core Conversion Flow ───────────────────────
+    async function runConversion() {
+      showSection('sectionProcessing');
+      updateProgress(0, 'Initializing...');
+
+      try {
+        // Stage 1: Compress images sequentially
+        setProcessingStage(
+          'Compressing your images\u2026',
+          'Optimizing each page for fast processing.'
+        );
+        const compressedImages = await compressAllImages(state.images);
+
+        // Stage 2: Send to n8n webhook
+        setProcessingStage(
+          'AI is reading your handwriting\u2026',
+          'Gemini is analysing each page, understanding context and order.'
+        );
+        updateProgress(35, 'Sending to AI engine...');
+
+        const response = await fetch(CONFIG.n8nWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'convert',
+            imageCount: compressedImages.length,
+            images: compressedImages,
+          }),
+        });
+
+        updateProgress(75, 'AI is assembling your text...');
+
+        if (!response.ok) {
+          const errBody = await response.text();
+          throw new Error(`n8n responded with ${response.status}: ${errBody}`);
+        }
+
+        const data = await response.json();
+
+        // Stage 3: Finalize
+        setProcessingStage(
+          'Finalizing your text\u2026',
+          'Almost there \u2014 preparing your document.'
+        );
+        updateProgress(95, 'Finalizing...');
+
+        await new Promise(r => setTimeout(r, 600)); // Brief pause for UX
+
+        state.resultText = data.text || data.result || '';
+
+        if (!state.resultText.trim()) {
+          throw new Error('AI returned empty text. The handwriting may be unclear.');
+        }
+
+        updateProgress(100, 'Done!');
+        await new Promise(r => setTimeout(r, 400));
+
+        // Show result
+        dom.resultText.value = state.resultText;
+        showSection('sectionResult');
+        showToast('Conversion complete!');
+
+      } catch (error) {
+        handleAppError(
+          'We couldn\u2019t process your images right now. Our team has been notified \u2014 please try again shortly.',
+          error
+        );
+      }
+    }
+
+    // ─── Export: Copy ───────────────────────────────
+    async function copyToClipboard() {
+      try {
+        await navigator.clipboard.writeText(dom.resultText.value);
+        showToast('Copied to clipboard!');
+      } catch (err) {
+        // Fallback
+        dom.resultText.select();
+        document.execCommand('copy');
+        showToast('Copied to clipboard!');
+      }
+    }
+
+    // ─── Export: Download .txt ──────────────────────
+    function downloadAsText() {
+      const blob = new Blob([dom.resultText.value], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `drafts-to-digital-${new Date().toISOString().slice(0, 10)}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('File downloaded!');
+    }
+
+    // ─── Export: Google Docs ────────────────────────
+    function initGoogleOAuth() {
+      if (typeof google === 'undefined' || !google.accounts) {
+        console.warn('[D2D] Google Identity Services not loaded yet.');
+        return;
+      }
+      state.googleTokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CONFIG.googleClientId,
+        scope: CONFIG.googleScopes,
+        callback: onGoogleTokenResponse,
+      });
+    }
+
+    function onGoogleTokenResponse(tokenResponse) {
+      if (tokenResponse.error) {
+        handleAppError(
+          'Google sign-in was cancelled or failed. Please try again.',
+          tokenResponse
+        );
+        return;
+      }
+      state.googleAccessToken = tokenResponse.access_token;
+      createGoogleDoc();
+    }
+
+    async function createGoogleDoc() {
+      try {
+        // Step 1: Create a blank document
+        const createRes = await fetch('https://docs.googleapis.com/v1/documents', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${state.googleAccessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: `Drafts to Digital - ${new Date().toLocaleDateString('en-ZA')}`,
+          }),
+        });
+
+        if (!createRes.ok) throw new Error(`Docs create failed: ${createRes.status}`);
+        const doc = await createRes.json();
+
+        // Step 2: Insert text content
+        const textContent = dom.resultText.value;
+        const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${doc.documentId}:batchUpdate`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${state.googleAccessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            requests: [{
+              insertText: {
+                location: { index: 1 },
+                text: textContent,
+              },
+            }],
+          }),
+        });
+
+        if (!updateRes.ok) throw new Error(`Docs update failed: ${updateRes.status}`);
+
+        showToast('Exported to Google Docs!');
+        window.open(`https://docs.google.com/document/d/${doc.documentId}/edit`, '_blank');
+
+      } catch (error) {
+        handleAppError(
+          'We couldn\u2019t create your Google Doc. Please check your permissions and try again.',
+          error
+        );
+      }
+    }
+
+    function triggerGoogleExport() {
+      if (!state.googleTokenClient) {
+        initGoogleOAuth();
+        if (!state.googleTokenClient) {
+          showToast('Google services are still loading. Please try again.', 'error');
+          return;
+        }
+      }
+
+      // If we already have a valid token, create directly
+      if (state.googleAccessToken) {
+        createGoogleDoc();
+      } else {
+        state.googleTokenClient.requestAccessToken();
+      }
+    }
+
+    // ─── UI Reset ───────────────────────────────────
+    function resetApp() {
+      state.images.forEach(img => URL.revokeObjectURL(img.thumbUrl));
+      state.images = [];
+      state.resultText = '';
+      state.googleAccessToken = null;
+      dom.fileInput.value = '';
+      dom.thumbGrid.innerHTML = '';
+      dom.resultText.value = '';
+      updateUploadMeta();
+      showSection('sectionUpload');
+    }
+
+    // ─── Event Bindings ─────────────────────────────
+    dom.btnClearAll.addEventListener('click', resetApp);
+    dom.btnConvert.addEventListener('click', runConversion);
+    dom.btnCopy.addEventListener('click', copyToClipboard);
+    dom.btnDownload.addEventListener('click', downloadAsText);
+    dom.btnExportDocs.addEventListener('click', triggerGoogleExport);
+    dom.btnStartOver.addEventListener('click', resetApp);
+    dom.btnRetry.addEventListener('click', resetApp);
+
+    // ─── Init ───────────────────────────────────────
+    window.addEventListener('load', () => {
+      // Attempt Google OAuth init after GIS script loads
+      const gisInterval = setInterval(() => {
+        if (typeof google !== 'undefined' && google.accounts) {
+          initGoogleOAuth();
+          clearInterval(gisInterval);
+        }
+      }, 500);
+      // Stop trying after 10s
+      setTimeout(() => clearInterval(gisInterval), 10000);
+    });
+
+  })();
+  </script>
+</body>
+</html>

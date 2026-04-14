@@ -1,0 +1,5 @@
+{
+  "n8nWebhookUrl": "YOUR_N8N_WEBHOOK_URL",
+  "googleClientId": "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com",
+  "devEmail": "your-dev-email@example.com"
+}
