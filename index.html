@@ -400,6 +400,45 @@
     }
     .kb-card:hover .kb-delete { opacity: 1; }
     .kb-card .kb-delete:hover { background: #9b2226; color: white; border-color: #9b2226; }
+    .kb-card { cursor: pointer; }
+    .kb-card .kb-peek {
+      position: absolute; top: 6px; left: 6px;
+      width: 24px; height: 24px; border-radius: 6px;
+      background: rgba(255,255,255,0.88); border: 1px solid rgba(212,201,168,0.6);
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(44,95,45,0.7); opacity: 0; transition: all 0.2s ease;
+    }
+    .kb-card:hover .kb-peek { opacity: 1; }
+
+    /* ───────── KB READER MODAL ───────── */
+    .kb-reader-box { max-width: 720px; }
+    .kb-reader-meta-bar {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 22px; background: #faf8f3;
+      border-bottom: 1px solid rgba(212,201,168,0.35);
+      font-family: 'Outfit', sans-serif; font-size: 12px; color: rgba(26,46,28,0.5);
+      flex-wrap: wrap;
+    }
+    .kb-reader-meta-bar .badge {
+      background: rgba(44,95,45,0.1); color: #2c5f2d;
+      font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+      padding: 2px 7px; border-radius: 4px; text-transform: uppercase;
+    }
+    .kb-reader-body-inner {
+      padding: 20px 22px; max-height: 55vh; overflow-y: auto;
+    }
+    .kb-reader-text {
+      font-family: 'Outfit', sans-serif; font-size: 13.5px; line-height: 1.75;
+      color: #1a2e1c; white-space: pre-wrap; word-break: break-word;
+      background: #fdfcf9; border: 1px solid rgba(212,201,168,0.4);
+      border-radius: 10px; padding: 16px 18px;
+    }
+    .kb-reader-image {
+      max-width: 100%; border-radius: 10px;
+      border: 1px solid rgba(212,201,168,0.4);
+      display: block; margin: 0 auto;
+    }
+    .kb-reader-foot-left { margin-right: auto; }
 
     /* ───────── KB PICKER MODAL ───────── */
     .modal-overlay {
@@ -1010,6 +1049,28 @@
 
   </div><!-- /appContent -->
 
+  <!-- ============ KB FILE READER MODAL ============ -->
+  <div id="kbReaderModal" class="modal-overlay">
+    <div class="modal-box kb-reader-box">
+      <div class="modal-head">
+        <div style="flex:1;min-width:0;margin-right:14px">
+          <h3 id="kbReaderTitle" class="text-lg font-serif" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">File</h3>
+          <p id="kbReaderSubtitle" class="text-xs text-ink/45 mt-0.5"></p>
+        </div>
+        <button class="btn-nav" id="kbReaderClose">✕</button>
+      </div>
+      <div class="kb-reader-meta-bar" id="kbReaderMetaBar"></div>
+      <div class="kb-reader-body-inner" id="kbReaderBody"></div>
+      <div class="modal-foot">
+        <div class="kb-reader-foot-left">
+          <button id="kbReaderDelete" class="font-body font-semibold text-sm px-4 py-2 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition">Delete</button>
+        </div>
+        <button id="kbReaderCopy" class="btn-nav hidden">Copy text</button>
+        <button id="kbReaderDone" class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-5 py-2 rounded-lg transition">Done</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Lightbox -->
   <div id="lightbox" class="lightbox-overlay" role="dialog" aria-label="Image preview">
     <div class="lightbox-inner">
@@ -1273,6 +1334,17 @@
       tutorAttachConfirm:   $('tutorAttachConfirm'),
       tutorAttachClose:     $('tutorAttachClose'),
       tutorAttachCancel:    $('tutorAttachCancel'),
+
+      // KB reader modal
+      kbReaderModal:        $('kbReaderModal'),
+      kbReaderTitle:        $('kbReaderTitle'),
+      kbReaderSubtitle:     $('kbReaderSubtitle'),
+      kbReaderMetaBar:      $('kbReaderMetaBar'),
+      kbReaderBody:         $('kbReaderBody'),
+      kbReaderClose:        $('kbReaderClose'),
+      kbReaderCopy:         $('kbReaderCopy'),
+      kbReaderDelete:       $('kbReaderDelete'),
+      kbReaderDone:         $('kbReaderDone'),
     };
 
     // ─── Utilities ──────────────────────────────────
@@ -1505,17 +1577,28 @@
 
         card.innerHTML = `
           <div class="kb-thumb">${thumb}</div>
+          <div class="kb-peek" title="Preview file">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </div>
           <div class="kb-name">${escapeHtml(item.name)}</div>
           <div class="kb-meta">${formatSize(item.size)} &middot; ${formatDate(item.timestamp)}</div>
           <button class="kb-delete" data-id="${item.id}" title="Remove">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
           </button>
         `;
+
+        // Card click → open reader (unless clicking the delete button)
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('.kb-delete')) return;
+          openKbReader(item.id);
+        });
+
         dom.kbGrid.appendChild(card);
       }
 
       dom.kbGrid.querySelectorAll('.kb-delete').forEach(btn => {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
           const id = btn.dataset.id;
           const item = await kb.get(id);
           if (!item) return;
@@ -1525,6 +1608,51 @@
           showToast('Removed from Knowledge Bay');
         });
       });
+    }
+
+    // ─── KB READER ──────────────────────────────────
+    let _kbReaderCurrentId = null;
+
+    async function openKbReader(id) {
+      const item = await kb.get(id);
+      if (!item) return;
+      _kbReaderCurrentId = id;
+
+      dom.kbReaderTitle.textContent = item.name;
+
+      // Meta bar: type badge + size + date + word count for text
+      const wordCount = item.type !== 'image' && item.content
+        ? item.content.trim().split(/\s+/).filter(Boolean).length
+        : null;
+      const charCount = item.type !== 'image' && item.content
+        ? item.content.length
+        : null;
+
+      dom.kbReaderSubtitle.textContent = `${formatDate(item.timestamp)}`;
+      dom.kbReaderMetaBar.innerHTML = `
+        <span class="badge">${item.type}</span>
+        <span>${formatSize(item.size)}</span>
+        ${wordCount !== null ? `<span>·</span><span>${wordCount.toLocaleString()} words</span>` : ''}
+        ${charCount !== null ? `<span>·</span><span>${charCount.toLocaleString()} chars</span>` : ''}
+      `;
+
+      // Body content
+      if (item.type === 'image') {
+        dom.kbReaderBody.innerHTML = `<img class="kb-reader-image" src="${kb.imageDataUrl(item)}" alt="${escapeHtml(item.name)}" />`;
+        dom.kbReaderCopy.classList.add('hidden');
+      } else {
+        const content = item.content || '_(No text content extracted.)_';
+        dom.kbReaderBody.innerHTML = `<div class="kb-reader-text">${escapeHtml(content)}</div>`;
+        dom.kbReaderCopy.classList.remove('hidden');
+      }
+
+      dom.kbReaderModal.classList.add('open');
+      dom.kbReaderBody.scrollTop = 0;
+    }
+
+    function closeKbReader() {
+      dom.kbReaderModal.classList.remove('open');
+      _kbReaderCurrentId = null;
     }
 
     // Wire KB dropzone
@@ -2644,6 +2772,27 @@
     dom.btnRetry.addEventListener('click', retryFromError);
     dom.btnRetryFresh.addEventListener('click', resetApp);
     dom.resultTextarea.addEventListener('input', () => renderTextStats(dom.resultTextarea.value));
+
+    // KB reader
+    dom.kbReaderClose.addEventListener('click', closeKbReader);
+    dom.kbReaderDone.addEventListener('click', closeKbReader);
+    dom.kbReaderModal.addEventListener('click', e => { if (e.target === dom.kbReaderModal) closeKbReader(); });
+    dom.kbReaderCopy.addEventListener('click', () => {
+      const item = kb.cache.find(i => i.id === _kbReaderCurrentId);
+      if (!item || !item.content) return;
+      navigator.clipboard.writeText(item.content)
+        .then(() => showToast('Text copied to clipboard'))
+        .catch(() => showToast('Copy failed — try selecting the text manually', 'error'));
+    });
+    dom.kbReaderDelete.addEventListener('click', async () => {
+      const item = kb.cache.find(i => i.id === _kbReaderCurrentId);
+      if (!item) return;
+      if (!confirm(`Remove "${item.name}" from your Knowledge Bay?`)) return;
+      closeKbReader();
+      await kb.remove(item.id);
+      renderKbGrid();
+      showToast('Removed from Knowledge Bay');
+    });
 
     // KB picker
     dom.kbPickerClose.addEventListener('click', closeKbPicker);
