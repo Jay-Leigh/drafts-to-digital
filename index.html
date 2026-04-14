@@ -411,6 +411,7 @@
     .kb-card:hover .kb-peek { opacity: 1; }
 
     /* ───────── KB READER MODAL ───────── */
+    #kbReaderModal { z-index: 200; } /* sits above picker modals (z-150) */
     .kb-reader-box { max-width: 720px; }
     .kb-reader-meta-bar {
       display: flex; align-items: center; gap: 8px;
@@ -439,6 +440,14 @@
       display: block; margin: 0 auto;
     }
     .kb-reader-foot-left { margin-right: auto; }
+    .kb-row-peek {
+      flex-shrink: 0; width: 28px; height: 28px; border-radius: 7px;
+      border: 1px solid rgba(212,201,168,0.6); background: white;
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(44,95,45,0.55); cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .kb-row-peek:hover { background: rgba(44,95,45,0.08); border-color: rgba(44,95,45,0.35); color: #2c5f2d; }
 
     /* ───────── CONFIRM DIALOG ───────── */
     .confirm-overlay {
@@ -1703,11 +1712,13 @@
 
     // ─── KB READER ──────────────────────────────────
     let _kbReaderCurrentId = null;
+    let _kbReaderSource = 'grid'; // 'grid' | 'picker' | 'tutorAttach'
 
-    async function openKbReader(id) {
+    async function openKbReader(id, source = 'grid') {
       const item = await kb.get(id);
       if (!item) return;
       _kbReaderCurrentId = id;
+      _kbReaderSource = source;
 
       dom.kbReaderTitle.textContent = item.name;
 
@@ -1744,6 +1755,10 @@
     function closeKbReader() {
       dom.kbReaderModal.classList.remove('open');
       _kbReaderCurrentId = null;
+      // Re-render the list we came from so deletions are reflected
+      if (_kbReaderSource === 'picker') renderKbPickerList();
+      else if (_kbReaderSource === 'tutorAttach') renderTutorAttachList();
+      _kbReaderSource = 'grid';
     }
 
     // Wire KB dropzone
@@ -1799,8 +1814,12 @@
             <div class="text-sm font-medium text-ink/80 truncate">${escapeHtml(item.name)}</div>
             <div class="text-xs text-ink/40">${item.type.toUpperCase()} &middot; ${formatSize(item.size)}</div>
           </div>
+          <button class="kb-row-peek" data-peek="${item.id}" title="Preview file">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
         `;
-        row.addEventListener('click', () => {
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('.kb-row-peek')) return;
           if (state.kbPickerSelection.has(item.id)) {
             state.kbPickerSelection.delete(item.id);
             row.classList.remove('selected');
@@ -1809,6 +1828,10 @@
             row.classList.add('selected');
           }
           dom.kbPickerConfirm.disabled = state.kbPickerSelection.size === 0;
+        });
+        row.querySelector('.kb-row-peek').addEventListener('click', (e) => {
+          e.stopPropagation();
+          openKbReader(item.id, 'picker');
         });
         dom.kbPickerList.appendChild(row);
       }
@@ -2805,11 +2828,15 @@
           </div>
           <div class="flex-1 min-w-0">
             <div class="text-sm font-medium text-ink/80 truncate">${escapeHtml(item.name)}</div>
-            <div class="text-xs text-ink/40">${item.type.toUpperCase()} &middot; ${formatSize(item.size)}${isImage ? ' &middot; images not yet supported for tutor' : ''}</div>
+            <div class="text-xs text-ink/40">${item.type.toUpperCase()} &middot; ${formatSize(item.size)}${isImage ? ' &middot; images not supported in Tutor' : ''}</div>
           </div>
+          <button class="kb-row-peek" data-peek="${item.id}" title="Preview file">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>
         `;
         if (!isImage) {
-          row.addEventListener('click', () => {
+          row.addEventListener('click', (e) => {
+            if (e.target.closest('.kb-row-peek')) return;
             if (tutorAttachSelection.has(item.id)) {
               tutorAttachSelection.delete(item.id);
               row.classList.remove('selected');
@@ -2819,6 +2846,10 @@
             }
           });
         }
+        row.querySelector('.kb-row-peek').addEventListener('click', (e) => {
+          e.stopPropagation();
+          openKbReader(item.id, 'tutorAttach');
+        });
         dom.tutorAttachList.appendChild(row);
       }
     }
