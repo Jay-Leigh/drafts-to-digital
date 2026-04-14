@@ -116,6 +116,30 @@
               },
               "renameOutput": true,
               "outputLabel": "Error Report"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cond-scrape",
+                    "leftValue": "={{ $json.body.mode }}",
+                    "rightValue": "scrape",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputLabel": "Scrape"
             }
           ]
         },
@@ -407,6 +431,44 @@
     },
 
     {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $json.body.url }}",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "timeout": 20000,
+          "redirect": {
+            "redirect": {
+              "followRedirects": true,
+              "maxRedirects": 5
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "onError": "continueRegularOutput",
+      "id": "b1a00001-0022-4000-8000-000000000022",
+      "name": "Scrape — Fetch URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-140, 1250]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst originalUrl = $('Webhook Trigger').first().json.body.url || '';\n\n// Handle HTTP errors\nconst status = input.statusCode || (input.body && input.body.error ? 500 : null);\nif (input.error || (status && status >= 400)) {\n  let message = 'We couldn\\'t read this website. It might be protected by a paywall or login screen.';\n  if (status === 403) message = 'We couldn\\'t read this website — it blocked our request (403 Forbidden).';\n  else if (status === 404) message = 'Page not found (404). Double-check the URL.';\n  else if (status === 401) message = 'This page requires a login. Please copy the text manually.';\n  else if (status === 429) message = 'The site is rate-limiting requests. Try again in a minute.';\n  return [{ json: { error: true, message } }];\n}\n\n// Extract HTML from response\nlet html = '';\nif (input.body && typeof input.body === 'string') html = input.body;\nelse if (typeof input.data === 'string') html = input.data;\n\nif (!html || html.trim().length < 50) {\n  return [{ json: { error: true, message: 'We couldn\\'t read this website. It may have returned no content.' } }];\n}\n\n// Strip noise elements\nhtml = html.replace(/<script\\b[^<]*(?:(?!<\\/script>)<[^<]*)*<\\/script>/gi, '');\nhtml = html.replace(/<style\\b[^<]*(?:(?!<\\/style>)<[^<]*)*<\\/style>/gi, '');\nhtml = html.replace(/<nav\\b[^<]*(?:(?!<\\/nav>)<[^<]*)*<\\/nav>/gi, '');\nhtml = html.replace(/<header\\b[^<]*(?:(?!<\\/header>)<[^<]*)*<\\/header>/gi, '');\nhtml = html.replace(/<footer\\b[^<]*(?:(?!<\\/footer>)<[^<]*)*<\\/footer>/gi, '');\nhtml = html.replace(/<aside\\b[^<]*(?:(?!<\\/aside>)<[^<]*)*<\\/aside>/gi, '');\nhtml = html.replace(/<!--[\\s\\S]*?-->/g, '');\n\n// Convert structure to readable markdown\nhtml = html.replace(/<h1[^>]*>([\\s\\S]*?)<\\/h1>/gi, '\\n# $1\\n');\nhtml = html.replace(/<h2[^>]*>([\\s\\S]*?)<\\/h2>/gi, '\\n## $1\\n');\nhtml = html.replace(/<h3[^>]*>([\\s\\S]*?)<\\/h3>/gi, '\\n### $1\\n');\nhtml = html.replace(/<h4[^>]*>([\\s\\S]*?)<\\/h4>/gi, '\\n#### $1\\n');\nhtml = html.replace(/<h5[^>]*>([\\s\\S]*?)<\\/h5>/gi, '\\n##### $1\\n');\nhtml = html.replace(/<li[^>]*>([\\s\\S]*?)<\\/li>/gi, '\\n- $1');\nhtml = html.replace(/<\\/[uo]l>/gi, '\\n');\nhtml = html.replace(/<br\\s*\\/?>/gi, '\\n');\nhtml = html.replace(/<\\/p>/gi, '\\n\\n');\nhtml = html.replace(/<\\/div>/gi, '\\n');\nhtml = html.replace(/<\\/tr>/gi, '\\n');\nhtml = html.replace(/<td[^>]*>/gi, ' | ');\nhtml = html.replace(/<th[^>]*>/gi, ' | ');\nhtml = html.replace(/<\\/table>/gi, '\\n');\nhtml = html.replace(/<hr[^>]*>/gi, '\\n---\\n');\nhtml = html.replace(/<blockquote[^>]*>/gi, '\\n> ');\nhtml = html.replace(/<\\/blockquote>/gi, '\\n');\nhtml = html.replace(/<code[^>]*>([\\s\\S]*?)<\\/code>/gi, '`$1`');\nhtml = html.replace(/<pre[^>]*>([\\s\\S]*?)<\\/pre>/gi, '\\n```\\n$1\\n```\\n');\nhtml = html.replace(/<strong[^>]*>([\\s\\S]*?)<\\/strong>/gi, '**$1**');\nhtml = html.replace(/<b[^>]*>([\\s\\S]*?)<\\/b>/gi, '**$1**');\nhtml = html.replace(/<em[^>]*>([\\s\\S]*?)<\\/em>/gi, '*$1*');\nhtml = html.replace(/<i[^>]*>([\\s\\S]*?)<\\/i>/gi, '*$1*');\nhtml = html.replace(/<a[^>]*href=[\"']([^\"']*)[\"'][^>]*>([\\s\\S]*?)<\\/a>/gi, '$2');\n\n// Strip remaining tags + decode entities\nhtml = html.replace(/<[^>]+>/g, '');\nhtml = html.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '\"').replace(/&#39;/g, \"'\").replace(/&mdash;/g, '\\u2014').replace(/&ndash;/g, '\\u2013').replace(/&hellip;/g, '\\u2026').replace(/&#(\\d+);/g, (m, n) => String.fromCharCode(n));\n\n// Collapse whitespace\nhtml = html.replace(/[ \\t]{2,}/g, ' ');\nhtml = html.replace(/\\n{3,}/g, '\\n\\n');\nhtml = html.trim();\n\n// 40k character limit\nconst LIMIT = 40000;\nif (html.length > LIMIT) {\n  html = html.slice(0, LIMIT) + '\\n\\n_[Content truncated at 40,000 characters]_';\n}\n\nif (html.length < 50) {\n  return [{ json: { error: true, message: 'We couldn\\'t extract readable text from this page. Try copying the text manually.' } }];\n}\n\nreturn [{ json: { text: html } }];"
+      },
+      "id": "b1a00001-0023-4000-8000-000000000023",
+      "name": "Clean HTML — Scrape",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [100, 1250]
+    },
+
+    {
       "parameters": {},
       "id": "b1a00001-0019-4000-8000-000000000019",
       "name": "Error Trigger",
@@ -485,6 +547,13 @@
         [
           {
             "node": "Handle Error Report",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Scrape — Fetch URL",
             "type": "main",
             "index": 0
           }
@@ -653,6 +722,17 @@
         [
           {
             "node": "Send Workflow Error Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape — Fetch URL": {
+      "main": [
+        [
+          {
+            "node": "Clean HTML — Scrape",
             "type": "main",
             "index": 0
           }
