@@ -16,6 +16,8 @@
   <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <script>
@@ -46,8 +48,185 @@
     body { font-family: 'Outfit', sans-serif; background: #f5f0e1; color: #1a2e1c; }
     h1, h2, h3 { font-family: 'DM Serif Display', serif; }
 
+    /* ───────── DASHBOARD LAYOUT ───────── */
+    .app-content { display: none; }
+    .app-content.unlocked { display: flex; min-height: 100vh; }
+
+    .sidebar {
+      width: 264px;
+      flex-shrink: 0;
+      background: #ffffff;
+      border-right: 1px solid rgba(212,201,168,0.55);
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      z-index: 50;
+      transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    }
+    .sidebar-header {
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid rgba(212,201,168,0.4);
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .sidebar-title { display: flex; align-items: center; gap: 10px; }
+    .sidebar-title-box {
+      width: 36px; height: 36px; border-radius: 10px;
+      background: rgba(44,95,45,0.1);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .sidebar-title h1 { font-size: 17px; line-height: 1.2; }
+    .sidebar-title p { font-size: 10px; color: rgba(26,46,28,0.4); letter-spacing: 0.1em; text-transform: uppercase; }
+
+    .sidebar-nav { padding: 14px 0 8px; display: flex; flex-direction: column; gap: 2px; }
+    .sidebar-nav-section {
+      padding: 10px 20px 6px;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.12em;
+      text-transform: uppercase; color: rgba(26,46,28,0.35);
+    }
+    .nav-link {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 20px 10px 17px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 14px;
+      color: rgba(26,46,28,0.72);
+      text-decoration: none;
+      border-left: 3px solid transparent;
+      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+      cursor: pointer;
+    }
+    .nav-link:hover { background: rgba(44,95,45,0.04); color: #1a2e1c; }
+    .nav-link.active {
+      background: rgba(44,95,45,0.08);
+      border-left-color: #2c5f2d;
+      color: #2c5f2d;
+      font-weight: 600;
+    }
+    .nav-link svg { flex-shrink: 0; opacity: 0.75; }
+    .nav-link.active svg { opacity: 1; }
+
+    .sidebar-tutor-chats {
+      flex: 1; min-height: 0;
+      padding: 10px 14px 16px;
+      border-top: 1px solid rgba(212,201,168,0.4);
+      display: flex; flex-direction: column; gap: 2px;
+      overflow-y: auto;
+    }
+    .sidebar-tutor-chats .section-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 6px 8px;
+    }
+    .sidebar-tutor-chats .section-row h4 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.12em;
+      text-transform: uppercase; color: rgba(26,46,28,0.4);
+    }
+    .chat-item {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      color: rgba(26,46,28,0.7);
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+    .chat-item:hover { background: rgba(44,95,45,0.05); color: #1a2e1c; }
+    .chat-item.active { background: rgba(44,95,45,0.1); color: #2c5f2d; font-weight: 600; }
+    .chat-item .chat-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chat-item .chat-delete {
+      opacity: 0; width: 20px; height: 20px;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      color: rgba(26,46,28,0.4);
+      transition: opacity 0.2s ease, background 0.2s ease, color 0.2s ease;
+    }
+    .chat-item:hover .chat-delete { opacity: 1; }
+    .chat-item .chat-delete:hover { background: #9b2226; color: white; }
+    .chat-empty { padding: 12px; font-size: 12px; color: rgba(26,46,28,0.35); text-align: center; }
+
+    .new-chat-btn {
+      margin: 0 6px 6px;
+      padding: 8px 10px;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; font-weight: 500;
+      color: #2c5f2d;
+      background: rgba(44,95,45,0.08);
+      border-radius: 8px; cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .new-chat-btn:hover { background: rgba(44,95,45,0.15); }
+
+    .sidebar-backdrop {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(26,46,28,0.45); backdrop-filter: blur(2px);
+      z-index: 49;
+      opacity: 0; transition: opacity 0.3s ease;
+    }
+    .sidebar-backdrop.open { display: block; opacity: 1; }
+
+    .main-area {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column;
+    }
+    .topbar {
+      position: sticky; top: 0; z-index: 30;
+      background: rgba(245,240,225,0.85);
+      backdrop-filter: blur(6px);
+      border-bottom: 1px solid rgba(212,201,168,0.4);
+      padding: 12px 24px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .hamburger-btn {
+      display: none;
+      width: 38px; height: 38px; border-radius: 10px;
+      background: transparent; border: 1px solid rgba(212,201,168,0.6);
+      align-items: center; justify-content: center; cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .hamburger-btn:hover { background: rgba(44,95,45,0.06); }
+    .topbar-title { display: none; font-size: 15px; font-weight: 500; }
+    .topbar-badge { font-size: 10px; font-weight: 300; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(26,46,28,0.3); }
+
+    .content { padding: 28px 24px 60px; max-width: 1100px; margin: 0 auto; width: 100%; }
+    .view { display: none; }
+    .view.active { display: block; }
+
+    @media (max-width: 900px) {
+      .sidebar { position: fixed; top: 0; left: 0; transform: translateX(-100%); box-shadow: 0 0 40px rgba(26,46,28,0.2); }
+      .sidebar.open { transform: translateX(0); }
+      .hamburger-btn { display: flex; }
+      .topbar-title { display: block; }
+      .content { padding: 20px 16px 60px; }
+    }
+
+    /* ───────── VIEW HEADER (Back / Home) ───────── */
+    .view-header {
+      display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+      margin-bottom: 20px;
+    }
+    .view-header .btn-nav {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 12px;
+      font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 500;
+      color: rgba(26,46,28,0.6);
+      background: white; border: 1px solid rgba(212,201,168,0.6);
+      border-radius: 9px; cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .view-header .btn-nav:hover { color: #2c5f2d; border-color: #2c5f2d; }
+    .view-header .view-title-block { margin-left: 6px; }
+    .view-header .view-title-block h2 { font-size: 22px; line-height: 1.2; }
+    .view-header .view-title-block p { font-size: 13px; color: rgba(26,46,28,0.5); font-weight: 300; }
+
     /* Mode cards */
-    .mode-card { transition: all 0.3s ease; cursor: pointer; }
+    .mode-card {
+      transition: all 0.3s ease;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
     .mode-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(44,95,45,0.08); }
     .mode-card.active { border-color: #2c5f2d !important; background: rgba(44,95,45,0.05); box-shadow: 0 6px 16px rgba(44,95,45,0.12); }
     .mode-card .mode-icon { transition: all 0.3s ease; }
@@ -76,6 +255,14 @@
       border-top-color: #2c5f2d;
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
+    }
+    .mini-spinner {
+      width: 14px; height: 14px;
+      border: 2px solid rgba(44,95,45,0.25);
+      border-top-color: #2c5f2d;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: inline-block; vertical-align: -2px;
     }
     .zone-enter { animation: fadeUp 0.35s ease-out forwards; opacity: 0; }
 
@@ -173,8 +360,243 @@
       color: #9b2226; font-size: 13px; font-family: 'Outfit', sans-serif;
       margin-top: 10px; min-height: 20px; transition: opacity 0.2s ease;
     }
-    .app-content { display: none; }
-    .app-content.unlocked { display: block; }
+
+    /* ───────── KNOWLEDGE BAY ───────── */
+    .kb-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 14px;
+    }
+    .kb-card {
+      position: relative;
+      background: white;
+      border: 1px solid rgba(212,201,168,0.6);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex; flex-direction: column; gap: 8px;
+      transition: all 0.2s ease;
+    }
+    .kb-card:hover { border-color: rgba(44,95,45,0.4); box-shadow: 0 4px 14px rgba(44,95,45,0.06); }
+    .kb-card .kb-thumb {
+      width: 100%; aspect-ratio: 4/3;
+      border-radius: 8px; overflow: hidden;
+      background: #f5f0e1;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .kb-card .kb-thumb img { width: 100%; height: 100%; object-fit: cover; }
+    .kb-card .kb-thumb .ext-badge {
+      font-size: 11px; font-weight: 700; color: rgba(44,95,45,0.7);
+    }
+    .kb-card .kb-name { font-size: 13px; font-weight: 500; color: #1a2e1c; line-height: 1.3; word-break: break-word; }
+    .kb-card .kb-meta { font-size: 11px; color: rgba(26,46,28,0.4); }
+    .kb-card .kb-delete {
+      position: absolute; top: 8px; right: 8px;
+      width: 26px; height: 26px; border-radius: 50%;
+      background: white; border: 1px solid rgba(212,201,168,0.5);
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(26,46,28,0.4);
+      opacity: 0; transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .kb-card:hover .kb-delete { opacity: 1; }
+    .kb-card .kb-delete:hover { background: #9b2226; color: white; border-color: #9b2226; }
+
+    /* ───────── KB PICKER MODAL ───────── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 150;
+      background: rgba(26,46,28,0.55); backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.25s ease;
+      padding: 20px;
+    }
+    .modal-overlay.open { opacity: 1; pointer-events: auto; }
+    .modal-box {
+      background: white; border-radius: 16px;
+      width: 100%; max-width: 620px;
+      max-height: 85vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 20px 60px rgba(26,46,28,0.3);
+      transform: translateY(16px); transition: transform 0.25s ease;
+    }
+    .modal-overlay.open .modal-box { transform: translateY(0); }
+    .modal-head { padding: 18px 22px; border-bottom: 1px solid rgba(212,201,168,0.45); display: flex; justify-content: space-between; align-items: center; }
+    .modal-body { padding: 16px 22px; overflow-y: auto; flex: 1; }
+    .modal-foot { padding: 14px 22px; border-top: 1px solid rgba(212,201,168,0.45); display: flex; justify-content: flex-end; gap: 10px; }
+
+    .kb-pick-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid rgba(212,201,168,0.5);
+      border-radius: 10px;
+      cursor: pointer;
+      margin-bottom: 8px;
+      transition: all 0.15s ease;
+    }
+    .kb-pick-row:hover { border-color: rgba(44,95,45,0.4); background: rgba(44,95,45,0.03); }
+    .kb-pick-row.selected { border-color: #2c5f2d; background: rgba(44,95,45,0.07); }
+    .kb-pick-row.disabled { opacity: 0.45; cursor: not-allowed; }
+    .kb-pick-row .kb-pick-check {
+      width: 20px; height: 20px; border-radius: 6px;
+      border: 2px solid rgba(212,201,168,0.8);
+      display: flex; align-items: center; justify-content: center;
+      color: white; flex-shrink: 0;
+    }
+    .kb-pick-row.selected .kb-pick-check { background: #2c5f2d; border-color: #2c5f2d; }
+
+    /* ───────── TUTOR ───────── */
+    .tutor-shell {
+      display: flex; flex-direction: column;
+      height: calc(100vh - 110px); min-height: 500px;
+      background: white;
+      border: 1px solid rgba(212,201,168,0.55);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .tutor-head {
+      padding: 14px 18px;
+      border-bottom: 1px solid rgba(212,201,168,0.4);
+      display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+    }
+    .tutor-head h3 { font-size: 17px; }
+    .tutor-head .tutor-attached {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: rgba(26,46,28,0.55);
+    }
+    .tutor-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 18px;
+      display: flex; flex-direction: column; gap: 14px;
+      background: #faf7f0;
+    }
+    .chat-bubble {
+      max-width: 82%;
+      padding: 12px 16px;
+      border-radius: 16px;
+      font-size: 14.5px; line-height: 1.55;
+      animation: fadeUp 0.25s ease-out;
+    }
+    .chat-bubble.user {
+      align-self: flex-end;
+      background: #2c5f2d; color: white;
+      border-bottom-right-radius: 6px;
+      white-space: pre-wrap; word-wrap: break-word;
+    }
+    .chat-bubble.model {
+      align-self: flex-start;
+      background: white; color: #1a2e1c;
+      border: 1px solid rgba(212,201,168,0.55);
+      border-bottom-left-radius: 6px;
+    }
+    .chat-bubble.model p:first-child { margin-top: 0; }
+    .chat-bubble.model p:last-child { margin-bottom: 0; }
+    .chat-bubble.model p { margin: 0.5em 0; }
+    .chat-bubble.model ul, .chat-bubble.model ol { padding-left: 1.3em; margin: 0.5em 0; }
+    .chat-bubble.model li { margin: 0.2em 0; }
+    .chat-bubble.model strong { font-weight: 600; }
+    .chat-bubble.model em { font-style: italic; color: rgba(26,46,28,0.75); }
+    .chat-bubble.model code { background: rgba(44,95,45,0.08); padding: 2px 6px; border-radius: 4px; font-size: 0.92em; }
+    .chat-bubble.typing {
+      align-self: flex-start;
+      background: white;
+      border: 1px solid rgba(212,201,168,0.55);
+      border-bottom-left-radius: 6px;
+      display: flex; gap: 4px; align-items: center;
+      padding: 14px 16px;
+    }
+    .chat-bubble.typing span {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: #2c5f2d;
+      animation: typingBounce 1.2s infinite ease-in-out;
+    }
+    .chat-bubble.typing span:nth-child(2) { animation-delay: 0.15s; }
+    .chat-bubble.typing span:nth-child(3) { animation-delay: 0.3s; }
+    @keyframes typingBounce {
+      0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+      40% { transform: translateY(-4px); opacity: 1; }
+    }
+    .tutor-empty {
+      margin: auto;
+      text-align: center; max-width: 380px;
+      color: rgba(26,46,28,0.5); font-size: 14px;
+      line-height: 1.6;
+    }
+    .tutor-empty h4 { font-family: 'DM Serif Display', serif; font-size: 20px; color: #1a2e1c; margin-bottom: 8px; }
+
+    .tutor-composer {
+      padding: 14px 16px;
+      border-top: 1px solid rgba(212,201,168,0.4);
+      background: white;
+      display: flex; gap: 10px; align-items: flex-end;
+    }
+    .tutor-input {
+      flex: 1;
+      min-height: 44px; max-height: 200px;
+      padding: 10px 14px;
+      border: 1px solid rgba(212,201,168,0.6);
+      border-radius: 12px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 14.5px; line-height: 1.5;
+      resize: none;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .tutor-input:focus { border-color: #2c5f2d; box-shadow: 0 0 0 3px rgba(44,95,45,0.1); }
+    .tutor-send, .tutor-attach {
+      height: 44px;
+      padding: 0 16px;
+      border-radius: 12px;
+      font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex; align-items: center; gap: 6px;
+      white-space: nowrap;
+    }
+    .tutor-send {
+      background: #2c5f2d; color: white; border: none;
+      box-shadow: 0 6px 14px rgba(44,95,45,0.2);
+    }
+    .tutor-send:hover:not(:disabled) { background: #1e4620; }
+    .tutor-send:disabled { opacity: 0.5; cursor: not-allowed; }
+    .tutor-attach {
+      background: white; color: rgba(26,46,28,0.7);
+      border: 1px solid rgba(212,201,168,0.6);
+    }
+    .tutor-attach:hover { color: #2c5f2d; border-color: #2c5f2d; }
+
+    /* ───────── KB-OR-UPLOAD TABS (template/reviewer) ───────── */
+    .zone-tabs {
+      display: inline-flex;
+      background: rgba(212,201,168,0.25);
+      border-radius: 10px;
+      padding: 3px;
+      margin-bottom: 8px;
+      gap: 2px;
+    }
+    .zone-tab {
+      padding: 6px 12px;
+      font-size: 12px; font-weight: 500;
+      color: rgba(26,46,28,0.55);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: none;
+      background: transparent;
+      font-family: 'Outfit', sans-serif;
+    }
+    .zone-tab.active { background: white; color: #2c5f2d; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+
+    .kb-quick-pick {
+      padding: 8px 14px;
+      font-size: 13px; font-weight: 500; color: #2c5f2d;
+      background: rgba(44,95,45,0.07);
+      border: 1px dashed rgba(44,95,45,0.4);
+      border-radius: 10px;
+      cursor: pointer; transition: all 0.2s ease;
+      margin-left: 10px;
+    }
+    .kb-quick-pick:hover { background: rgba(44,95,45,0.12); border-style: solid; }
 
     /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; }
@@ -212,177 +634,379 @@
   <!-- ======== APP CONTENT (hidden until authenticated) ======== -->
   <div id="appContent" class="app-content">
 
-  <!-- ======== HEADER ======== -->
-  <header class="border-b border-warm/50 bg-parchment/80 backdrop-blur-sm sticky top-0 z-50">
-    <div class="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3z"/>
-          </svg>
-        </div>
-        <div>
-          <h1 class="text-xl leading-tight">Student Tools Hub</h1>
-          <p class="text-xs text-ink/40 font-body font-light tracking-wide">AI-powered academic assistant</p>
+    <!-- ======== SIDEBAR ======== -->
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-title">
+          <div class="sidebar-title-box">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3L1 9l4 2.18v6L12 21l7-3.82v-6l2-1.09V17h2V9L12 3z"/>
+            </svg>
+          </div>
+          <div>
+            <h1>Student Tools Hub</h1>
+            <p>v2.0</p>
+          </div>
         </div>
       </div>
-      <span class="text-[11px] font-body font-light text-ink/30 tracking-widest uppercase">v2.0</span>
+
+      <nav class="sidebar-nav">
+        <a class="nav-link" data-route="home" href="#home">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Home
+        </a>
+        <div class="sidebar-nav-section">Tools</div>
+        <a class="nav-link" data-route="transcribe" href="#transcribe">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+          Transcribe
+        </a>
+        <a class="nav-link" data-route="template" href="#template">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+          Template
+        </a>
+        <a class="nav-link" data-route="reviewer" href="#reviewer">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15l2 2 4-4"/></svg>
+          Reviewer
+        </a>
+        <div class="sidebar-nav-section">Study Space</div>
+        <a class="nav-link" data-route="knowledge" href="#knowledge">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+          Knowledge Bay
+        </a>
+        <a class="nav-link" data-route="tutor" href="#tutor">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Tutor
+        </a>
+      </nav>
+
+      <div class="sidebar-tutor-chats">
+        <div class="section-row">
+          <h4>Recent Chats</h4>
+        </div>
+        <div class="new-chat-btn" id="btnNewChat">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New chat
+        </div>
+        <div id="tutorChatList"></div>
+      </div>
+    </aside>
+
+    <div id="sidebarBackdrop" class="sidebar-backdrop"></div>
+
+    <!-- ======== MAIN AREA ======== -->
+    <div class="main-area">
+      <div class="topbar">
+        <div class="flex items-center gap-3">
+          <button id="btnHamburger" class="hamburger-btn" aria-label="Toggle sidebar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a2e1c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <span class="topbar-title">Student Tools Hub</span>
+        </div>
+        <span class="topbar-badge">AI-powered academic assistant</span>
+      </div>
+
+      <main class="content">
+
+        <!-- ============ VIEW: HOME ============ -->
+        <section id="viewHome" class="view">
+          <div class="text-center mb-10 pt-4">
+            <h2 class="text-3xl mb-2">What would you like to do?</h2>
+            <p class="font-body font-light text-ink/50 max-w-lg mx-auto">Choose a tool, upload your documents, and let AI handle the rest.</p>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+            <a class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center bg-white/50" href="#transcribe">
+              <div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+                </svg>
+              </div>
+              <h3 class="text-lg mt-3">Transcribe</h3>
+              <p class="font-body text-sm text-ink/45 mt-1">Convert handwritten pages to digital text</p>
+            </a>
+            <a class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center bg-white/50" href="#template">
+              <div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>
+                </svg>
+              </div>
+              <h3 class="text-lg mt-3">Template Generator</h3>
+              <p class="font-body text-sm text-ink/45 mt-1">Get a structured essay outline from your assignment</p>
+            </a>
+            <a class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center bg-white/50" href="#reviewer">
+              <div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                  <path d="M9 15l2 2 4-4"/>
+                </svg>
+              </div>
+              <h3 class="text-lg mt-3">Essay Reviewer</h3>
+              <p class="font-body text-sm text-ink/45 mt-1">Get AI feedback on your draft essay</p>
+            </a>
+            <a class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center bg-white/50" href="#knowledge">
+              <div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+                </svg>
+              </div>
+              <h3 class="text-lg mt-3">Knowledge Bay</h3>
+              <p class="font-body text-sm text-ink/45 mt-1">Save study resources on your device for reuse</p>
+            </a>
+            <a class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center bg-white/50" href="#tutor">
+              <div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+              </div>
+              <h3 class="text-lg mt-3">Tutor</h3>
+              <p class="font-body text-sm text-ink/45 mt-1">Chat through topics with saved context and history</p>
+            </a>
+          </div>
+        </section>
+
+        <!-- ============ VIEW: TOOL (transcribe / template / reviewer) ============ -->
+        <section id="viewTool" class="view">
+          <div class="view-header">
+            <button class="btn-nav" data-nav="back">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              Back
+            </button>
+            <button class="btn-nav" data-nav="home">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              Home
+            </button>
+            <div class="view-title-block">
+              <h2 id="toolTitle">Tool</h2>
+              <p id="toolSubtitle">Upload files to get started.</p>
+            </div>
+          </div>
+
+          <!-- SUB-SECTION: Upload -->
+          <section id="sectionUpload">
+            <div id="uploadZonesContainer" class="space-y-5"></div>
+
+            <div id="actionArea" class="hidden items-center justify-between gap-4 mt-6">
+              <p id="fileCount" class="font-body text-sm text-ink/40"></p>
+              <div class="flex gap-3">
+                <button id="btnClearAll" class="font-body text-sm font-medium text-ink/40 hover:text-red-500 transition px-4 py-2">Clear All</button>
+                <button id="btnAction" disabled
+                        class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-8 py-3 rounded-xl transition shadow-lg shadow-accent/20 hover:shadow-accent/30 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-accent">
+                  Run
+                </button>
+              </div>
+            </div>
+          </section>
+
+          <!-- SUB-SECTION: Processing -->
+          <section id="sectionProcessing" class="hidden">
+            <div class="text-center py-20 fade-up">
+              <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-accent/10 flex items-center justify-center">
+                <div class="loading-spinner"></div>
+              </div>
+              <h2 class="text-2xl mb-3" id="processingTitle">Analyzing your documents&hellip;</h2>
+              <p class="font-body font-light text-ink/50 mb-8 max-w-md mx-auto" id="processingSubtext">This may take a moment. Please stay on this page.</p>
+              <div class="max-w-sm mx-auto">
+                <div class="w-full h-2 bg-warm/40 rounded-full overflow-hidden">
+                  <div id="progressBar" class="progress-fill h-full bg-accent rounded-full" style="width: 0%"></div>
+                </div>
+                <p id="progressLabel" class="font-body text-xs text-ink/35 mt-2 pulse-text">Initializing&hellip;</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- SUB-SECTION: Result -->
+          <section id="sectionResult" class="hidden fade-up">
+            <div class="mb-6">
+              <h2 class="text-2xl mb-1" id="resultHeading">Your result</h2>
+              <p class="font-body font-light text-ink/50 text-sm" id="resultSubheading">Review, edit if needed, then export.</p>
+            </div>
+
+            <div id="textStatsBar" class="flex flex-wrap items-center gap-4 sm:gap-6 mb-4 px-1">
+              <div class="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"><path d="M4 7h16M4 12h10M4 17h12"/></svg>
+                <span class="font-body text-xs text-ink/40 uppercase tracking-wider">Words</span>
+                <span id="statWords" class="font-body text-sm font-semibold text-ink/70">&mdash;</span>
+              </div>
+              <div class="w-px h-4 bg-warm/60 hidden sm:block"></div>
+              <div class="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+                <span class="font-body text-xs text-ink/40 uppercase tracking-wider">Chars</span>
+                <span id="statChars" class="font-body text-sm font-semibold text-ink/70">&mdash;</span>
+              </div>
+              <div class="w-px h-4 bg-warm/60 hidden sm:block"></div>
+              <div class="flex items-center gap-2">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span class="font-body text-xs text-ink/40 uppercase tracking-wider">Read</span>
+                <span id="statReadTime" class="font-body text-sm font-semibold text-ink/70">&mdash;</span>
+              </div>
+            </div>
+
+            <textarea id="resultTextarea" class="result-area w-full p-6 min-h-[350px] hidden" spellcheck="true"></textarea>
+            <div id="resultContent" class="result-prose p-8 min-h-[350px] hidden overflow-auto"></div>
+
+            <div class="flex flex-wrap gap-3 mt-6">
+              <button id="btnCopy" class="font-body font-medium text-sm border border-warm hover:border-accent text-ink/70 hover:text-accent px-6 py-2.5 rounded-xl transition flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                Copy
+              </button>
+              <button id="btnDownload" class="font-body font-medium text-sm border border-warm hover:border-accent text-ink/70 hover:text-accent px-6 py-2.5 rounded-xl transition flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                <span id="downloadLabel">Download</span>
+              </button>
+              <button id="btnExportDocs" class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-6 py-2.5 rounded-xl transition shadow-lg shadow-accent/20 flex items-center gap-2">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                Export to Google Docs
+              </button>
+              <button id="btnStartOver" class="font-body font-medium text-sm text-ink/35 hover:text-ink/60 px-4 py-2.5 transition ml-auto">&larr; Start Over</button>
+            </div>
+          </section>
+
+          <!-- SUB-SECTION: Error -->
+          <section id="sectionError" class="hidden fade-up">
+            <div class="text-center py-16">
+              <div class="w-14 h-14 mx-auto mb-5 rounded-2xl bg-red-50 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9b2226" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              </div>
+              <h2 class="text-xl mb-2">Something went wrong</h2>
+              <p id="errorMessage" class="font-body font-light text-ink/50 max-w-md mx-auto mb-6"></p>
+              <div class="flex flex-col sm:flex-row items-center justify-center gap-3 mt-2">
+                <button id="btnRetry" class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-8 py-3 rounded-xl transition">
+                  Try Again &mdash; Keep My Files
+                </button>
+                <button id="btnRetryFresh" class="font-body font-medium text-sm text-ink/40 hover:text-ink/60 px-6 py-3 rounded-xl transition">
+                  Start Fresh
+                </button>
+              </div>
+            </div>
+          </section>
+
+        </section>
+
+        <!-- ============ VIEW: KNOWLEDGE BAY ============ -->
+        <section id="viewKnowledge" class="view">
+          <div class="view-header">
+            <button class="btn-nav" data-nav="back">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              Back
+            </button>
+            <button class="btn-nav" data-nav="home">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              Home
+            </button>
+            <div class="view-title-block">
+              <h2>Knowledge Bay</h2>
+              <p>Your personal study library &mdash; stored on this device only.</p>
+            </div>
+          </div>
+
+          <div class="dropzone border-2 border-dashed border-warm rounded-xl p-7 text-center cursor-pointer hover:border-accent/50 transition-all mb-6" id="kbDropzone">
+            <input type="file" id="kbFileInput" accept=".jpg,.jpeg,.png,.pdf,.docx,.txt" multiple class="hidden" />
+            <div class="pointer-events-none">
+              <svg class="mx-auto mb-2" width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.45">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+              </svg>
+              <p class="font-body text-sm font-medium text-ink/60">Drop resources here or <span class="text-accent underline cursor-pointer">browse</span></p>
+              <p class="font-body text-[11px] text-ink/35 mt-1">PDF, DOCX, TXT or images &middot; Max 15 MB per file &middot; Stored in your browser</p>
+            </div>
+          </div>
+
+          <div id="kbExtractingNote" class="hidden mb-4 text-sm text-ink/55 font-body">
+            <span class="mini-spinner"></span>
+            <span id="kbExtractingLabel" class="ml-2">Extracting text from your file&hellip;</span>
+          </div>
+
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-lg">Saved resources</h3>
+            <span class="text-xs text-ink/40" id="kbCount"></span>
+          </div>
+          <div id="kbGrid" class="kb-grid"></div>
+          <p id="kbEmpty" class="text-center text-ink/35 py-10 font-body hidden">Nothing saved yet. Upload a file above to start building your library.</p>
+        </section>
+
+        <!-- ============ VIEW: TUTOR ============ -->
+        <section id="viewTutor" class="view">
+          <div class="view-header">
+            <button class="btn-nav" data-nav="back">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              Back
+            </button>
+            <button class="btn-nav" data-nav="home">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              Home
+            </button>
+            <div class="view-title-block">
+              <h2>Tutor</h2>
+              <p>Attach your notes, ask away &mdash; your chat stays saved on this device.</p>
+            </div>
+          </div>
+
+          <div class="tutor-shell">
+            <div class="tutor-head">
+              <div>
+                <h3 id="tutorChatTitle">New chat</h3>
+                <div class="tutor-attached" id="tutorAttachedSummary">No resources attached</div>
+              </div>
+              <div class="flex gap-2">
+                <button id="btnRenameChat" class="btn-nav" title="Rename chat">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                </button>
+                <button id="btnTutorAttach" class="btn-nav" title="Attach resources">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                  Attach
+                </button>
+              </div>
+            </div>
+
+            <div class="tutor-messages" id="tutorMessages"></div>
+
+            <div class="tutor-composer">
+              <textarea id="tutorInput" class="tutor-input" placeholder="Ask your tutor anything&hellip; (Shift+Enter for newline)" rows="1"></textarea>
+              <button id="btnTutorSend" class="tutor-send" disabled>
+                Send
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </button>
+            </div>
+          </div>
+        </section>
+
+      </main>
     </div>
-  </header>
 
-  <!-- ======== MAIN ======== -->
-  <main class="max-w-5xl mx-auto px-6 py-10">
-
-    <!-- SECTION: Upload -->
-    <section id="sectionUpload">
-      <div class="text-center mb-8">
-        <h2 class="text-3xl mb-2">What would you like to do?</h2>
-        <p class="font-body font-light text-ink/50 max-w-lg mx-auto">Choose a tool, upload your documents, and let AI handle the rest.</p>
-      </div>
-
-      <!-- Mode Selector -->
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8" id="modeSelector">
-        <div class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center" data-mode="transcribe">
-          <div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-            </svg>
+    <!-- ============ KB PICKER MODAL (used by template/reviewer) ============ -->
+    <div id="kbPickerModal" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-head">
+          <div>
+            <h3 class="text-lg">Select from Knowledge Bay</h3>
+            <p class="text-xs text-ink/45" id="kbPickerSubtitle">Choose a saved resource</p>
           </div>
-          <h3 class="text-lg mt-3">Transcribe</h3>
-          <p class="font-body text-sm text-ink/45 mt-1">Convert handwritten pages to digital text</p>
+          <button class="btn-nav" id="kbPickerClose">Close</button>
         </div>
-        <div class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center" data-mode="template">
-          <div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>
-            </svg>
-          </div>
-          <h3 class="text-lg mt-3">Template Generator</h3>
-          <p class="font-body text-sm text-ink/45 mt-1">Get a structured essay outline from your assignment</p>
-        </div>
-        <div class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center" data-mode="reviewer">
-          <div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-              <path d="M9 15l2 2 4-4"/>
-            </svg>
-          </div>
-          <h3 class="text-lg mt-3">Essay Reviewer</h3>
-          <p class="font-body text-sm text-ink/45 mt-1">Get AI feedback on your draft essay</p>
+        <div class="modal-body" id="kbPickerList"></div>
+        <div class="modal-foot">
+          <button class="btn-nav" id="kbPickerCancel">Cancel</button>
+          <button id="kbPickerConfirm" class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-5 py-2 rounded-lg transition disabled:opacity-40" disabled>Attach selected</button>
         </div>
       </div>
-
-      <!-- Dynamic Upload Zones (rendered by JS) -->
-      <div id="uploadZonesContainer" class="space-y-5"></div>
-
-      <!-- Action Controls -->
-      <div id="actionArea" class="hidden items-center justify-between gap-4 mt-6">
-        <p id="fileCount" class="font-body text-sm text-ink/40"></p>
-        <div class="flex gap-3">
-          <button id="btnClearAll" class="font-body text-sm font-medium text-ink/40 hover:text-red-500 transition px-4 py-2">Clear All</button>
-          <button id="btnAction" disabled
-                  class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-8 py-3 rounded-xl transition shadow-lg shadow-accent/20 hover:shadow-accent/30 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-accent">
-            Select a mode
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- SECTION: Processing -->
-    <section id="sectionProcessing" class="hidden">
-      <div class="text-center py-20 fade-up">
-        <div class="w-20 h-20 mx-auto mb-6 rounded-2xl bg-accent/10 flex items-center justify-center">
-          <div class="loading-spinner"></div>
-        </div>
-        <h2 class="text-2xl mb-3" id="processingTitle">Analyzing your documents&hellip;</h2>
-        <p class="font-body font-light text-ink/50 mb-8 max-w-md mx-auto" id="processingSubtext">This may take a moment. Please stay on this page.</p>
-        <div class="max-w-sm mx-auto">
-          <div class="w-full h-2 bg-warm/40 rounded-full overflow-hidden">
-            <div id="progressBar" class="progress-fill h-full bg-accent rounded-full" style="width: 0%"></div>
-          </div>
-          <p id="progressLabel" class="font-body text-xs text-ink/35 mt-2 pulse-text">Initializing&hellip;</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- SECTION: Result -->
-    <section id="sectionResult" class="hidden fade-up">
-      <div class="mb-6">
-        <h2 class="text-2xl mb-1" id="resultHeading">Your result</h2>
-        <p class="font-body font-light text-ink/50 text-sm" id="resultSubheading">Review, edit if needed, then export.</p>
-      </div>
-
-      <!-- Stats Bar -->
-      <div id="textStatsBar" class="flex flex-wrap items-center gap-4 sm:gap-6 mb-4 px-1">
-        <div class="flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"><path d="M4 7h16M4 12h10M4 17h12"/></svg>
-          <span class="font-body text-xs text-ink/40 uppercase tracking-wider">Words</span>
-          <span id="statWords" class="font-body text-sm font-semibold text-ink/70">&mdash;</span>
-        </div>
-        <div class="w-px h-4 bg-warm/60 hidden sm:block"></div>
-        <div class="flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
-          <span class="font-body text-xs text-ink/40 uppercase tracking-wider">Chars</span>
-          <span id="statChars" class="font-body text-sm font-semibold text-ink/70">&mdash;</span>
-        </div>
-        <div class="w-px h-4 bg-warm/60 hidden sm:block"></div>
-        <div class="flex items-center gap-2">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          <span class="font-body text-xs text-ink/40 uppercase tracking-wider">Read</span>
-          <span id="statReadTime" class="font-body text-sm font-semibold text-ink/70">&mdash;</span>
-        </div>
-      </div>
-
-      <!-- Transcription: editable textarea -->
-      <textarea id="resultTextarea" class="result-area w-full p-6 min-h-[350px] hidden" spellcheck="true"></textarea>
-      <!-- Template/Reviewer: rendered markdown -->
-      <div id="resultContent" class="result-prose p-8 min-h-[350px] hidden overflow-auto"></div>
-
-      <div class="flex flex-wrap gap-3 mt-6">
-        <button id="btnCopy" class="font-body font-medium text-sm border border-warm hover:border-accent text-ink/70 hover:text-accent px-6 py-2.5 rounded-xl transition flex items-center gap-2">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-          Copy
-        </button>
-        <button id="btnDownload" class="font-body font-medium text-sm border border-warm hover:border-accent text-ink/70 hover:text-accent px-6 py-2.5 rounded-xl transition flex items-center gap-2">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span id="downloadLabel">Download</span>
-        </button>
-        <button id="btnExportDocs" class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-6 py-2.5 rounded-xl transition shadow-lg shadow-accent/20 flex items-center gap-2">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          Export to Google Docs
-        </button>
-        <button id="btnStartOver" class="font-body font-medium text-sm text-ink/35 hover:text-ink/60 px-4 py-2.5 transition ml-auto">&larr; Start Over</button>
-      </div>
-    </section>
-
-    <!-- SECTION: Error -->
-    <section id="sectionError" class="hidden fade-up">
-      <div class="text-center py-16">
-        <div class="w-14 h-14 mx-auto mb-5 rounded-2xl bg-red-50 flex items-center justify-center">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9b2226" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
-        </div>
-        <h2 class="text-xl mb-2">Something went wrong</h2>
-        <p id="errorMessage" class="font-body font-light text-ink/50 max-w-md mx-auto mb-6"></p>
-        <div class="flex flex-col sm:flex-row items-center justify-center gap-3 mt-2">
-          <button id="btnRetry" class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-8 py-3 rounded-xl transition">
-            Try Again &mdash; Keep My Files
-          </button>
-          <button id="btnRetryFresh" class="font-body font-medium text-sm text-ink/40 hover:text-ink/60 px-6 py-3 rounded-xl transition">
-            Start Fresh
-          </button>
-        </div>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- ======== FOOTER ======== -->
-  <footer class="border-t border-warm/30 mt-20">
-    <div class="max-w-5xl mx-auto px-6 py-6 flex items-center justify-between">
-      <p class="font-body text-xs text-ink/25">&copy; 2026 Student Tools Hub &middot; Conversion Science</p>
-      <p class="font-body text-xs text-ink/25">Powered by Gemini AI</p>
     </div>
-  </footer>
+
+    <!-- ============ TUTOR ATTACH DRAWER (reuses modal shell) ============ -->
+    <div id="tutorAttachModal" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-head">
+          <div>
+            <h3 class="text-lg">Attach Knowledge Bay files</h3>
+            <p class="text-xs text-ink/45">Pick resources to ground this chat in your notes</p>
+          </div>
+          <button class="btn-nav" id="tutorAttachClose">Close</button>
+        </div>
+        <div class="modal-body" id="tutorAttachList"></div>
+        <div class="modal-foot">
+          <button class="btn-nav" id="tutorAttachCancel">Cancel</button>
+          <button id="tutorAttachConfirm" class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-5 py-2 rounded-lg transition">Save attachments</button>
+        </div>
+      </div>
+    </div>
 
   </div><!-- /appContent -->
 
@@ -405,6 +1029,11 @@
   (() => {
     'use strict';
 
+    // PDF.js worker
+    if (typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+
     // ─── Constants ──────────────────────────────────
     const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15 MB
     const ACCEPTED_TYPES = '.jpg,.jpeg,.png,.pdf,.docx,.txt';
@@ -415,25 +1044,25 @@
 
     const ZONE_CONFIGS = {
       transcribe: [
-        { role: 'pages', label: 'Handwritten Pages', required: true, hint: 'Images or scanned PDFs of your handwritten work' },
+        { role: 'pages', label: 'Handwritten Pages', required: true, hint: 'Images or scanned PDFs of your handwritten work', allowKb: false },
       ],
       template: [
-        { role: 'instructions', label: 'Assignment Instructions', required: true, hint: 'The assignment brief or question sheet' },
-        { role: 'rubric', label: 'Grading Rubric', required: false, hint: 'Marking criteria for your assignment' },
-        { role: 'sources', label: 'Source Materials', required: false, hint: 'Study guides, articles, or reference documents' },
+        { role: 'instructions', label: 'Assignment Instructions', required: true, hint: 'The assignment brief or question sheet', allowKb: true },
+        { role: 'rubric', label: 'Grading Rubric', required: false, hint: 'Marking criteria for your assignment', allowKb: true },
+        { role: 'sources', label: 'Source Materials', required: false, hint: 'Study guides, articles, or reference documents', allowKb: true },
       ],
       reviewer: [
-        { role: 'essay', label: 'Your Essay / Draft', required: true, hint: 'Your written work to be reviewed' },
-        { role: 'instructions', label: 'Assignment Instructions', required: true, hint: 'The assignment brief or question sheet' },
-        { role: 'rubric', label: 'Grading Rubric', required: false, hint: 'Marking criteria for your assignment' },
-        { role: 'sources', label: 'Source Materials', required: false, hint: 'Study guides, articles, or reference documents' },
+        { role: 'essay', label: 'Your Essay / Draft', required: true, hint: 'Your written work to be reviewed', allowKb: true },
+        { role: 'instructions', label: 'Assignment Instructions', required: true, hint: 'The assignment brief or question sheet', allowKb: true },
+        { role: 'rubric', label: 'Grading Rubric', required: false, hint: 'Marking criteria for your assignment', allowKb: true },
+        { role: 'sources', label: 'Source Materials', required: false, hint: 'Study guides, articles, or reference documents', allowKb: true },
       ],
     };
 
     const MODE_META = {
-      transcribe: { btnLabel: 'Transcribe', resultTitle: 'Your Transcribed Text', resultSub: 'Review, edit if needed, then export.', ext: 'txt' },
-      template:   { btnLabel: 'Generate Template', resultTitle: 'Your Essay Template', resultSub: 'A structured outline to guide your writing.', ext: 'md' },
-      reviewer:   { btnLabel: 'Review Essay', resultTitle: 'Your Essay Review', resultSub: 'Actionable feedback to strengthen your draft.', ext: 'md' },
+      transcribe: { btnLabel: 'Transcribe', title: 'Transcribe', sub: 'Upload handwritten pages to convert to digital text.', resultTitle: 'Your Transcribed Text', resultSub: 'Review, edit if needed, then export.', ext: 'txt' },
+      template:   { btnLabel: 'Generate Template', title: 'Template Generator', sub: 'Upload your assignment and get a structured outline.', resultTitle: 'Your Essay Template', resultSub: 'A structured outline to guide your writing.', ext: 'md' },
+      reviewer:   { btnLabel: 'Review Essay', title: 'Essay Reviewer', sub: 'Upload your draft and get actionable feedback.', resultTitle: 'Your Essay Review', resultSub: 'Actionable feedback to strengthen your draft.', ext: 'md' },
     };
 
     const LOADING_MESSAGES = {
@@ -456,6 +1085,10 @@
         { title: 'Generating your review\u2026', sub: 'Preparing constructive, actionable feedback.' },
       ],
     };
+
+    // Tutor persona — "chill upperclassman"
+    const TUTOR_SYSTEM_PROMPT =
+`You are a chill upperclassman tutor — the friend who already aced this course and is happy to walk someone through it. Warm, grounded, a little playful. Use clear analogies, break ideas into small chunks, and check in with short prompts like "does that click?" or "want me to zoom in on anything?". Avoid stiff academic tone and avoid cheerleader-style hype. Celebrate progress gently. When the student has attached reference material, treat it as the source of truth — quote small bits rather than invent facts. If context is missing, ask before guessing. Keep replies focused and tight.`;
 
     // ─── Encrypted Configuration (AES-256-GCM) ─────
     // The webhook URL, Google Client ID, and dev email are encrypted.
@@ -494,7 +1127,6 @@
       const authTag = b64ToBytes(ENCRYPTED_BLOB.authTag);
       const ciphertext = b64ToBytes(ENCRYPTED_BLOB.ciphertext);
 
-      // Combine ciphertext + authTag (Web Crypto expects them concatenated)
       const combined = new Uint8Array(ciphertext.length + authTag.length);
       combined.set(ciphertext);
       combined.set(authTag, ciphertext.length);
@@ -536,7 +1168,7 @@
     // ─── State ──────────────────────────────────────
     const state = {
       mode: null,
-      zones: {},          // { role: [{ id, file, name, type, mime, thumbUrl, size }] }
+      zones: {},
       userNotes: '',
       resourceUrl: '',
       resultText: '',
@@ -545,58 +1177,108 @@
       googleAccessToken: null,
       lightboxIndex: -1,
       lightboxRole: null,
+      currentRoute: 'home',
+      kbPickerRole: null,
+      kbPickerSelection: new Set(),
+      tutorTyping: false,
     };
 
     // ─── DOM Refs ───────────────────────────────────
+    const $ = (id) => document.getElementById(id);
     const dom = {
-      modeSelector:        document.getElementById('modeSelector'),
-      uploadZonesContainer:document.getElementById('uploadZonesContainer'),
-      actionArea:          document.getElementById('actionArea'),
-      fileCount:           document.getElementById('fileCount'),
-      btnClearAll:         document.getElementById('btnClearAll'),
-      btnAction:           document.getElementById('btnAction'),
+      uploadZonesContainer: $('uploadZonesContainer'),
+      actionArea:           $('actionArea'),
+      fileCount:            $('fileCount'),
+      btnClearAll:          $('btnClearAll'),
+      btnAction:            $('btnAction'),
 
-      sectionUpload:       document.getElementById('sectionUpload'),
-      sectionProcessing:   document.getElementById('sectionProcessing'),
-      sectionResult:       document.getElementById('sectionResult'),
-      sectionError:        document.getElementById('sectionError'),
+      sectionUpload:        $('sectionUpload'),
+      sectionProcessing:    $('sectionProcessing'),
+      sectionResult:        $('sectionResult'),
+      sectionError:         $('sectionError'),
 
-      processingTitle:     document.getElementById('processingTitle'),
-      processingSubtext:   document.getElementById('processingSubtext'),
-      progressBar:         document.getElementById('progressBar'),
-      progressLabel:       document.getElementById('progressLabel'),
+      processingTitle:      $('processingTitle'),
+      processingSubtext:    $('processingSubtext'),
+      progressBar:          $('progressBar'),
+      progressLabel:        $('progressLabel'),
 
-      resultHeading:       document.getElementById('resultHeading'),
-      resultSubheading:    document.getElementById('resultSubheading'),
-      resultTextarea:      document.getElementById('resultTextarea'),
-      resultContent:       document.getElementById('resultContent'),
-      downloadLabel:       document.getElementById('downloadLabel'),
-      statWords:           document.getElementById('statWords'),
-      statChars:           document.getElementById('statChars'),
-      statReadTime:        document.getElementById('statReadTime'),
+      resultHeading:        $('resultHeading'),
+      resultSubheading:     $('resultSubheading'),
+      resultTextarea:       $('resultTextarea'),
+      resultContent:        $('resultContent'),
+      downloadLabel:        $('downloadLabel'),
+      statWords:            $('statWords'),
+      statChars:            $('statChars'),
+      statReadTime:         $('statReadTime'),
 
-      btnCopy:             document.getElementById('btnCopy'),
-      btnDownload:         document.getElementById('btnDownload'),
-      btnExportDocs:       document.getElementById('btnExportDocs'),
-      btnStartOver:        document.getElementById('btnStartOver'),
-      btnRetry:            document.getElementById('btnRetry'),
-      btnRetryFresh:       document.getElementById('btnRetryFresh'),
+      btnCopy:              $('btnCopy'),
+      btnDownload:          $('btnDownload'),
+      btnExportDocs:        $('btnExportDocs'),
+      btnStartOver:         $('btnStartOver'),
+      btnRetry:             $('btnRetry'),
+      btnRetryFresh:        $('btnRetryFresh'),
 
-      errorMessage:        document.getElementById('errorMessage'),
-      toast:               document.getElementById('toast'),
+      errorMessage:         $('errorMessage'),
+      toast:                $('toast'),
 
-      lightbox:            document.getElementById('lightbox'),
-      lightboxImg:         document.getElementById('lightboxImg'),
-      lightboxLabel:       document.getElementById('lightboxLabel'),
-      lightboxClose:       document.getElementById('lightboxClose'),
-      lightboxPrev:        document.getElementById('lightboxPrev'),
-      lightboxNext:        document.getElementById('lightboxNext'),
+      lightbox:             $('lightbox'),
+      lightboxImg:          $('lightboxImg'),
+      lightboxLabel:        $('lightboxLabel'),
+      lightboxClose:        $('lightboxClose'),
+      lightboxPrev:         $('lightboxPrev'),
+      lightboxNext:         $('lightboxNext'),
+
+      // Nav / shell
+      sidebar:              $('sidebar'),
+      sidebarBackdrop:      $('sidebarBackdrop'),
+      btnHamburger:         $('btnHamburger'),
+      viewHome:             $('viewHome'),
+      viewTool:             $('viewTool'),
+      viewKnowledge:        $('viewKnowledge'),
+      viewTutor:            $('viewTutor'),
+      toolTitle:            $('toolTitle'),
+      toolSubtitle:         $('toolSubtitle'),
+
+      // KB
+      kbDropzone:           $('kbDropzone'),
+      kbFileInput:          $('kbFileInput'),
+      kbGrid:               $('kbGrid'),
+      kbEmpty:              $('kbEmpty'),
+      kbCount:              $('kbCount'),
+      kbExtractingNote:     $('kbExtractingNote'),
+      kbExtractingLabel:    $('kbExtractingLabel'),
+
+      // KB picker modal
+      kbPickerModal:        $('kbPickerModal'),
+      kbPickerList:         $('kbPickerList'),
+      kbPickerConfirm:      $('kbPickerConfirm'),
+      kbPickerClose:        $('kbPickerClose'),
+      kbPickerCancel:       $('kbPickerCancel'),
+      kbPickerSubtitle:     $('kbPickerSubtitle'),
+
+      // Tutor
+      tutorChatList:        $('tutorChatList'),
+      btnNewChat:           $('btnNewChat'),
+      tutorChatTitle:       $('tutorChatTitle'),
+      tutorAttachedSummary: $('tutorAttachedSummary'),
+      tutorMessages:        $('tutorMessages'),
+      tutorInput:           $('tutorInput'),
+      btnTutorSend:         $('btnTutorSend'),
+      btnTutorAttach:       $('btnTutorAttach'),
+      btnRenameChat:        $('btnRenameChat'),
+
+      // Tutor attach modal
+      tutorAttachModal:     $('tutorAttachModal'),
+      tutorAttachList:      $('tutorAttachList'),
+      tutorAttachConfirm:   $('tutorAttachConfirm'),
+      tutorAttachClose:     $('tutorAttachClose'),
+      tutorAttachCancel:    $('tutorAttachCancel'),
     };
 
     // ─── Utilities ──────────────────────────────────
     const generateId = () => `f_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
-    function showSection(id) {
+    function showToolSection(id) {
       ['sectionUpload', 'sectionProcessing', 'sectionResult', 'sectionError'].forEach(s => {
         dom[s].classList.toggle('hidden', s !== id);
       });
@@ -612,6 +1294,11 @@
       if (bytes < 1024) return bytes + ' B';
       if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
       return (bytes / 1048576).toFixed(1) + ' MB';
+    }
+
+    function formatDate(ts) {
+      const d = new Date(ts);
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     }
 
     function getFileType(file) {
@@ -647,6 +1334,10 @@
       try { new URL(url); return url; } catch { return ''; }
     }
 
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+    }
+
     // ─── Text Statistics ────────────────────────────
     function renderTextStats(text) {
       const t = text.trim();
@@ -680,7 +1371,7 @@
     function handleAppError(userMessage, technicalDetail) {
       console.error('[STH] Error:', technicalDetail);
       dom.errorMessage.textContent = userMessage;
-      showSection('sectionError');
+      showToolSection('sectionError');
       reportErrorToDev({
         userMessage,
         technicalDetail: typeof technicalDetail === 'object'
@@ -689,26 +1380,337 @@
       });
     }
 
+    // ─── PDF text extraction ─────────────────────────
+    async function extractPdfText(file) {
+      if (typeof pdfjsLib === 'undefined') throw new Error('PDF support not available');
+      const buf = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      const parts = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        parts.push(content.items.map(it => it.str).join(' '));
+      }
+      return parts.join('\n\n').trim();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // ─── KNOWLEDGE BAY STORE (localForage) ─────────────────────
+    // ═══════════════════════════════════════════════════════════
+    const kb = {
+      store: null,
+      cache: [],
+
+      async init() {
+        this.store = localforage.createInstance({ name: 'sth_knowledge_bay', storeName: 'items' });
+        this.cache = (await this.store.getItem('knowledge_bay')) || [];
+      },
+
+      list() {
+        return [...this.cache].sort((a, b) => b.timestamp - a.timestamp);
+      },
+
+      async get(id) {
+        return this.cache.find(i => i.id === id);
+      },
+
+      async add(file) {
+        if (file.size > MAX_FILE_SIZE) throw new Error(`${file.name} exceeds the 15 MB limit`);
+        const ft = getFileType(file);
+        if (!ft) throw new Error(`${file.name} is not a supported file type`);
+
+        const entry = {
+          id: generateId(),
+          name: file.name,
+          type: ft,
+          mime: file.type,
+          size: file.size,
+          timestamp: Date.now(),
+          content: '',
+        };
+
+        if (ft === 'image') {
+          const compressed = await imageCompression(file, CONFIG.compression);
+          entry.content = await fileToBase64(compressed);
+          entry.size = compressed.size;
+          entry.mime = 'image/jpeg';
+        } else if (ft === 'pdf') {
+          entry.content = await extractPdfText(file);
+          if (!entry.content) {
+            throw new Error(`${file.name} had no extractable text (it may be a scanned PDF — try Transcribe instead)`);
+          }
+        } else if (ft === 'docx') {
+          if (typeof mammoth === 'undefined') throw new Error('DOCX support not available');
+          const buf = await file.arrayBuffer();
+          const result = await mammoth.extractRawText({ arrayBuffer: buf });
+          entry.content = result.value;
+        } else if (ft === 'txt') {
+          entry.content = await fileToText(file);
+        }
+
+        this.cache.push(entry);
+        await this.store.setItem('knowledge_bay', this.cache);
+        return entry;
+      },
+
+      async remove(id) {
+        this.cache = this.cache.filter(i => i.id !== id);
+        await this.store.setItem('knowledge_bay', this.cache);
+      },
+
+      imageDataUrl(entry) {
+        return entry.type === 'image'
+          ? `data:${entry.mime || 'image/jpeg'};base64,${entry.content}`
+          : null;
+      },
+    };
+
+    async function kbHandleFiles(fileList) {
+      const files = Array.from(fileList);
+      if (!files.length) return;
+
+      dom.kbExtractingNote.classList.remove('hidden');
+
+      let added = 0, failed = 0;
+      for (const file of files) {
+        dom.kbExtractingLabel.textContent = `Processing ${file.name}\u2026`;
+        try {
+          await kb.add(file);
+          added++;
+        } catch (e) {
+          failed++;
+          showToast(e.message || `Failed to add ${file.name}`, 'error');
+        }
+      }
+
+      dom.kbExtractingNote.classList.add('hidden');
+      if (added) showToast(`${added} item${added > 1 ? 's' : ''} saved to Knowledge Bay`);
+      renderKbGrid();
+    }
+
+    function renderKbGrid() {
+      const items = kb.list();
+      dom.kbCount.textContent = items.length
+        ? `${items.length} item${items.length > 1 ? 's' : ''}`
+        : '';
+      dom.kbEmpty.classList.toggle('hidden', items.length > 0);
+      dom.kbGrid.innerHTML = '';
+
+      for (const item of items) {
+        const card = document.createElement('div');
+        card.className = 'kb-card';
+        const thumb = item.type === 'image'
+          ? `<img src="${kb.imageDataUrl(item)}" alt="${escapeHtml(item.name)}" />`
+          : `<span class="ext-badge">${item.type.toUpperCase()}</span>`;
+
+        card.innerHTML = `
+          <div class="kb-thumb">${thumb}</div>
+          <div class="kb-name">${escapeHtml(item.name)}</div>
+          <div class="kb-meta">${formatSize(item.size)} &middot; ${formatDate(item.timestamp)}</div>
+          <button class="kb-delete" data-id="${item.id}" title="Remove">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+          </button>
+        `;
+        dom.kbGrid.appendChild(card);
+      }
+
+      dom.kbGrid.querySelectorAll('.kb-delete').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.dataset.id;
+          const item = await kb.get(id);
+          if (!item) return;
+          if (!confirm(`Remove "${item.name}" from your Knowledge Bay?`)) return;
+          await kb.remove(id);
+          renderKbGrid();
+          showToast('Removed from Knowledge Bay');
+        });
+      });
+    }
+
+    // Wire KB dropzone
+    function wireKbDropzone() {
+      dom.kbDropzone.addEventListener('click', () => dom.kbFileInput.click());
+      dom.kbFileInput.addEventListener('change', e => {
+        kbHandleFiles(e.target.files);
+        dom.kbFileInput.value = '';
+      });
+      ['dragenter', 'dragover'].forEach(evt =>
+        dom.kbDropzone.addEventListener(evt, e => { e.preventDefault(); dom.kbDropzone.classList.add('dragover'); })
+      );
+      ['dragleave', 'drop'].forEach(evt =>
+        dom.kbDropzone.addEventListener(evt, e => { e.preventDefault(); dom.kbDropzone.classList.remove('dragover'); })
+      );
+      dom.kbDropzone.addEventListener('drop', e => kbHandleFiles(e.dataTransfer.files));
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // ─── KB PICKER (for Template / Reviewer zones) ─────────────
+    // ═══════════════════════════════════════════════════════════
+    function openKbPicker(role) {
+      state.kbPickerRole = role;
+      state.kbPickerSelection = new Set();
+      const cfg = (ZONE_CONFIGS[state.mode] || []).find(z => z.role === role);
+      dom.kbPickerSubtitle.textContent = cfg ? `For "${cfg.label}"` : 'Choose resources';
+      renderKbPickerList();
+      dom.kbPickerConfirm.disabled = true;
+      dom.kbPickerModal.classList.add('open');
+    }
+
+    function closeKbPicker() {
+      dom.kbPickerModal.classList.remove('open');
+      state.kbPickerRole = null;
+    }
+
+    function renderKbPickerList() {
+      const items = kb.list();
+      dom.kbPickerList.innerHTML = '';
+      if (!items.length) {
+        dom.kbPickerList.innerHTML = '<p class="text-center text-ink/40 py-8 font-body text-sm">Your Knowledge Bay is empty. Add files from the Knowledge Bay tab first.</p>';
+        return;
+      }
+      for (const item of items) {
+        const row = document.createElement('div');
+        row.className = 'kb-pick-row';
+        row.dataset.id = item.id;
+        row.innerHTML = `
+          <div class="kb-pick-check">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium text-ink/80 truncate">${escapeHtml(item.name)}</div>
+            <div class="text-xs text-ink/40">${item.type.toUpperCase()} &middot; ${formatSize(item.size)}</div>
+          </div>
+        `;
+        row.addEventListener('click', () => {
+          if (state.kbPickerSelection.has(item.id)) {
+            state.kbPickerSelection.delete(item.id);
+            row.classList.remove('selected');
+          } else {
+            state.kbPickerSelection.add(item.id);
+            row.classList.add('selected');
+          }
+          dom.kbPickerConfirm.disabled = state.kbPickerSelection.size === 0;
+        });
+        dom.kbPickerList.appendChild(row);
+      }
+    }
+
+    async function confirmKbPicker() {
+      const role = state.kbPickerRole;
+      if (!role) return closeKbPicker();
+      if (!state.zones[role]) state.zones[role] = [];
+
+      for (const id of state.kbPickerSelection) {
+        const entry = await kb.get(id);
+        if (!entry) continue;
+        // Avoid duplicates
+        if (state.zones[role].some(f => f.kbId === entry.id)) continue;
+        state.zones[role].push({
+          id: generateId(),
+          name: entry.name,
+          type: entry.type,
+          mime: entry.mime,
+          size: entry.size,
+          fromKb: true,
+          kbId: entry.id,
+          kbContent: entry.content,
+          thumbUrl: entry.type === 'image' ? kb.imageDataUrl(entry) : null,
+        });
+      }
+
+      closeKbPicker();
+      renderFileGrid(role);
+      updateActionState();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // ─── ROUTER ────────────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════
+    const ROUTES = {
+      home:       { view: 'viewHome' },
+      transcribe: { view: 'viewTool', mode: 'transcribe' },
+      template:   { view: 'viewTool', mode: 'template' },
+      reviewer:   { view: 'viewTool', mode: 'reviewer' },
+      knowledge:  { view: 'viewKnowledge' },
+      tutor:      { view: 'viewTutor' },
+    };
+
+    function parseHash() {
+      const raw = (location.hash || '#home').slice(1);
+      const [name, ...rest] = raw.split('/');
+      const arg = rest.join('/') || null;
+      return { name: ROUTES[name] ? name : 'home', arg };
+    }
+
+    function updateSidebarActive(name) {
+      document.querySelectorAll('.nav-link').forEach(a => {
+        a.classList.toggle('active', a.dataset.route === name);
+      });
+    }
+
+    async function navigate() {
+      const { name, arg } = parseHash();
+      const cfg = ROUTES[name];
+      state.currentRoute = name;
+
+      // Show only this view
+      ['viewHome', 'viewTool', 'viewKnowledge', 'viewTutor'].forEach(v => {
+        dom[v].classList.toggle('active', v === cfg.view);
+      });
+
+      updateSidebarActive(name);
+
+      if (cfg.mode) {
+        selectMode(cfg.mode);
+      }
+
+      if (name === 'knowledge') {
+        renderKbGrid();
+      }
+
+      if (name === 'tutor') {
+        tutor.openChat(arg);
+      }
+
+      closeSidebar();
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+
+    function openSidebar() {
+      dom.sidebar.classList.add('open');
+      dom.sidebarBackdrop.classList.add('open');
+    }
+    function closeSidebar() {
+      dom.sidebar.classList.remove('open');
+      dom.sidebarBackdrop.classList.remove('open');
+    }
+
     // ─── Mode Selection ─────────────────────────────
     function selectMode(mode) {
-      if (state.mode === mode) return;
-
-      // Clear previous uploads
-      Object.values(state.zones).forEach(files =>
-        files.forEach(f => f.thumbUrl && URL.revokeObjectURL(f.thumbUrl))
-      );
-      state.zones = {};
-      state.userNotes = '';
-      state.resourceUrl = '';
+      const switched = state.mode !== mode;
+      if (switched) {
+        // Clear previous uploads
+        Object.values(state.zones).forEach(files =>
+          files.forEach(f => {
+            if (f.thumbUrl && !f.fromKb) URL.revokeObjectURL(f.thumbUrl);
+          })
+        );
+        state.zones = {};
+        state.userNotes = '';
+        state.resourceUrl = '';
+        state.resultText = '';
+        state.resultMode = null;
+      }
 
       state.mode = mode;
 
-      // Update card styles
-      document.querySelectorAll('.mode-card').forEach(card => {
-        card.classList.toggle('active', card.dataset.mode === mode);
-      });
+      // Update view chrome
+      const meta = MODE_META[mode];
+      dom.toolTitle.textContent = meta.title;
+      dom.toolSubtitle.textContent = meta.sub;
 
       renderUploadZones();
+      showToolSection('sectionUpload');
       updateActionState();
     }
 
@@ -743,16 +1745,19 @@
           </div>`;
         container.appendChild(extras);
 
-        // Bind inputs
         const urlIn = extras.querySelector('#urlInput');
         const notesIn = extras.querySelector('#notesInput');
+        urlIn.value = state.resourceUrl;
+        notesIn.value = state.userNotes;
         urlIn.addEventListener('input', () => { state.resourceUrl = urlIn.value; });
         notesIn.addEventListener('input', () => { state.userNotes = notesIn.value; });
       }
 
-      // Show action area
       dom.actionArea.classList.remove('hidden');
       dom.actionArea.classList.add('flex');
+
+      // Re-render existing file grids (retry path)
+      Object.keys(state.zones).forEach(role => renderFileGrid(role));
     }
 
     function createUploadZone(cfg) {
@@ -764,8 +1769,18 @@
         ? '<span class="text-red-500 text-xs ml-1">*</span>'
         : '<span class="text-ink/30 text-xs font-normal ml-1">(optional)</span>';
 
+      const kbPickBtn = cfg.allowKb
+        ? `<button type="button" class="kb-quick-pick" data-pick-kb="${cfg.role}">
+             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px;margin-right:4px"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+             From Knowledge Bay
+           </button>`
+        : '';
+
       wrapper.innerHTML = `
-        <label class="block text-sm font-body font-semibold text-ink/70 mb-2">${cfg.label}${reqBadge}</label>
+        <div class="flex items-center flex-wrap mb-2">
+          <label class="block text-sm font-body font-semibold text-ink/70">${cfg.label}${reqBadge}</label>
+          ${kbPickBtn}
+        </div>
         <div class="dropzone border-2 border-dashed border-warm rounded-xl p-6 text-center cursor-pointer hover:border-accent/50 transition-all">
           <input type="file" accept="${ACCEPTED_TYPES}" multiple class="hidden" />
           <div class="pointer-events-none">
@@ -778,7 +1793,6 @@
         </div>
         <div class="file-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2"></div>`;
 
-      // Wire events
       const dz = wrapper.querySelector('.dropzone');
       const input = wrapper.querySelector('input[type="file"]');
 
@@ -793,6 +1807,10 @@
         dz.addEventListener(evt, e => { e.preventDefault(); dz.classList.remove('dragover'); })
       );
       dz.addEventListener('drop', e => handleFilesForZone(cfg.role, e.dataTransfer.files));
+
+      // KB picker button
+      const pickBtn = wrapper.querySelector('[data-pick-kb]');
+      if (pickBtn) pickBtn.addEventListener('click', () => openKbPicker(cfg.role));
 
       return wrapper;
     }
@@ -839,13 +1857,12 @@
 
         if (f.type === 'image') {
           card.className = 'file-card relative rounded-lg overflow-hidden border border-warm/40 bg-white aspect-[3/4] group cursor-pointer';
+          const kbFlag = f.fromKb ? '<span class="absolute bottom-1.5 left-1.5 bg-accent/90 text-white text-[9px] font-body font-semibold px-1.5 py-0.5 rounded-md shadow-sm">KB</span>' : '';
           card.innerHTML = `
-            <img src="${f.thumbUrl}" alt="${f.name}" class="w-full h-full object-cover" />
+            <img src="${f.thumbUrl}" alt="${escapeHtml(f.name)}" class="w-full h-full object-cover" />
             <span class="absolute top-1.5 left-1.5 bg-white/90 text-ink text-[10px] font-body font-semibold px-1.5 py-0.5 rounded-md shadow-sm">${idx + 1}</span>
             <button class="rm-btn absolute top-1.5 right-1.5 w-5 h-5 bg-white/90 hover:bg-red-500 hover:text-white rounded-full flex items-center justify-center text-ink/50 opacity-0 group-hover:opacity-100 transition text-xs font-bold shadow-sm" data-id="${f.id}" data-role="${role}">&times;</button>
-            <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-ink/40 to-transparent p-1.5 text-center opacity-0 group-hover:opacity-100 transition pointer-events-none">
-              <span class="text-white text-[9px] font-body">Click to preview</span>
-            </div>`;
+            ${kbFlag}`;
           card.addEventListener('click', e => {
             if (!e.target.closest('.rm-btn')) openLightbox(role, idx);
           });
@@ -854,12 +1871,13 @@
           const ext = f.name.split('.').pop().toUpperCase();
           const colorMap = { PDF: 'text-red-600 bg-red-50', DOCX: 'text-blue-600 bg-blue-50', DOC: 'text-blue-600 bg-blue-50', TXT: 'text-ink/50 bg-mist' };
           const clr = colorMap[ext] || 'text-ink/50 bg-mist';
+          const kbFlag = f.fromKb ? ' <span class="text-[9px] text-accent font-semibold">· KB</span>' : '';
           card.innerHTML = `
             <div class="w-9 h-9 rounded-lg ${clr} flex items-center justify-center flex-shrink-0">
               <span class="text-[9px] font-bold">${ext}</span>
             </div>
             <div class="min-w-0 flex-1">
-              <p class="text-xs font-medium text-ink/70 truncate">${f.name}</p>
+              <p class="text-xs font-medium text-ink/70 truncate">${escapeHtml(f.name)}${kbFlag}</p>
               <p class="text-[10px] text-ink/30">${formatSize(f.size)}</p>
             </div>
             <button class="rm-btn w-5 h-5 rounded-full bg-mist hover:bg-red-500 hover:text-white flex items-center justify-center text-ink/30 transition text-xs font-bold flex-shrink-0" data-id="${f.id}" data-role="${role}">&times;</button>`;
@@ -868,14 +1886,13 @@
         grid.appendChild(card);
       });
 
-      // Remove handlers
       grid.querySelectorAll('.rm-btn').forEach(btn => {
         btn.addEventListener('click', e => {
           e.stopPropagation();
           const id = btn.dataset.id;
           const r = btn.dataset.role;
           const obj = (state.zones[r] || []).find(x => x.id === id);
-          if (obj && obj.thumbUrl) URL.revokeObjectURL(obj.thumbUrl);
+          if (obj && obj.thumbUrl && !obj.fromKb) URL.revokeObjectURL(obj.thumbUrl);
           state.zones[r] = (state.zones[r] || []).filter(x => x.id !== id);
           renderFileGrid(r);
           updateActionState();
@@ -958,6 +1975,14 @@
 
     // ─── File Processing ────────────────────────────
     async function processFileObj(fileObj) {
+      // Knowledge-Bay-sourced files already have extracted content
+      if (fileObj.fromKb) {
+        if (fileObj.type === 'image') {
+          return { role: fileObj.role, type: 'inline', base64: fileObj.kbContent, mime_type: fileObj.mime || 'image/jpeg', name: fileObj.name };
+        }
+        return { role: fileObj.role, type: 'text', content: fileObj.kbContent, name: fileObj.name };
+      }
+
       if (fileObj.type === 'image') {
         try {
           const compressed = await imageCompression(fileObj.file, CONFIG.compression);
@@ -1050,12 +2075,11 @@
     async function runProcess() {
       if (!state.mode) return;
 
-      showSection('sectionProcessing');
+      showToolSection('sectionProcessing');
       startLoadingMessages();
       updateProgress(0, 'Preparing your files\u2026');
 
       try {
-        // 1. Process all files into documents array
         const documents = [];
         const allFiles = [];
         for (const [role, files] of Object.entries(state.zones)) {
@@ -1074,7 +2098,6 @@
         const url = normalizeUrl(state.resourceUrl);
 
         if (state.mode === 'transcribe') {
-          // Batch for transcription
           const batches = [];
           for (let i = 0; i < documents.length; i += BATCH_SIZE) batches.push(documents.slice(i, i + BATCH_SIZE));
 
@@ -1098,7 +2121,6 @@
           }
           resultText = parts.join('\n\n');
         } else {
-          // Single request for template/reviewer
           updateProgress(50, 'AI is analyzing your documents\u2026');
           const data = await sendToWebhook({
             mode: state.mode,
@@ -1117,7 +2139,7 @@
         state.resultText = resultText;
         state.resultMode = state.mode;
         displayResult();
-        showSection('sectionResult');
+        showToolSection('sectionResult');
         showToast('Processing complete!');
 
       } catch (error) {
@@ -1245,32 +2267,24 @@
     }
 
     // ─── Retry (keeps files intact) ─────────────────
-    // Called by the error screen's "Try Again" button.
-    // Goes back to the upload view with all previously uploaded files
-    // and the selected mode still in place — no re-uploading needed.
     function retryFromError() {
-      // Re-render zones so the DOM is restored (it may have been in a
-      // different section), then re-populate each file grid from state.
       renderUploadZones();
 
-      // Restore URL and notes inputs if present
       const urlInput = document.getElementById('urlInput');
       const notesInput = document.getElementById('notesInput');
       if (urlInput) urlInput.value = state.resourceUrl;
       if (notesInput) notesInput.value = state.userNotes;
 
-      // Re-draw file cards for every zone that has files
       Object.keys(state.zones).forEach(role => renderFileGrid(role));
 
       updateActionState();
-      showSection('sectionUpload');
+      showToolSection('sectionUpload');
     }
 
-    // ─── Full Reset (clears everything) ─────────────
-    // Called by "Clear All" and the result screen's "Start Over" button.
+    // ─── Full Reset (clears everything in the current tool) ─
     function resetApp() {
       Object.values(state.zones).forEach(files =>
-        files.forEach(f => f.thumbUrl && URL.revokeObjectURL(f.thumbUrl))
+        files.forEach(f => { if (f.thumbUrl && !f.fromKb) URL.revokeObjectURL(f.thumbUrl); })
       );
       state.zones = {};
       state.resultText = '';
@@ -1284,15 +2298,343 @@
 
       if (state.mode) renderUploadZones();
       updateActionState();
-      showSection('sectionUpload');
+      showToolSection('sectionUpload');
     }
 
-    // ─── Event Bindings ─────────────────────────────
-    dom.modeSelector.addEventListener('click', e => {
-      const card = e.target.closest('.mode-card');
-      if (card) selectMode(card.dataset.mode);
+    // ═══════════════════════════════════════════════════════════
+    // ─── TUTOR MODULE ──────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════
+    const tutor = {
+      store: null,
+      chats: [],
+      currentId: null,
+
+      async init() {
+        this.store = localforage.createInstance({ name: 'sth_tutor', storeName: 'chats' });
+        this.chats = (await this.store.getItem('tutor_chats')) || [];
+        this.renderSidebarList();
+      },
+
+      async save() {
+        await this.store.setItem('tutor_chats', this.chats);
+      },
+
+      current() {
+        return this.chats.find(c => c.id === this.currentId) || null;
+      },
+
+      async newChat() {
+        const c = {
+          id: generateId(),
+          title: 'New chat',
+          messages: [],
+          attachedKnowledgeIds: [],
+          timestamp: Date.now(),
+          updated: Date.now(),
+        };
+        this.chats.unshift(c);
+        this.currentId = c.id;
+        await this.save();
+        this.renderSidebarList();
+        location.hash = `#tutor/${c.id}`;
+        // navigate() will call openChat which calls renderChat
+      },
+
+      openChat(arg) {
+        if (arg && this.chats.find(c => c.id === arg)) {
+          this.currentId = arg;
+        } else if (this.chats.length > 0) {
+          this.currentId = this.chats[0].id;
+          if (!arg) history.replaceState(null, '', `#tutor/${this.currentId}`);
+        } else {
+          // No chats exist — create one
+          this.newChat();
+          return;
+        }
+        this.renderChat();
+        this.renderSidebarList();
+      },
+
+      async deleteChat(id) {
+        const chat = this.chats.find(c => c.id === id);
+        if (!chat) return;
+        if (!confirm(`Delete chat "${chat.title}"?`)) return;
+        this.chats = this.chats.filter(c => c.id !== id);
+        await this.save();
+        this.renderSidebarList();
+        if (this.currentId === id) {
+          this.currentId = null;
+          if (this.chats.length) {
+            location.hash = `#tutor/${this.chats[0].id}`;
+          } else {
+            // Clear tutor view
+            this.renderChat();
+          }
+        }
+      },
+
+      async renameChat() {
+        const c = this.current();
+        if (!c) return;
+        const newTitle = prompt('Rename chat:', c.title);
+        if (newTitle === null) return;
+        c.title = newTitle.trim() || 'Untitled chat';
+        c.updated = Date.now();
+        await this.save();
+        this.renderSidebarList();
+        this.renderChat();
+      },
+
+      async setAttachments(ids) {
+        const c = this.current();
+        if (!c) return;
+        c.attachedKnowledgeIds = ids;
+        await this.save();
+        this.renderChat();
+      },
+
+      async send(text) {
+        const c = this.current();
+        if (!c || !text.trim() || state.tutorTyping) return;
+
+        c.messages.push({ role: 'user', text: text.trim() });
+        c.updated = Date.now();
+        if (c.title === 'New chat') {
+          c.title = text.trim().slice(0, 60) + (text.length > 60 ? '…' : '');
+        }
+        await this.save();
+        this.renderChat();
+        this.renderSidebarList();
+
+        // Build attachedContext from text-based KB items
+        const attachedContext = [];
+        for (const kid of (c.attachedKnowledgeIds || [])) {
+          const item = await kb.get(kid);
+          if (!item) continue;
+          if (item.type === 'image') continue; // images not forwarded to tutor context
+          attachedContext.push({ name: item.name, content: item.content });
+        }
+
+        const payload = {
+          mode: 'tutor',
+          systemPrompt: TUTOR_SYSTEM_PROMPT,
+          attachedContext,
+          messages: c.messages.map(m => ({ role: m.role, text: m.text })),
+          chatId: c.id,
+          chatTitle: c.title,
+        };
+
+        try {
+          state.tutorTyping = true;
+          this.renderChat();
+          this.updateSendButton();
+
+          const data = await sendToWebhook(payload);
+          const reply = (data && (data.text || data.result)) || '';
+          c.messages.push({ role: 'model', text: reply || '_(No response text returned.)_' });
+          c.updated = Date.now();
+          await this.save();
+        } catch (err) {
+          console.error('[STH] Tutor send failed:', err);
+          c.messages.push({
+            role: 'model',
+            text: '_Oof, I couldn\'t reach the server just now. Give it another shot in a moment — your message is saved._'
+          });
+          await this.save();
+        } finally {
+          state.tutorTyping = false;
+          this.renderChat();
+          this.updateSendButton();
+          this.renderSidebarList();
+        }
+      },
+
+      updateSendButton() {
+        const hasText = dom.tutorInput.value.trim().length > 0;
+        dom.btnTutorSend.disabled = !hasText || state.tutorTyping;
+        dom.btnTutorSend.textContent = state.tutorTyping ? 'Thinking…' : 'Send';
+      },
+
+      renderSidebarList() {
+        const items = [...this.chats].sort((a, b) => b.updated - a.updated);
+        dom.tutorChatList.innerHTML = '';
+        if (!items.length) {
+          dom.tutorChatList.innerHTML = '<p class="chat-empty">No chats yet.</p>';
+          return;
+        }
+        for (const c of items) {
+          const row = document.createElement('div');
+          row.className = 'chat-item' + (c.id === this.currentId ? ' active' : '');
+          row.innerHTML = `
+            <span class="chat-title">${escapeHtml(c.title)}</span>
+            <span class="chat-delete" data-del="${c.id}" title="Delete">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+            </span>
+          `;
+          row.addEventListener('click', (e) => {
+            if (e.target.closest('[data-del]')) return;
+            location.hash = `#tutor/${c.id}`;
+          });
+          const delBtn = row.querySelector('[data-del]');
+          delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.deleteChat(c.id);
+          });
+          dom.tutorChatList.appendChild(row);
+        }
+      },
+
+      renderChat() {
+        const c = this.current();
+
+        if (!c) {
+          dom.tutorChatTitle.textContent = 'No chat selected';
+          dom.tutorAttachedSummary.textContent = '—';
+          dom.tutorMessages.innerHTML = `
+            <div class="tutor-empty">
+              <h4>No chat open</h4>
+              <p>Start a new chat from the sidebar and we can dig in.</p>
+            </div>`;
+          dom.tutorInput.disabled = true;
+          dom.btnTutorSend.disabled = true;
+          dom.btnTutorAttach.disabled = true;
+          dom.btnRenameChat.disabled = true;
+          return;
+        }
+
+        dom.tutorInput.disabled = false;
+        dom.btnTutorAttach.disabled = false;
+        dom.btnRenameChat.disabled = false;
+
+        dom.tutorChatTitle.textContent = c.title;
+
+        const n = (c.attachedKnowledgeIds || []).length;
+        dom.tutorAttachedSummary.innerHTML = n
+          ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg> ${n} attached`
+          : 'No resources attached';
+
+        dom.tutorMessages.innerHTML = '';
+
+        if (!c.messages.length && !state.tutorTyping) {
+          dom.tutorMessages.innerHTML = `
+            <div class="tutor-empty">
+              <h4>Hey — what are we tackling today?</h4>
+              <p>Drop me a question, or attach some notes from your Knowledge Bay first so I can ground my answers in your material.</p>
+            </div>`;
+        } else {
+          for (const msg of c.messages) {
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble ${msg.role}`;
+            if (msg.role === 'model') {
+              try {
+                bubble.innerHTML = marked.parse(msg.text || '');
+              } catch {
+                bubble.textContent = msg.text || '';
+              }
+            } else {
+              bubble.textContent = msg.text || '';
+            }
+            dom.tutorMessages.appendChild(bubble);
+          }
+          if (state.tutorTyping) {
+            const typing = document.createElement('div');
+            typing.className = 'chat-bubble typing';
+            typing.innerHTML = '<span></span><span></span><span></span>';
+            dom.tutorMessages.appendChild(typing);
+          }
+        }
+
+        // Scroll to bottom
+        requestAnimationFrame(() => {
+          dom.tutorMessages.scrollTop = dom.tutorMessages.scrollHeight;
+        });
+
+        this.updateSendButton();
+      },
+    };
+
+    // ─── Tutor attach modal ─────────────────────────
+    let tutorAttachSelection = new Set();
+
+    function openTutorAttach() {
+      const c = tutor.current();
+      if (!c) return;
+      tutorAttachSelection = new Set(c.attachedKnowledgeIds || []);
+      renderTutorAttachList();
+      dom.tutorAttachModal.classList.add('open');
+    }
+
+    function closeTutorAttach() {
+      dom.tutorAttachModal.classList.remove('open');
+    }
+
+    function renderTutorAttachList() {
+      const items = kb.list();
+      dom.tutorAttachList.innerHTML = '';
+      if (!items.length) {
+        dom.tutorAttachList.innerHTML = '<p class="text-center text-ink/40 py-8 font-body text-sm">Your Knowledge Bay is empty. Add notes from the Knowledge Bay tab first, then come back.</p>';
+        return;
+      }
+      for (const item of items) {
+        const row = document.createElement('div');
+        const isImage = item.type === 'image';
+        row.className = 'kb-pick-row' + (isImage ? ' disabled' : '') + (tutorAttachSelection.has(item.id) ? ' selected' : '');
+        row.dataset.id = item.id;
+        row.innerHTML = `
+          <div class="kb-pick-check">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium text-ink/80 truncate">${escapeHtml(item.name)}</div>
+            <div class="text-xs text-ink/40">${item.type.toUpperCase()} &middot; ${formatSize(item.size)}${isImage ? ' &middot; images not yet supported for tutor' : ''}</div>
+          </div>
+        `;
+        if (!isImage) {
+          row.addEventListener('click', () => {
+            if (tutorAttachSelection.has(item.id)) {
+              tutorAttachSelection.delete(item.id);
+              row.classList.remove('selected');
+            } else {
+              tutorAttachSelection.add(item.id);
+              row.classList.add('selected');
+            }
+          });
+        }
+        dom.tutorAttachList.appendChild(row);
+      }
+    }
+
+    async function confirmTutorAttach() {
+      await tutor.setAttachments(Array.from(tutorAttachSelection));
+      closeTutorAttach();
+      showToast('Attachments updated');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // ─── Event Bindings ────────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════
+
+    // Nav
+    dom.btnHamburger.addEventListener('click', () => {
+      if (dom.sidebar.classList.contains('open')) closeSidebar();
+      else openSidebar();
+    });
+    dom.sidebarBackdrop.addEventListener('click', closeSidebar);
+
+    // Back / Home buttons in view headers
+    document.querySelectorAll('[data-nav]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const dir = btn.dataset.nav;
+        if (dir === 'home') {
+          location.hash = '#home';
+        } else if (dir === 'back') {
+          if (history.length > 1) history.back();
+          else location.hash = '#home';
+        }
+      });
     });
 
+    // Tool actions
     dom.btnAction.addEventListener('click', runProcess);
     dom.btnClearAll.addEventListener('click', resetApp);
     dom.btnCopy.addEventListener('click', copyToClipboard);
@@ -1302,6 +2644,54 @@
     dom.btnRetry.addEventListener('click', retryFromError);
     dom.btnRetryFresh.addEventListener('click', resetApp);
     dom.resultTextarea.addEventListener('input', () => renderTextStats(dom.resultTextarea.value));
+
+    // KB picker
+    dom.kbPickerClose.addEventListener('click', closeKbPicker);
+    dom.kbPickerCancel.addEventListener('click', closeKbPicker);
+    dom.kbPickerConfirm.addEventListener('click', confirmKbPicker);
+    dom.kbPickerModal.addEventListener('click', e => { if (e.target === dom.kbPickerModal) closeKbPicker(); });
+
+    // Tutor
+    dom.btnNewChat.addEventListener('click', () => { tutor.newChat(); });
+    dom.btnTutorAttach.addEventListener('click', openTutorAttach);
+    dom.btnRenameChat.addEventListener('click', () => tutor.renameChat());
+    dom.tutorAttachClose.addEventListener('click', closeTutorAttach);
+    dom.tutorAttachCancel.addEventListener('click', closeTutorAttach);
+    dom.tutorAttachConfirm.addEventListener('click', confirmTutorAttach);
+    dom.tutorAttachModal.addEventListener('click', e => { if (e.target === dom.tutorAttachModal) closeTutorAttach(); });
+
+    dom.tutorInput.addEventListener('input', () => {
+      // auto-resize
+      dom.tutorInput.style.height = 'auto';
+      dom.tutorInput.style.height = Math.min(200, dom.tutorInput.scrollHeight) + 'px';
+      tutor.updateSendButton();
+    });
+    dom.tutorInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        const text = dom.tutorInput.value;
+        if (text.trim()) {
+          dom.tutorInput.value = '';
+          dom.tutorInput.style.height = 'auto';
+          tutor.send(text);
+        }
+      }
+    });
+    dom.btnTutorSend.addEventListener('click', () => {
+      const text = dom.tutorInput.value;
+      if (!text.trim()) return;
+      dom.tutorInput.value = '';
+      dom.tutorInput.style.height = 'auto';
+      tutor.send(text);
+    });
+
+    // Sidebar nav clicks close the drawer on mobile (href navigation still fires)
+    document.querySelectorAll('.nav-link').forEach(a => {
+      a.addEventListener('click', () => closeSidebar());
+    });
+
+    // Route on hash change
+    window.addEventListener('hashchange', navigate);
 
     // ─── Login Gate ────────────────────────────────
     const loginForm = document.getElementById('loginForm');
@@ -1323,12 +2713,11 @@
         return;
       }
 
-      // Real validation from attempt 2 onward
       try {
         loginError.textContent = 'Verifying\u2026';
         loginError.style.color = '#6b8f71';
         await unlockApp(pwd);
-        initAfterAuth();
+        await initAfterAuth();
       } catch {
         loginError.style.color = '#9b2226';
         loginError.textContent = 'Incorrect access code. Please try again.';
@@ -1339,8 +2728,8 @@
       }
     });
 
-    function initAfterAuth() {
-      // Attempt Google OAuth init
+    async function initAfterAuth() {
+      // Google OAuth init (deferred)
       const gisInterval = setInterval(() => {
         if (typeof google !== 'undefined' && google.accounts) {
           initGoogleOAuth();
@@ -1348,23 +2737,38 @@
         }
       }, 500);
       setTimeout(() => clearInterval(gisInterval), 10000);
+
+      // Init KB + Tutor stores
+      await kb.init();
+      await tutor.init();
+      wireKbDropzone();
+
+      // Dev reminder
+      console.info(
+        '%c[STH v2.0]%c n8n webhook needs a new switch branch for `mode === "tutor"`.\n' +
+        'Payload shape: { mode:"tutor", systemPrompt:string, attachedContext:[{name,content}], messages:[{role,text}], chatId, chatTitle }\n' +
+        'Build a Gemini request where `systemPrompt` (+ each attachedContext entry) becomes the system/first message, then map `messages` into Gemini `contents` with role mapping: user→"user", model→"model".',
+        'color:#2c5f2d;font-weight:bold',
+        'color:inherit'
+      );
+
+      // First navigation
+      if (!location.hash) location.hash = '#home';
+      navigate();
     }
 
     // ─── Init ───────────────────────────────────────
     window.addEventListener('load', async () => {
-      // Check for valid session
       const savedPwd = checkSession();
       if (savedPwd) {
         try {
           await unlockApp(savedPwd);
-          initAfterAuth();
+          await initAfterAuth();
           return;
         } catch {
-          // Session password no longer valid — clear and show login
           localStorage.removeItem(SESSION_KEY);
         }
       }
-      // No valid session — show login gate (it's visible by default)
       loginInput.focus();
     });
 
