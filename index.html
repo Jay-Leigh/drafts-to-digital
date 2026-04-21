@@ -733,6 +733,203 @@
       font-size: 18px; line-height: 1; padding: 0; margin-top: -1px;
     }
     .quote-bar-close:hover { color: #2c5f2d; }
+    /* Chat search */
+    .chat-search-wrap {
+      position: relative;
+      padding: 0 14px 10px;
+    }
+    .sidebar-tutor-chats .chat-search-wrap { padding: 6px 14px 8px; }
+    .chat-search-input {
+      width: 100%;
+      padding: 7px 12px 7px 30px;
+      border: 1px solid rgba(212,201,168,0.55);
+      border-radius: 8px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 12.5px;
+      background: rgba(250,247,240,0.6);
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .chat-search-input:focus { border-color: #2c5f2d; box-shadow: 0 0 0 2px rgba(44,95,45,0.08); background: white; }
+    .chat-search-icon {
+      position: absolute; left: 22px; top: 50%;
+      transform: translateY(-50%);
+      color: rgba(26,46,28,0.38); pointer-events: none;
+    }
+    .sidebar-tutor-chats .chat-search-icon { left: 22px; }
+    .chat-search-clear {
+      position: absolute; right: 22px; top: 50%;
+      transform: translateY(-50%);
+      background: none; border: none; cursor: pointer;
+      color: rgba(26,46,28,0.4); font-size: 16px;
+      line-height: 1; padding: 0 2px; display: none;
+    }
+    .chat-search-clear.visible { display: block; }
+    .chat-bubble.model mark, .chat-bubble.user mark {
+      background: #fef3b6; color: inherit; padding: 0 2px; border-radius: 3px;
+    }
+    .chat-bubble.dimmed { opacity: 0.35; }
+    .tutor-head-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .tutor-head-title-wrap {
+      display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1;
+    }
+    #tutorChatTitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .rename-inline {
+      background: none; border: none; cursor: pointer;
+      color: rgba(26,46,28,0.38); padding: 2px 4px; border-radius: 4px;
+      display: flex; align-items: center;
+    }
+    .rename-inline:hover { color: #2c5f2d; background: rgba(44,95,45,0.08); }
+
+    /* Reference Generator */
+    .refs-shell {
+      display: flex; flex-direction: column; gap: 20px;
+      max-width: 960px; margin: 0 auto;
+    }
+    .refs-style-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px; background: white;
+      border: 1px solid rgba(212,201,168,0.55);
+      border-radius: 12px;
+    }
+    .refs-style-row label {
+      font-size: 13px; font-weight: 600; color: #1a2e1c;
+    }
+    .refs-style-select {
+      padding: 7px 10px; font-family: 'Outfit', sans-serif; font-size: 13px;
+      border: 1px solid rgba(212,201,168,0.6); border-radius: 8px;
+      background: white; cursor: pointer; outline: none;
+    }
+    .refs-source-adders {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    }
+    @media (max-width: 700px) { .refs-source-adders { grid-template-columns: 1fr 1fr; } }
+    .refs-adder-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      padding: 16px 10px; background: white;
+      border: 1px dashed rgba(44,95,45,0.3);
+      border-radius: 12px; cursor: pointer;
+      font-family: 'Outfit', sans-serif; font-size: 12.5px; font-weight: 500;
+      color: #1a2e1c; transition: all 0.15s;
+    }
+    .refs-adder-btn:hover { border-color: #2c5f2d; background: rgba(44,95,45,0.04); transform: translateY(-1px); }
+    .refs-adder-btn svg { color: #2c5f2d; }
+    .refs-sources-list {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .refs-source-row {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px; background: white;
+      border: 1px solid rgba(212,201,168,0.55);
+      border-radius: 10px;
+    }
+    .refs-source-type {
+      flex-shrink: 0; font-size: 10.5px; font-weight: 700;
+      padding: 3px 8px; border-radius: 6px;
+      letter-spacing: 0.04em; text-transform: uppercase;
+    }
+    .refs-source-type.link { background: rgba(44,95,45,0.1); color: #2c5f2d; }
+    .refs-source-type.youtube { background: rgba(196,54,54,0.1); color: #c43636; }
+    .refs-source-type.kb { background: rgba(212,157,39,0.15); color: #8a6a1a; }
+    .refs-source-type.upload { background: rgba(60,100,160,0.1); color: #3c64a0; }
+    .refs-source-info { flex: 1; min-width: 0; }
+    .refs-source-name { font-size: 13px; color: #1a2e1c; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .refs-source-sub { font-size: 11.5px; color: rgba(26,46,28,0.5); }
+    .refs-source-remove {
+      background: none; border: none; cursor: pointer;
+      color: rgba(26,46,28,0.4); font-size: 18px; padding: 2px 6px;
+    }
+    .refs-source-remove:hover { color: #9b2226; }
+    .refs-empty {
+      text-align: center; padding: 28px; color: rgba(26,46,28,0.45);
+      font-size: 13.5px; background: rgba(250,247,240,0.5);
+      border: 1px dashed rgba(212,201,168,0.5); border-radius: 12px;
+    }
+    .refs-generate-row {
+      display: flex; gap: 10px; justify-content: flex-end; align-items: center;
+    }
+    .refs-generate-btn {
+      background: #2c5f2d; color: white; border: none;
+      padding: 11px 22px; border-radius: 10px;
+      font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 13.5px;
+      cursor: pointer; transition: all 0.15s;
+      display: flex; align-items: center; gap: 7px;
+      box-shadow: 0 6px 14px rgba(44,95,45,0.18);
+    }
+    .refs-generate-btn:hover:not(:disabled) { background: #1e4620; transform: translateY(-1px); }
+    .refs-generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .refs-results {
+      background: white; border: 1px solid rgba(212,201,168,0.55);
+      border-radius: 12px; padding: 24px 28px;
+      display: none;
+    }
+    .refs-results.visible { display: block; }
+    .refs-results-head {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 18px; padding-bottom: 12px;
+      border-bottom: 1px solid rgba(212,201,168,0.5);
+    }
+    .refs-results h3 {
+      font-family: 'DM Serif Display', serif; font-size: 22px;
+      color: #1a2e1c; margin: 0;
+    }
+    .refs-results-actions { display: flex; gap: 8px; }
+    .refs-list { list-style: none; padding: 0; margin: 0; }
+    .refs-list li {
+      padding: 10px 0; font-size: 14px; line-height: 1.6;
+      color: #1a2e1c; border-bottom: 1px solid rgba(212,201,168,0.3);
+      padding-left: 2em; text-indent: -2em;
+      word-break: break-word;
+    }
+    .refs-list li:last-child { border-bottom: none; }
+    .refs-list li.pending { color: rgba(26,46,28,0.4); font-style: italic; }
+    .refs-list li.error { color: #9b2226; font-style: italic; }
+    /* Inline add-source sub-panels */
+    .refs-input-panel {
+      background: white; border: 1px solid rgba(212,201,168,0.6);
+      border-radius: 10px; padding: 14px 16px;
+      display: none; gap: 10px; flex-direction: column;
+    }
+    .refs-input-panel.visible { display: flex; }
+    .refs-input-panel input[type="url"], .refs-input-panel input[type="text"] {
+      padding: 9px 12px; font-family: 'Outfit', sans-serif; font-size: 13px;
+      border: 1px solid rgba(212,201,168,0.6); border-radius: 8px; outline: none;
+    }
+    .refs-input-panel input:focus { border-color: #2c5f2d; }
+    .refs-input-panel-btns { display: flex; gap: 8px; justify-content: flex-end; }
+    .refs-panel-btn {
+      padding: 7px 14px; border-radius: 8px; font-size: 13px;
+      font-family: 'Outfit', sans-serif; cursor: pointer; border: none;
+    }
+    .refs-panel-btn.primary { background: #2c5f2d; color: white; }
+    .refs-panel-btn.primary:hover { background: #1e4620; }
+    .refs-panel-btn.ghost { background: transparent; color: rgba(26,46,28,0.6); }
+    .refs-panel-btn.ghost:hover { background: rgba(212,201,168,0.3); }
+    /* Export picker modal */
+    .export-picker-choice {
+      display: flex; flex-direction: column; gap: 8px;
+      padding: 12px 0;
+    }
+    .export-picker-option {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px; background: rgba(250,247,240,0.5);
+      border: 1px solid rgba(212,201,168,0.5); border-radius: 10px;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .export-picker-option:hover { background: white; border-color: #2c5f2d; }
+    .export-picker-option svg { flex-shrink: 0; color: #2c5f2d; }
+    .export-picker-option strong { display: block; font-size: 13.5px; color: #1a2e1c; }
+    .export-picker-option small { font-size: 12px; color: rgba(26,46,28,0.55); }
+    .export-picker-url-row {
+      display: none; padding: 12px 0 0;
+    }
+    .export-picker-url-row.visible { display: flex; flex-direction: column; gap: 10px; }
+    .export-picker-url-row input {
+      padding: 9px 12px; font-family: 'Outfit', sans-serif; font-size: 13px;
+      border: 1px solid rgba(212,201,168,0.6); border-radius: 8px; outline: none;
+    }
     /* Selection-to-quote tooltip */
     .selection-tooltip {
       position: fixed; z-index: 9999; background: #1a2e1c; color: white;
@@ -897,6 +1094,10 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15l2 2 4-4"/></svg>
           Reviewer
         </a>
+        <a class="nav-link" data-route="references" href="#references">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="13" y2="11"/></svg>
+          References
+        </a>
         <div class="sidebar-nav-section">Study Space</div>
         <a class="nav-link" data-route="knowledge" href="#knowledge">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
@@ -911,6 +1112,11 @@
       <div class="sidebar-tutor-chats">
         <div class="section-row">
           <h4>Recent Chats</h4>
+        </div>
+        <div class="chat-search-wrap">
+          <svg class="chat-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="sidebarChatSearch" class="chat-search-input" type="text" placeholder="Search all chats…" />
+          <button id="sidebarChatSearchClear" class="chat-search-clear" title="Clear">×</button>
         </div>
         <div class="new-chat-btn" id="btnNewChat">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -1167,6 +1373,106 @@
           <p id="kbEmpty" class="text-center text-ink/35 py-10 font-body hidden">Nothing saved yet. Upload a file above to start building your library.</p>
         </section>
 
+        <!-- ============ VIEW: REFERENCES ============ -->
+        <section id="viewReference" class="view">
+          <div class="view-header">
+            <button class="btn-nav" data-nav="back">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+              Back
+            </button>
+            <button class="btn-nav" data-nav="home">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              Home
+            </button>
+          </div>
+
+          <div class="view-intro">
+            <div>
+              <h2>References</h2>
+              <p>Drop in your sources &mdash; articles, YouTube videos, notes from your Knowledge Bay, or fresh uploads. We&rsquo;ll generate a styled reference list you can copy or export.</p>
+            </div>
+          </div>
+
+          <div class="refs-shell">
+            <div class="refs-style-row">
+              <label for="refsStyleSelect">Citation style</label>
+              <select id="refsStyleSelect" class="refs-style-select">
+                <option value="Harvard" selected>Harvard (default)</option>
+                <option value="APA">APA (7th ed.)</option>
+                <option value="MLA">MLA (9th ed.)</option>
+                <option value="Chicago">Chicago (Author-Date)</option>
+              </select>
+              <span class="text-xs text-ink/45" style="margin-left:auto">AI-generated. Always double-check before submission.</span>
+            </div>
+
+            <div class="refs-source-adders">
+              <button class="refs-adder-btn" data-add="link">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                Add article link
+              </button>
+              <button class="refs-adder-btn" data-add="youtube">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg>
+                Add YouTube video
+              </button>
+              <button class="refs-adder-btn" data-add="kb">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                From Knowledge Bay
+              </button>
+              <button class="refs-adder-btn" data-add="upload">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Upload a new file
+              </button>
+            </div>
+
+            <div id="refsLinkPanel" class="refs-input-panel">
+              <input id="refsLinkUrl" type="url" placeholder="https://... (article URL)" />
+              <div class="refs-input-panel-btns">
+                <button class="refs-panel-btn ghost" data-panel-cancel="link">Cancel</button>
+                <button class="refs-panel-btn primary" data-panel-confirm="link">Add link</button>
+              </div>
+            </div>
+
+            <div id="refsYoutubePanel" class="refs-input-panel">
+              <input id="refsYoutubeUrl" type="url" placeholder="https://youtube.com/watch?v=..." />
+              <div class="refs-input-panel-btns">
+                <button class="refs-panel-btn ghost" data-panel-cancel="youtube">Cancel</button>
+                <button class="refs-panel-btn primary" data-panel-confirm="youtube">Add video</button>
+              </div>
+            </div>
+
+            <input id="refsFileInput" type="file" accept=".pdf,.docx,.txt,image/*" multiple style="display:none" />
+
+            <div>
+              <h3 class="text-lg mb-3">Sources <span id="refsSourceCount" class="text-xs text-ink/40" style="font-weight:400"></span></h3>
+              <div id="refsSourcesList" class="refs-sources-list"></div>
+            </div>
+
+            <div class="refs-generate-row">
+              <button id="refsGenerateBtn" class="refs-generate-btn" disabled>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2 7h7l-5.5 4 2 7-5.5-4-5.5 4 2-7L3 9h7z"/></svg>
+                Generate References
+              </button>
+            </div>
+
+            <div id="refsResults" class="refs-results">
+              <div class="refs-results-head">
+                <h3>References</h3>
+                <div class="refs-results-actions">
+                  <button id="refsCopyBtn" class="btn-nav" title="Copy to clipboard">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Copy
+                  </button>
+                  <button id="refsExportBtn" class="btn-nav" title="Export to Google Docs">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Export
+                  </button>
+                </div>
+              </div>
+              <ol id="refsList" class="refs-list"></ol>
+            </div>
+          </div>
+        </section>
+
         <!-- ============ VIEW: TUTOR ============ -->
         <section id="viewTutor" class="view">
           <div class="view-header">
@@ -1186,19 +1492,30 @@
 
           <div class="tutor-shell">
             <div class="tutor-head">
-              <div>
-                <h3 id="tutorChatTitle">New chat</h3>
-                <div class="tutor-attached" id="tutorAttachedSummary">No resources attached</div>
+              <div class="tutor-head-row" style="width:100%">
+                <div class="tutor-head-title-wrap">
+                  <h3 id="tutorChatTitle">New chat</h3>
+                  <button id="btnRenameChat" class="rename-inline" title="Rename chat">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                  </button>
+                </div>
+                <div class="flex gap-2">
+                  <button id="btnToggleChatSearch" class="btn-nav" title="Search in this chat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  </button>
+                  <button id="btnTutorAttach" class="btn-nav" title="Attach resources">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    Attach
+                  </button>
+                </div>
               </div>
-              <div class="flex gap-2">
-                <button id="btnRenameChat" class="btn-nav" title="Rename chat">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                </button>
-                <button id="btnTutorAttach" class="btn-nav" title="Attach resources">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                  Attach
-                </button>
-              </div>
+              <div class="tutor-attached" id="tutorAttachedSummary" style="margin-top:6px">No resources attached</div>
+            </div>
+
+            <div id="chatSearchWrap" class="chat-search-wrap" style="display:none; padding-top:10px">
+              <svg class="chat-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input id="chatSearchInput" class="chat-search-input" type="text" placeholder="Search in this chat…" />
+              <button id="chatSearchClear" class="chat-search-clear" title="Clear">×</button>
             </div>
 
             <div class="tutor-messages" id="tutorMessages"></div>
@@ -1338,6 +1655,63 @@
   <!-- Toast -->
   <div id="toast" class="toast"></div>
   <div id="selectionTooltip" class="selection-tooltip">Quote selection</div>
+
+  <!-- ============ EXPORT PICKER MODAL ============ -->
+  <div id="exportPickerModal" class="modal-overlay">
+    <div class="modal-box" style="max-width:520px">
+      <div class="modal-head">
+        <div>
+          <h3 class="text-lg">Export to Google Docs</h3>
+          <p class="text-xs text-ink/45">Where should this go?</p>
+        </div>
+        <button class="btn-nav" id="exportPickerClose">Close</button>
+      </div>
+      <div class="modal-body">
+        <div class="export-picker-choice">
+          <div class="export-picker-option" data-export-choice="new">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+            <div>
+              <strong>Create a new Google Doc</strong>
+              <small>A fresh document in your Drive</small>
+            </div>
+          </div>
+          <div class="export-picker-option" data-export-choice="existing">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <div>
+              <strong>Append to an existing doc</strong>
+              <small>Paste the Google Docs URL below</small>
+            </div>
+          </div>
+        </div>
+        <div id="exportPickerUrlRow" class="export-picker-url-row">
+          <input id="exportPickerUrlInput" type="url" placeholder="https://docs.google.com/document/d/..." />
+          <div class="flex gap-2 justify-end">
+            <button class="refs-panel-btn ghost" id="exportPickerUrlCancel">Back</button>
+            <button class="refs-panel-btn primary" id="exportPickerUrlConfirm">Append</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ KB PREVIEW MODAL (reuses existing kbReaderModal via openKbReader) ============ -->
+  <!-- References: KB attach uses the tutorAttachModal pattern reused below -->
+  <div id="refsKbAttachModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-head">
+        <div>
+          <h3 class="text-lg">Attach from Knowledge Bay</h3>
+          <p class="text-xs text-ink/45">Pick the resources you want referenced</p>
+        </div>
+        <button class="btn-nav" id="refsKbAttachClose">Close</button>
+      </div>
+      <div class="modal-body" id="refsKbAttachList"></div>
+      <div class="modal-foot">
+        <button class="btn-nav" id="refsKbAttachCancel">Cancel</button>
+        <button id="refsKbAttachConfirm" class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-5 py-2 rounded-lg transition disabled:opacity-40" disabled>Attach selected</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ======== APPLICATION LOGIC ======== -->
   <script>
@@ -1497,6 +1871,9 @@
       kbPickerSelection: new Set(),
       tutorTyping: false,
       tutorScraping: false,
+      sidebarSearch: '',
+      chatSearch: '',
+      refsPendingExport: null,
     };
 
     // ─── DOM Refs ───────────────────────────────────
@@ -1593,6 +1970,45 @@
       quoteBarText:         $('quoteBarText'),
       btnClearQuote:        $('btnClearQuote'),
       selectionTooltip:     $('selectionTooltip'),
+
+      // Chat search
+      sidebarChatSearch:        $('sidebarChatSearch'),
+      sidebarChatSearchClear:   $('sidebarChatSearchClear'),
+      btnToggleChatSearch:      $('btnToggleChatSearch'),
+      chatSearchWrap:           $('chatSearchWrap'),
+      chatSearchInput:          $('chatSearchInput'),
+      chatSearchClear:          $('chatSearchClear'),
+
+      // References view
+      viewReference:            $('viewReference'),
+      refsStyleSelect:          $('refsStyleSelect'),
+      refsLinkPanel:            $('refsLinkPanel'),
+      refsLinkUrl:              $('refsLinkUrl'),
+      refsYoutubePanel:         $('refsYoutubePanel'),
+      refsYoutubeUrl:           $('refsYoutubeUrl'),
+      refsFileInput:            $('refsFileInput'),
+      refsSourceCount:          $('refsSourceCount'),
+      refsSourcesList:          $('refsSourcesList'),
+      refsGenerateBtn:          $('refsGenerateBtn'),
+      refsResults:              $('refsResults'),
+      refsList:                 $('refsList'),
+      refsCopyBtn:              $('refsCopyBtn'),
+      refsExportBtn:            $('refsExportBtn'),
+
+      // Refs KB attach modal
+      refsKbAttachModal:        $('refsKbAttachModal'),
+      refsKbAttachList:         $('refsKbAttachList'),
+      refsKbAttachClose:        $('refsKbAttachClose'),
+      refsKbAttachCancel:       $('refsKbAttachCancel'),
+      refsKbAttachConfirm:      $('refsKbAttachConfirm'),
+
+      // Export picker modal
+      exportPickerModal:        $('exportPickerModal'),
+      exportPickerClose:        $('exportPickerClose'),
+      exportPickerUrlRow:       $('exportPickerUrlRow'),
+      exportPickerUrlInput:     $('exportPickerUrlInput'),
+      exportPickerUrlCancel:    $('exportPickerUrlCancel'),
+      exportPickerUrlConfirm:   $('exportPickerUrlConfirm'),
 
       // KB reader modal
       kbReaderModal:        $('kbReaderModal'),
@@ -2201,6 +2617,7 @@
       transcribe: { view: 'viewTool', mode: 'transcribe' },
       template:   { view: 'viewTool', mode: 'template' },
       reviewer:   { view: 'viewTool', mode: 'reviewer' },
+      references: { view: 'viewReference' },
       knowledge:  { view: 'viewKnowledge' },
       tutor:      { view: 'viewTutor' },
     };
@@ -2224,7 +2641,7 @@
       state.currentRoute = name;
 
       // Show only this view
-      ['viewHome', 'viewTool', 'viewKnowledge', 'viewTutor'].forEach(v => {
+      ['viewHome', 'viewTool', 'viewKnowledge', 'viewTutor', 'viewReference'].forEach(v => {
         dom[v].classList.toggle('active', v === cfg.view);
       });
 
@@ -2240,6 +2657,10 @@
 
       if (name === 'tutor') {
         tutor.openChat(arg);
+      }
+
+      if (name === 'references') {
+        refs.render();
       }
 
       closeSidebar();
@@ -2836,6 +3257,68 @@
       else state.googleTokenClient.requestAccessToken();
     }
 
+    // ─── Reusable Google Docs helpers ────────────────
+    function ensureGoogleToken() {
+      return new Promise((resolve, reject) => {
+        if (state.googleAccessToken) return resolve(state.googleAccessToken);
+        if (!state.googleTokenClient) initGoogleOAuth();
+        if (!state.googleTokenClient) return reject(new Error('Google services not loaded'));
+        const client = state.googleTokenClient;
+        const originalCallback = client.callback;
+        client.callback = (resp) => {
+          client.callback = originalCallback;
+          if (resp.error) return reject(new Error(resp.error));
+          state.googleAccessToken = resp.access_token;
+          resolve(resp.access_token);
+        };
+        client.requestAccessToken();
+      });
+    }
+
+    async function createGoogleDocFromContent(title, content) {
+      const token = await ensureGoogleToken();
+      const createRes = await fetch('https://docs.googleapis.com/v1/documents', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title }),
+      });
+      if (!createRes.ok) throw new Error(`Docs create failed: ${createRes.status}`);
+      const doc = await createRes.json();
+      const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${doc.documentId}:batchUpdate`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requests: [{ insertText: { location: { index: 1 }, text: content } }] }),
+      });
+      if (!updateRes.ok) throw new Error(`Docs update failed: ${updateRes.status}`);
+      window.open(`https://docs.google.com/document/d/${doc.documentId}/edit`, '_blank');
+      return doc.documentId;
+    }
+
+    function extractDocIdFromUrl(url) {
+      if (!url) return null;
+      const m = url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
+      return m ? m[1] : (url.match(/^[a-zA-Z0-9_-]{20,}$/) ? url : null);
+    }
+
+    async function appendToGoogleDoc(docId, content) {
+      const token = await ensureGoogleToken();
+      const getRes = await fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!getRes.ok) throw new Error(`Docs get failed: ${getRes.status}`);
+      const docData = await getRes.json();
+      const body = docData.body.content;
+      const endIndex = body[body.length - 1].endIndex - 1;
+      const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requests: [{ insertText: { location: { index: endIndex }, text: `\n\n${content}` } }] }),
+      });
+      if (!updateRes.ok) throw new Error(`Docs update failed: ${updateRes.status}`);
+      window.open(`https://docs.google.com/document/d/${docId}/edit`, '_blank');
+      return docId;
+    }
+
     // ─── Retry (keeps files intact) ─────────────────
     function retryFromError() {
       renderUploadZones();
@@ -2988,11 +3471,18 @@
         });
       },
 
-      exportMessage(text) {
+      async exportMessage(text) {
         const plain = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[#*`_~]/g, '').trim();
-        navigator.clipboard.writeText(plain).catch(() => {});
-        window.open('https://docs.google.com/document/create', '_blank');
-        showToast('Google Doc opened — paste with Ctrl+V / ⌘V');
+        const title = `Tutor message — ${new Date().toLocaleString('en-ZA')}`;
+        try {
+          showToast('Creating Google Doc…');
+          await createGoogleDocFromContent(title, plain);
+          showToast('Exported to Google Docs!');
+        } catch (err) {
+          console.error('[STH] Google export failed:', err);
+          navigator.clipboard.writeText(plain).catch(() => {});
+          showToast('Export failed — copied to clipboard as fallback', 'error');
+        }
       },
 
       async send(text) {
@@ -3093,10 +3583,17 @@
       },
 
       renderSidebarList() {
-        const items = [...this.chats].sort((a, b) => b.updated - a.updated);
+        const q = (state.sidebarSearch || '').toLowerCase().trim();
+        let items = [...this.chats].sort((a, b) => b.updated - a.updated);
+        if (q) {
+          items = items.filter(c => {
+            if ((c.title || '').toLowerCase().includes(q)) return true;
+            return (c.messages || []).some(m => (m.text || '').toLowerCase().includes(q));
+          });
+        }
         dom.tutorChatList.innerHTML = '';
         if (!items.length) {
-          dom.tutorChatList.innerHTML = '<p class="chat-empty">No chats yet.</p>';
+          dom.tutorChatList.innerHTML = `<p class="chat-empty">${q ? 'No chats match.' : 'No chats yet.'}</p>`;
           return;
         }
         for (const c of items) {
@@ -3220,14 +3717,59 @@
           }
         }
 
-        // Scroll to bottom
-        requestAnimationFrame(() => {
-          dom.tutorMessages.scrollTop = dom.tutorMessages.scrollHeight;
-        });
+        // Apply in-chat search highlight if active
+        const q = (state.chatSearch || '').trim();
+        if (q) {
+          const qLower = q.toLowerCase();
+          const bubbles = dom.tutorMessages.querySelectorAll('.chat-bubble.user, .chat-bubble.model');
+          let firstMatch = null;
+          bubbles.forEach(b => {
+            if ((b.textContent || '').toLowerCase().includes(qLower)) {
+              b.classList.remove('dimmed');
+              highlightTextNodes(b, q);
+              if (!firstMatch) firstMatch = b;
+            } else {
+              b.classList.add('dimmed');
+            }
+          });
+          requestAnimationFrame(() => {
+            if (firstMatch) firstMatch.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          });
+        } else {
+          // Scroll to bottom normally
+          requestAnimationFrame(() => {
+            dom.tutorMessages.scrollTop = dom.tutorMessages.scrollHeight;
+          });
+        }
 
         this.updateSendButton();
       },
     };
+
+    // Walk text nodes inside an element and wrap query matches in <mark>.
+    function highlightTextNodes(root, query) {
+      const qLower = query.toLowerCase();
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+      const nodes = [];
+      let n; while ((n = walker.nextNode())) nodes.push(n);
+      for (const textNode of nodes) {
+        const txt = textNode.nodeValue;
+        if (!txt || !txt.toLowerCase().includes(qLower)) continue;
+        const frag = document.createDocumentFragment();
+        let lastIdx = 0;
+        let idx = txt.toLowerCase().indexOf(qLower);
+        while (idx !== -1) {
+          if (idx > lastIdx) frag.appendChild(document.createTextNode(txt.slice(lastIdx, idx)));
+          const mark = document.createElement('mark');
+          mark.textContent = txt.slice(idx, idx + query.length);
+          frag.appendChild(mark);
+          lastIdx = idx + query.length;
+          idx = txt.toLowerCase().indexOf(qLower, lastIdx);
+        }
+        if (lastIdx < txt.length) frag.appendChild(document.createTextNode(txt.slice(lastIdx)));
+        textNode.parentNode.replaceChild(frag, textNode);
+      }
+    }
 
     // ─── Tutor attach modal ─────────────────────────
     let tutorAttachSelection = new Set();
@@ -3292,6 +3834,291 @@
       await tutor.setAttachments(Array.from(tutorAttachSelection));
       closeTutorAttach();
       showToast('Attachments updated');
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // ─── REFERENCES MODULE ─────────────────────────────────────
+    // ═══════════════════════════════════════════════════════════
+    const refs = {
+      style: 'Harvard',
+      sources: [], // { id, kind: 'link'|'youtube'|'kb'|'upload', label, sub, meta }
+      results: [], // { sourceId, citation, error? }
+
+      nextId() { return 'ref_' + Math.random().toString(36).slice(2, 10); },
+
+      render() {
+        dom.refsStyleSelect.value = this.style;
+        // Source list
+        dom.refsSourcesList.innerHTML = '';
+        if (!this.sources.length) {
+          dom.refsSourcesList.innerHTML = '<div class="refs-empty">No sources yet — pick one of the options above to add your first.</div>';
+        } else {
+          for (const src of this.sources) {
+            const row = document.createElement('div');
+            row.className = 'refs-source-row';
+            row.innerHTML = `
+              <span class="refs-source-type ${src.kind}">${src.kind === 'youtube' ? 'YT' : src.kind}</span>
+              <div class="refs-source-info">
+                <div class="refs-source-name">${escapeHtml(src.label)}</div>
+                <div class="refs-source-sub">${escapeHtml(src.sub || '')}</div>
+              </div>
+              <button class="refs-source-remove" title="Remove">×</button>`;
+            row.querySelector('.refs-source-remove').addEventListener('click', () => {
+              this.sources = this.sources.filter(s => s.id !== src.id);
+              this.render();
+            });
+            dom.refsSourcesList.appendChild(row);
+          }
+        }
+        dom.refsSourceCount.textContent = this.sources.length ? `(${this.sources.length})` : '';
+        dom.refsGenerateBtn.disabled = this.sources.length === 0;
+
+        // Results
+        if (this.results.length) {
+          dom.refsResults.classList.add('visible');
+          dom.refsList.innerHTML = '';
+          for (const r of this.results) {
+            const li = document.createElement('li');
+            if (r.error) { li.className = 'error'; li.textContent = `[${r.label}] — ${r.error}`; }
+            else if (r.pending) { li.className = 'pending'; li.textContent = `Generating… ${r.label}`; }
+            else li.textContent = r.citation;
+            dom.refsList.appendChild(li);
+          }
+        } else {
+          dom.refsResults.classList.remove('visible');
+        }
+      },
+
+      addSource(src) {
+        src.id = this.nextId();
+        this.sources.push(src);
+        this.render();
+      },
+
+      async addLink(url) {
+        if (!/^https?:\/\//i.test(url)) { showToast('Invalid URL', 'error'); return; }
+        this.addSource({ kind: 'link', label: url, sub: 'Article link · will be scraped on generate', meta: { url } });
+      },
+
+      async addYoutube(url) {
+        const vid = this.extractYouTubeId(url);
+        if (!vid) { showToast('Not a valid YouTube URL', 'error'); return; }
+        showToast('Fetching video info…');
+        try {
+          const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
+          let meta = { url, videoId: vid };
+          if (oembedRes.ok) {
+            const data = await oembedRes.json();
+            meta.title = data.title;
+            meta.author = data.author_name;
+          }
+          this.addSource({
+            kind: 'youtube',
+            label: meta.title || `YouTube video ${vid}`,
+            sub: `${meta.author || 'Channel'} · year will be scraped on generate`,
+            meta,
+          });
+        } catch (err) {
+          showToast('Could not fetch video metadata — adding link only', 'error');
+          this.addSource({ kind: 'youtube', label: url, sub: 'YouTube link', meta: { url, videoId: vid } });
+        }
+      },
+
+      extractYouTubeId(url) {
+        const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+        return m ? m[1] : null;
+      },
+
+      addFromKb(kbItem) {
+        this.addSource({
+          kind: 'kb',
+          label: kbItem.name,
+          sub: `${kbItem.type.toUpperCase()} · from Knowledge Bay`,
+          meta: { kbId: kbItem.id, name: kbItem.name, content: (kbItem.content || '').slice(0, 2500) },
+        });
+      },
+
+      async addUpload(file) {
+        try {
+          showToast(`Adding ${file.name}…`);
+          const entry = await kb.add(file);
+          this.addSource({
+            kind: 'upload',
+            label: entry.name,
+            sub: `${entry.type.toUpperCase()} · saved to Knowledge Bay`,
+            meta: { kbId: entry.id, name: entry.name, content: (entry.content || '').slice(0, 2500) },
+          });
+          showToast(`${file.name} added`);
+        } catch (err) {
+          console.error('[refs] upload failed:', err);
+          showToast(err.message || 'Upload failed', 'error');
+        }
+      },
+
+      async generate() {
+        if (!this.sources.length) return;
+        this.style = dom.refsStyleSelect.value || 'Harvard';
+        dom.refsGenerateBtn.disabled = true;
+
+        // Initialize results with pending placeholders
+        this.results = this.sources.map(s => ({ sourceId: s.id, label: s.label, pending: true }));
+        this.render();
+
+        for (let i = 0; i < this.sources.length; i++) {
+          const src = this.sources[i];
+          try {
+            const extra = await this.enrichSource(src);
+            const payload = {
+              mode: 'reference',
+              style: this.style,
+              source: {
+                kind: src.kind,
+                label: src.label,
+                meta: { ...src.meta, ...extra },
+              },
+            };
+            const data = await sendToWebhook(payload);
+            const citation = (data && (data.citation || data.text || data.result)) || '';
+            this.results[i] = { sourceId: src.id, label: src.label, citation: citation || '(No citation returned.)' };
+          } catch (err) {
+            console.error('[refs] generate failed for source', src, err);
+            this.results[i] = { sourceId: src.id, label: src.label, error: err.message || 'Generation failed' };
+          }
+          this.render();
+        }
+        dom.refsGenerateBtn.disabled = false;
+        showToast('References generated');
+      },
+
+      async enrichSource(src) {
+        // Scrape links and YouTube URLs for extra metadata
+        if (src.kind === 'link') {
+          const scraped = await scrapeUrl(src.meta.url).catch(() => null);
+          if (scraped && !scraped.error) return { scrapedText: (scraped.text || '').slice(0, 3000) };
+          return {};
+        }
+        if (src.kind === 'youtube') {
+          const scraped = await scrapeUrl(src.meta.url).catch(() => null);
+          if (scraped && !scraped.error) return { scrapedText: (scraped.text || '').slice(0, 3000) };
+          return {};
+        }
+        return {};
+      },
+
+      buildPlainText() {
+        const lines = ['References', ''];
+        for (const r of this.results) {
+          if (r.error) lines.push(`[${r.label}] — ${r.error}`);
+          else if (r.citation) lines.push(r.citation);
+        }
+        return lines.join('\n\n');
+      },
+
+      async copyAll() {
+        const text = this.buildPlainText();
+        try {
+          await navigator.clipboard.writeText(text);
+          showToast('References copied');
+        } catch {
+          showToast('Could not copy', 'error');
+        }
+      },
+
+      exportAll() {
+        if (!this.results.length) return;
+        state.refsPendingExport = this.buildPlainText();
+        openExportPicker();
+      },
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    // ─── References: KB attach modal ───────────────────────────
+    // ═══════════════════════════════════════════════════════════
+    let refsKbSelection = new Set();
+    function openRefsKbAttach() {
+      refsKbSelection = new Set();
+      renderRefsKbAttachList();
+      dom.refsKbAttachConfirm.disabled = true;
+      dom.refsKbAttachModal.classList.add('open');
+    }
+    function closeRefsKbAttach() { dom.refsKbAttachModal.classList.remove('open'); }
+    function renderRefsKbAttachList() {
+      const items = kb.list();
+      dom.refsKbAttachList.innerHTML = '';
+      if (!items.length) {
+        dom.refsKbAttachList.innerHTML = '<p class="text-center text-ink/40 py-8 font-body text-sm">Your Knowledge Bay is empty — upload a file first from the Knowledge Bay tab.</p>';
+        return;
+      }
+      for (const item of items) {
+        const row = document.createElement('div');
+        row.className = 'kb-pick-row' + (refsKbSelection.has(item.id) ? ' selected' : '');
+        row.dataset.id = item.id;
+        row.innerHTML = `
+          <div class="kb-pick-check">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium text-ink/80 truncate">${escapeHtml(item.name)}</div>
+            <div class="text-xs text-ink/40">${item.type.toUpperCase()} · ${formatSize(item.size)}</div>
+          </div>
+          <button class="kb-row-peek" data-peek="${item.id}" title="Preview file">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          </button>`;
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('.kb-row-peek')) return;
+          if (refsKbSelection.has(item.id)) { refsKbSelection.delete(item.id); row.classList.remove('selected'); }
+          else { refsKbSelection.add(item.id); row.classList.add('selected'); }
+          dom.refsKbAttachConfirm.disabled = refsKbSelection.size === 0;
+        });
+        row.querySelector('.kb-row-peek').addEventListener('click', (e) => {
+          e.stopPropagation();
+          openKbReader(item.id, 'refsKbAttach');
+        });
+        dom.refsKbAttachList.appendChild(row);
+      }
+    }
+    async function confirmRefsKbAttach() {
+      for (const id of refsKbSelection) {
+        const item = await kb.get(id);
+        if (item) refs.addFromKb(item);
+      }
+      closeRefsKbAttach();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // ─── Export picker (reference list + tutor) ────────────────
+    // ═══════════════════════════════════════════════════════════
+    function openExportPicker() {
+      dom.exportPickerUrlRow.classList.remove('visible');
+      dom.exportPickerUrlInput.value = '';
+      dom.exportPickerModal.classList.add('open');
+    }
+    function closeExportPicker() {
+      dom.exportPickerModal.classList.remove('open');
+      state.refsPendingExport = null;
+    }
+    async function executePendingRefsExport(mode, url) {
+      const text = state.refsPendingExport;
+      if (!text) return;
+      try {
+        if (mode === 'new') {
+          showToast('Creating Google Doc…');
+          await createGoogleDocFromContent(`References — ${new Date().toLocaleDateString('en-ZA')}`, text);
+          showToast('Exported to Google Docs!');
+        } else {
+          const docId = extractDocIdFromUrl(url);
+          if (!docId) { showToast('Invalid Google Docs URL', 'error'); return; }
+          showToast('Appending to Google Doc…');
+          await appendToGoogleDoc(docId, text);
+          showToast('Appended to Google Doc!');
+        }
+      } catch (err) {
+        console.error('[refs] export failed:', err);
+        navigator.clipboard.writeText(text).catch(() => {});
+        showToast('Export failed — copied to clipboard instead', 'error');
+      } finally {
+        closeExportPicker();
+      }
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -3412,6 +4239,120 @@
     });
     document.addEventListener('mousedown', e => {
       if (selTipActive && !selTip.contains(e.target)) hideSelTip();
+    });
+
+    // Sidebar chat search
+    dom.sidebarChatSearch.addEventListener('input', () => {
+      state.sidebarSearch = dom.sidebarChatSearch.value;
+      dom.sidebarChatSearchClear.classList.toggle('visible', !!state.sidebarSearch);
+      tutor.renderSidebarList();
+    });
+    dom.sidebarChatSearchClear.addEventListener('click', () => {
+      dom.sidebarChatSearch.value = '';
+      state.sidebarSearch = '';
+      dom.sidebarChatSearchClear.classList.remove('visible');
+      tutor.renderSidebarList();
+    });
+
+    // In-chat search
+    dom.btnToggleChatSearch.addEventListener('click', () => {
+      const isOpen = dom.chatSearchWrap.style.display !== 'none';
+      dom.chatSearchWrap.style.display = isOpen ? 'none' : 'block';
+      if (!isOpen) {
+        dom.chatSearchInput.focus();
+      } else {
+        dom.chatSearchInput.value = '';
+        state.chatSearch = '';
+        dom.chatSearchClear.classList.remove('visible');
+        tutor.renderChat();
+      }
+    });
+    dom.chatSearchInput.addEventListener('input', () => {
+      state.chatSearch = dom.chatSearchInput.value;
+      dom.chatSearchClear.classList.toggle('visible', !!state.chatSearch);
+      tutor.renderChat();
+    });
+    dom.chatSearchClear.addEventListener('click', () => {
+      dom.chatSearchInput.value = '';
+      state.chatSearch = '';
+      dom.chatSearchClear.classList.remove('visible');
+      tutor.renderChat();
+      dom.chatSearchInput.focus();
+    });
+
+    // References: source adders
+    document.querySelectorAll('[data-add]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const kind = btn.dataset.add;
+        if (kind === 'link') {
+          dom.refsLinkPanel.classList.add('visible');
+          dom.refsYoutubePanel.classList.remove('visible');
+          dom.refsLinkUrl.focus();
+        } else if (kind === 'youtube') {
+          dom.refsYoutubePanel.classList.add('visible');
+          dom.refsLinkPanel.classList.remove('visible');
+          dom.refsYoutubeUrl.focus();
+        } else if (kind === 'kb') {
+          openRefsKbAttach();
+        } else if (kind === 'upload') {
+          dom.refsFileInput.click();
+        }
+      });
+    });
+    document.querySelectorAll('[data-panel-cancel]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const kind = btn.dataset.panelCancel;
+        if (kind === 'link') { dom.refsLinkPanel.classList.remove('visible'); dom.refsLinkUrl.value = ''; }
+        else if (kind === 'youtube') { dom.refsYoutubePanel.classList.remove('visible'); dom.refsYoutubeUrl.value = ''; }
+      });
+    });
+    document.querySelectorAll('[data-panel-confirm]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const kind = btn.dataset.panelConfirm;
+        if (kind === 'link') {
+          const v = dom.refsLinkUrl.value.trim();
+          if (v) { await refs.addLink(v); dom.refsLinkUrl.value = ''; dom.refsLinkPanel.classList.remove('visible'); }
+        } else if (kind === 'youtube') {
+          const v = dom.refsYoutubeUrl.value.trim();
+          if (v) { await refs.addYoutube(v); dom.refsYoutubeUrl.value = ''; dom.refsYoutubePanel.classList.remove('visible'); }
+        }
+      });
+    });
+    dom.refsFileInput.addEventListener('change', async (e) => {
+      for (const f of e.target.files) await refs.addUpload(f);
+      e.target.value = '';
+    });
+    dom.refsStyleSelect.addEventListener('change', () => { refs.style = dom.refsStyleSelect.value; });
+    dom.refsGenerateBtn.addEventListener('click', () => refs.generate());
+    dom.refsCopyBtn.addEventListener('click', () => refs.copyAll());
+    dom.refsExportBtn.addEventListener('click', () => refs.exportAll());
+
+    // References KB attach modal
+    dom.refsKbAttachClose.addEventListener('click', closeRefsKbAttach);
+    dom.refsKbAttachCancel.addEventListener('click', closeRefsKbAttach);
+    dom.refsKbAttachConfirm.addEventListener('click', confirmRefsKbAttach);
+    dom.refsKbAttachModal.addEventListener('click', e => { if (e.target === dom.refsKbAttachModal) closeRefsKbAttach(); });
+
+    // Export picker modal
+    dom.exportPickerClose.addEventListener('click', closeExportPicker);
+    dom.exportPickerModal.addEventListener('click', e => { if (e.target === dom.exportPickerModal) closeExportPicker(); });
+    document.querySelectorAll('[data-export-choice]').forEach(opt => {
+      opt.addEventListener('click', () => {
+        const choice = opt.dataset.exportChoice;
+        if (choice === 'new') {
+          executePendingRefsExport('new');
+        } else {
+          dom.exportPickerUrlRow.classList.add('visible');
+          dom.exportPickerUrlInput.focus();
+        }
+      });
+    });
+    dom.exportPickerUrlCancel.addEventListener('click', () => {
+      dom.exportPickerUrlRow.classList.remove('visible');
+    });
+    dom.exportPickerUrlConfirm.addEventListener('click', () => {
+      const url = dom.exportPickerUrlInput.value.trim();
+      executePendingRefsExport('existing', url);
     });
 
     dom.tutorInput.addEventListener('input', () => {
