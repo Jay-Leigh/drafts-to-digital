@@ -683,6 +683,65 @@
       0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
       40% { transform: translateY(-4px); opacity: 1; }
     }
+    /* Message action bar */
+    .msg-wrapper { display: flex; flex-direction: column; align-items: flex-start; }
+    .msg-actions {
+      display: flex; gap: 2px; padding: 2px 0;
+      opacity: 0; transition: opacity 0.15s ease;
+    }
+    .msg-wrapper:hover .msg-actions { opacity: 1; }
+    .msg-action-btn {
+      display: flex; align-items: center; gap: 4px;
+      padding: 3px 8px; border: none; background: transparent;
+      color: rgba(26,46,28,0.45); font-family: 'Outfit', sans-serif;
+      font-size: 11.5px; border-radius: 6px; cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .msg-action-btn:hover { background: rgba(44,95,45,0.09); color: #2c5f2d; }
+    /* Quote reference above user reply */
+    .quote-ref {
+      max-width: 82%; align-self: flex-end;
+      background: rgba(44,95,45,0.07); border-left: 3px solid #2c5f2d;
+      border-radius: 10px 10px 0 0; padding: 8px 14px;
+      font-size: 13px; color: rgba(26,46,28,0.65); font-style: italic;
+      word-break: break-word; line-height: 1.45;
+    }
+    .quote-ref-label {
+      font-size: 10.5px; font-weight: 600; font-style: normal;
+      color: #2c5f2d; letter-spacing: 0.03em; display: block; margin-bottom: 3px;
+    }
+    .chat-bubble.user.with-quote { border-top-right-radius: 3px; }
+    /* Quote bar in composer */
+    .quote-bar {
+      display: none; align-items: flex-start; gap: 8px;
+      padding: 10px 16px 8px;
+      background: rgba(44,95,45,0.05); border-left: 3px solid #2c5f2d;
+    }
+    .quote-bar.active { display: flex; }
+    .quote-bar-text {
+      font-size: 13px; color: rgba(26,46,28,0.65); font-style: italic;
+      line-height: 1.4; overflow: hidden; display: -webkit-box;
+      -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+    .quote-bar-label {
+      font-size: 10.5px; font-weight: 600; font-style: normal;
+      color: #2c5f2d; display: block; margin-bottom: 2px; letter-spacing: 0.03em;
+    }
+    .quote-bar-close {
+      flex-shrink: 0; background: none; border: none;
+      color: rgba(26,46,28,0.35); cursor: pointer;
+      font-size: 18px; line-height: 1; padding: 0; margin-top: -1px;
+    }
+    .quote-bar-close:hover { color: #2c5f2d; }
+    /* Selection-to-quote tooltip */
+    .selection-tooltip {
+      position: fixed; z-index: 9999; background: #1a2e1c; color: white;
+      border-radius: 8px; padding: 6px 13px;
+      font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 500;
+      cursor: pointer; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+      display: none; transform: translateX(-50%); user-select: none;
+    }
+    .selection-tooltip.visible { display: block; }
     .tutor-empty {
       margin: auto;
       text-align: center; max-width: 380px;
@@ -692,10 +751,13 @@
     .tutor-empty h4 { font-family: 'DM Serif Display', serif; font-size: 20px; color: #1a2e1c; margin-bottom: 8px; }
 
     .tutor-composer {
-      padding: 14px 16px;
       border-top: 1px solid rgba(212,201,168,0.4);
       background: white;
+      display: flex; flex-direction: column;
+    }
+    .tutor-composer-row {
       display: flex; gap: 10px; align-items: flex-end;
+      padding: 14px 16px;
     }
     .tutor-input {
       flex: 1;
@@ -1142,11 +1204,20 @@
             <div class="tutor-messages" id="tutorMessages"></div>
 
             <div class="tutor-composer">
-              <textarea id="tutorInput" class="tutor-input" placeholder="Ask your tutor anything&hellip; (Shift+Enter for newline)" rows="1"></textarea>
-              <button id="btnTutorSend" class="tutor-send" disabled>
-                Send
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-              </button>
+              <div id="quoteBar" class="quote-bar">
+                <div style="flex:1;min-width:0">
+                  <span class="quote-bar-label">Replying to Tutor</span>
+                  <span class="quote-bar-text" id="quoteBarText"></span>
+                </div>
+                <button class="quote-bar-close" id="btnClearQuote" title="Cancel reply">×</button>
+              </div>
+              <div class="tutor-composer-row">
+                <textarea id="tutorInput" class="tutor-input" placeholder="Ask your tutor anything&hellip; (Shift+Enter for newline)" rows="1"></textarea>
+                <button id="btnTutorSend" class="tutor-send" disabled>
+                  Send
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+              </div>
             </div>
           </div>
         </section>
@@ -1266,6 +1337,7 @@
 
   <!-- Toast -->
   <div id="toast" class="toast"></div>
+  <div id="selectionTooltip" class="selection-tooltip">Quote selection</div>
 
   <!-- ======== APPLICATION LOGIC ======== -->
   <script>
@@ -1517,6 +1589,10 @@
       tutorAttachConfirm:   $('tutorAttachConfirm'),
       tutorAttachClose:     $('tutorAttachClose'),
       tutorAttachCancel:    $('tutorAttachCancel'),
+      quoteBar:             $('quoteBar'),
+      quoteBarText:         $('quoteBarText'),
+      btnClearQuote:        $('btnClearQuote'),
+      selectionTooltip:     $('selectionTooltip'),
 
       // KB reader modal
       kbReaderModal:        $('kbReaderModal'),
@@ -2802,6 +2878,7 @@
       store: null,
       chats: [],
       currentId: null,
+      activeQuote: null,
 
       async init() {
         this.store = localforage.createInstance({ name: 'sth_tutor', storeName: 'chats' });
@@ -2887,11 +2964,44 @@
         this.renderChat();
       },
 
+      setQuote(text) {
+        const plain = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[#*`_~]/g, '').trim();
+        this.activeQuote = plain;
+        const preview = plain.length > 120 ? plain.slice(0, 120) + '…' : plain;
+        dom.quoteBarText.textContent = preview;
+        dom.quoteBar.classList.add('active');
+        dom.tutorInput.focus();
+      },
+
+      clearQuote() {
+        this.activeQuote = null;
+        dom.quoteBar.classList.remove('active');
+        dom.quoteBarText.textContent = '';
+      },
+
+      copyMessage(text) {
+        const plain = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[#*`_~]/g, '').trim();
+        navigator.clipboard.writeText(plain).then(() => {
+          showToast('Copied to clipboard');
+        }).catch(() => {
+          showToast('Could not copy — select and copy manually', 'error');
+        });
+      },
+
+      exportMessage(text) {
+        const plain = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[#*`_~]/g, '').trim();
+        navigator.clipboard.writeText(plain).catch(() => {});
+        window.open('https://docs.google.com/document/create', '_blank');
+        showToast('Google Doc opened — paste with Ctrl+V / ⌘V');
+      },
+
       async send(text) {
         const c = this.current();
         if (!c || !text.trim() || state.tutorTyping || state.tutorScraping) return;
 
-        c.messages.push({ role: 'user', text: text.trim() });
+        const activeQuote = this.activeQuote;
+        this.clearQuote();
+        c.messages.push({ role: 'user', text: text.trim(), ...(activeQuote ? { quote: activeQuote } : {}) });
         c.updated = Date.now();
         if (c.title === 'New chat') {
           c.title = text.trim().slice(0, 60) + (text.length > 60 ? '…' : '');
@@ -2940,7 +3050,10 @@
           mode: 'tutor',
           systemPrompt: TUTOR_SYSTEM_PROMPT,
           attachedContext,
-          messages: c.messages.map(m => ({ role: m.role, text: m.text })),
+          messages: c.messages.map(m => ({
+            role: m.role,
+            text: m.quote ? `[Referencing tutor's earlier message: "${m.quote}"]\n\n${m.text}` : m.text,
+          })),
           chatId: c.id,
           chatTitle: c.title,
         };
@@ -3047,18 +3160,52 @@
             </div>`;
         } else {
           for (const msg of c.messages) {
-            const bubble = document.createElement('div');
-            bubble.className = `chat-bubble ${msg.role}`;
             if (msg.role === 'model') {
+              const wrapper = document.createElement('div');
+              wrapper.className = 'msg-wrapper';
+              const bubble = document.createElement('div');
+              bubble.className = 'chat-bubble model';
               try {
                 bubble.innerHTML = marked.parse(msg.text || '');
               } catch {
                 bubble.textContent = msg.text || '';
               }
+              const actions = document.createElement('div');
+              actions.className = 'msg-actions';
+              actions.innerHTML = `
+                <button class="msg-action-btn" title="Reply to this message">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+                  Reply
+                </button>
+                <button class="msg-action-btn" title="Copy to clipboard">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  Copy
+                </button>
+                <button class="msg-action-btn" title="Export to Google Docs">
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Export
+                </button>`;
+              const [replyBtn, copyBtn, exportBtn] = actions.querySelectorAll('.msg-action-btn');
+              const msgText = msg.text;
+              replyBtn.addEventListener('click', () => tutor.setQuote(msgText));
+              copyBtn.addEventListener('click', () => tutor.copyMessage(msgText));
+              exportBtn.addEventListener('click', () => tutor.exportMessage(msgText));
+              wrapper.appendChild(bubble);
+              wrapper.appendChild(actions);
+              dom.tutorMessages.appendChild(wrapper);
             } else {
+              if (msg.quote) {
+                const quoteRef = document.createElement('div');
+                quoteRef.className = 'quote-ref';
+                const preview = msg.quote.length > 200 ? msg.quote.slice(0, 200) + '…' : msg.quote;
+                quoteRef.innerHTML = `<span class="quote-ref-label">Replying to Tutor</span>${escapeHtml(preview)}`;
+                dom.tutorMessages.appendChild(quoteRef);
+              }
+              const bubble = document.createElement('div');
+              bubble.className = `chat-bubble user${msg.quote ? ' with-quote' : ''}`;
               bubble.textContent = msg.text || '';
+              dom.tutorMessages.appendChild(bubble);
             }
-            dom.tutorMessages.appendChild(bubble);
           }
           if (state.tutorScraping) {
             const reading = document.createElement('div');
@@ -3227,6 +3374,45 @@
     dom.tutorAttachCancel.addEventListener('click', closeTutorAttach);
     dom.tutorAttachConfirm.addEventListener('click', confirmTutorAttach);
     dom.tutorAttachModal.addEventListener('click', e => { if (e.target === dom.tutorAttachModal) closeTutorAttach(); });
+
+    dom.btnClearQuote.addEventListener('click', () => tutor.clearQuote());
+
+    // Selection-to-quote tooltip
+    const selTip = dom.selectionTooltip;
+    let selTipActive = false;
+    function hideSelTip() { selTip.classList.remove('visible'); selTipActive = false; }
+    dom.tutorMessages.addEventListener('mouseup', () => {
+      setTimeout(() => {
+        const sel = window.getSelection();
+        const selectedText = sel && sel.toString().trim();
+        if (!selectedText || selectedText.length < 8) { hideSelTip(); return; }
+        let node = sel.anchorNode;
+        while (node && node !== dom.tutorMessages) {
+          if (node.classList && node.classList.contains('chat-bubble') && node.classList.contains('model')) {
+            const range = sel.getRangeAt(0);
+            const rect = range.getBoundingClientRect();
+            selTip.style.top = (rect.top - 42) + 'px';
+            selTip.style.left = (rect.left + rect.width / 2) + 'px';
+            selTip.classList.add('visible');
+            selTipActive = true;
+            selTip._quoted = selectedText;
+            return;
+          }
+          node = node.parentNode;
+        }
+        hideSelTip();
+      }, 10);
+    });
+    selTip.addEventListener('click', () => {
+      if (selTip._quoted) {
+        tutor.setQuote(selTip._quoted);
+        window.getSelection().removeAllRanges();
+        hideSelTip();
+      }
+    });
+    document.addEventListener('mousedown', e => {
+      if (selTipActive && !selTip.contains(e.target)) hideSelTip();
+    });
 
     dom.tutorInput.addEventListener('input', () => {
       // auto-resize
