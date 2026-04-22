@@ -1028,6 +1028,55 @@
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #c4b896; border-radius: 3px; }
+
+    /* ───────── SYNC SECTION ───────── */
+    .sync-section {
+      flex-shrink: 0;
+      padding: 10px 14px 14px;
+      border-top: 1px solid rgba(212,201,168,0.4);
+    }
+    .sync-btn {
+      width: 100%;
+      display: flex; align-items: center; gap: 8px;
+      padding: 9px 12px;
+      border-radius: 10px;
+      background: rgba(44,95,45,0.07);
+      border: 1px solid rgba(44,95,45,0.18);
+      color: #2c5f2d;
+      font-family: 'Outfit', sans-serif;
+      font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .sync-btn:hover { background: rgba(44,95,45,0.13); }
+    .sync-hint {
+      font-size: 11px; color: rgba(26,46,28,0.4);
+      text-align: center; margin-top: 6px; line-height: 1.4;
+    }
+    .sync-user-row { display: flex; align-items: center; gap: 10px; }
+    .sync-avatar {
+      width: 30px; height: 30px; border-radius: 50%;
+      object-fit: cover; flex-shrink: 0;
+      background: rgba(44,95,45,0.1);
+    }
+    .sync-user-info { flex: 1; min-width: 0; }
+    .sync-user-name {
+      font-size: 13px; font-weight: 500; color: #1a2e1c;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sync-user-status { font-size: 11px; color: rgba(26,46,28,0.4); }
+    .sync-sign-out-btn {
+      flex-shrink: 0; padding: 4px; border-radius: 6px;
+      background: transparent; border: none;
+      color: rgba(26,46,28,0.35); cursor: pointer;
+      transition: background 0.15s, color 0.15s; line-height: 0;
+    }
+    .sync-sign-out-btn:hover { background: rgba(26,46,28,0.08); color: #1a2e1c; }
+    .sync-syncing-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #2c5f2d; display: inline-block;
+      animation: sync-pulse 1.2s ease-in-out infinite;
+    }
+    @keyframes sync-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
   </style>
 </head>
 
@@ -1123,6 +1172,32 @@
           New chat
         </div>
         <div id="tutorChatList"></div>
+      </div>
+
+      <!-- ── Google Sync ── -->
+      <div id="syncSection" class="sync-section">
+        <div id="syncSignedOut">
+          <button id="btnSyncSignIn" class="sync-btn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            </svg>
+            Sync across devices
+          </button>
+          <p class="sync-hint">Sign in with Google to keep your data on every device</p>
+        </div>
+        <div id="syncSignedIn" class="hidden sync-user-row">
+          <img id="syncAvatar" class="sync-avatar" src="" alt="" />
+          <div class="sync-user-info">
+            <p id="syncName" class="sync-user-name"></p>
+            <p id="syncStatus" class="sync-user-status">Synced</p>
+          </div>
+          <button id="btnSyncSignOut" class="sync-sign-out-btn" title="Sign out of sync">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
       </div>
     </aside>
 
@@ -1874,6 +1949,10 @@
       sidebarSearch: '',
       chatSearch: '',
       refsPendingExport: null,
+      driveSyncToken: null,
+      driveSyncClient: null,
+      driveSyncing: false,
+      driveSyncTimer: null,
     };
 
     // ─── DOM Refs ───────────────────────────────────
@@ -2034,6 +2113,16 @@
       scrapePreviewClose:   $('scrapePreviewClose'),
       scrapePreviewDiscard: $('scrapePreviewDiscard'),
       scrapePreviewSave:    $('scrapePreviewSave'),
+
+      // Sync
+      syncSection:          $('syncSection'),
+      syncSignedOut:        $('syncSignedOut'),
+      syncSignedIn:         $('syncSignedIn'),
+      syncAvatar:           $('syncAvatar'),
+      syncName:             $('syncName'),
+      syncStatus:           $('syncStatus'),
+      btnSyncSignIn:        $('btnSyncSignIn'),
+      btnSyncSignOut:       $('btnSyncSignOut'),
     };
 
     // ─── Utilities ──────────────────────────────────
@@ -2274,12 +2363,14 @@
 
         this.cache.push(entry);
         await this.store.setItem('knowledge_bay', this.cache);
+        scheduleDrivePush();
         return entry;
       },
 
       async remove(id) {
         this.cache = this.cache.filter(i => i.id !== id);
         await this.store.setItem('knowledge_bay', this.cache);
+        scheduleDrivePush();
       },
 
       imageDataUrl(entry) {
@@ -2307,6 +2398,7 @@
         };
         this.cache.push(entry);
         await this.store.setItem('knowledge_bay', this.cache);
+        scheduleDrivePush();
         return entry;
       },
 
@@ -2314,7 +2406,9 @@
         const item = this.cache.find(i => i.id === id);
         if (!item || !newName.trim()) return;
         item.name = newName.trim();
+        item.updatedAt = Date.now();
         await this.store.setItem('knowledge_bay', this.cache);
+        scheduleDrivePush();
       },
     };
 
@@ -3319,6 +3413,264 @@
       return docId;
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // ─── GOOGLE DRIVE APP-DATA SYNC ────────────────────────────
+    // ═══════════════════════════════════════════════════════════
+    const SYNC_SCOPE    = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
+    const SYNC_FILE     = 'sth-userdata-v1.json';
+    const SYNC_USER_KEY = 'sth_sync_user';
+    const SYNC_FILE_KEY = 'sth_sync_file_id';
+
+    // ── Token client ────────────────────────────────
+    function initDriveSyncClient() {
+      if (typeof google === 'undefined' || !google.accounts) return;
+      if (state.driveSyncClient) return;
+      state.driveSyncClient = google.accounts.oauth2.initTokenClient({
+        client_id: CONFIG.googleClientId,
+        scope: SYNC_SCOPE,
+        callback: onDriveSyncToken,
+      });
+    }
+
+    function onDriveSyncToken(resp) {
+      if (resp.error) { showToast('Google sign-in cancelled.', 'error'); return; }
+      state.driveSyncToken = resp.access_token;
+      runInitialSync();
+    }
+
+    function triggerSyncSignIn() {
+      if (!state.driveSyncClient) {
+        initDriveSyncClient();
+        if (!state.driveSyncClient) {
+          showToast('Google services still loading — try again in a moment.', 'error');
+          return;
+        }
+      }
+      state.driveSyncClient.requestAccessToken();
+    }
+
+    function signOutSync() {
+      state.driveSyncToken = null;
+      state.driveSyncClient = null;
+      clearTimeout(state.driveSyncTimer);
+      localStorage.removeItem(SYNC_USER_KEY);
+      localStorage.removeItem(SYNC_FILE_KEY);
+      updateSyncUI('signed-out');
+      showToast('Signed out of sync');
+    }
+
+    // ── Drive REST helpers ───────────────────────────
+    async function driveListSyncFile(token) {
+      const q = encodeURIComponent(`name='${SYNC_FILE}'`);
+      const res = await fetch(
+        `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id)`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) throw new Error(`Drive list: ${res.status}`);
+      const { files } = await res.json();
+      return files[0]?.id || null;
+    }
+
+    async function driveReadSyncFile(token, fileId) {
+      const res = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) throw new Error(`Drive read: ${res.status}`);
+      return res.json();
+    }
+
+    async function driveWriteSyncFile(token, fileId, data) {
+      const bodyJson = JSON.stringify(data);
+      if (fileId) {
+        const res = await fetch(
+          `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
+          { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: bodyJson }
+        );
+        if (!res.ok) throw new Error(`Drive update: ${res.status}`);
+        return fileId;
+      } else {
+        const form = new FormData();
+        form.append('metadata', new Blob(
+          [JSON.stringify({ name: SYNC_FILE, parents: ['appDataFolder'] })],
+          { type: 'application/json' }
+        ));
+        form.append('file', new Blob([bodyJson], { type: 'application/json' }));
+        const res = await fetch(
+          'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+          { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }
+        );
+        if (!res.ok) throw new Error(`Drive create: ${res.status}`);
+        const file = await res.json();
+        return file.id;
+      }
+    }
+
+    async function driveFetchUserInfo(token) {
+      const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) return null;
+      const { name, email, picture } = await res.json();
+      return { name, email, picture };
+    }
+
+    // ── Merge logic ──────────────────────────────────
+    function mergeKbItems(local, remote) {
+      const map = new Map();
+      for (const item of remote) map.set(item.id, item);
+      for (const item of local) {
+        const existing = map.get(item.id);
+        if (!existing) { map.set(item.id, item); continue; }
+        const localTs  = item.updatedAt  || item.timestamp  || 0;
+        const remoteTs = existing.updatedAt || existing.timestamp || 0;
+        if (localTs >= remoteTs) map.set(item.id, item);
+      }
+      return [...map.values()];
+    }
+
+    function mergeTutorChats(local, remote) {
+      const map = new Map();
+      for (const chat of remote) map.set(chat.id, chat);
+      for (const chat of local) {
+        const existing = map.get(chat.id);
+        if (!existing) { map.set(chat.id, chat); continue; }
+        const localTs  = chat.updated  || chat.timestamp  || 0;
+        const remoteTs = existing.updated || existing.timestamp || 0;
+        if (localTs >= remoteTs) map.set(chat.id, chat);
+      }
+      return [...map.values()];
+    }
+
+    // ── Initial sync (merge + write) ─────────────────
+    async function runInitialSync() {
+      const token = state.driveSyncToken;
+      updateSyncUI('syncing');
+      try {
+        // 1 — Fetch user info
+        const user = await driveFetchUserInfo(token);
+        if (user) localStorage.setItem(SYNC_USER_KEY, JSON.stringify(user));
+
+        // 2 — Locate / read the Drive file
+        let fileId = localStorage.getItem(SYNC_FILE_KEY);
+        let remote = { kbItems: [], tutorChats: [] };
+
+        if (!fileId) {
+          fileId = await driveListSyncFile(token);
+          if (fileId) localStorage.setItem(SYNC_FILE_KEY, fileId);
+        }
+        if (fileId) {
+          try { remote = await driveReadSyncFile(token, fileId); }
+          catch { /* corrupt / deleted — start fresh */ }
+        }
+
+        // 3 — Merge local + remote
+        const mergedKb    = mergeKbItems(kb.cache,       remote.kbItems     || []);
+        const mergedChats = mergeTutorChats(tutor.chats, remote.tutorChats  || []);
+
+        // 4 — Persist merged data locally
+        kb.cache = mergedKb;
+        await kb.store.setItem('knowledge_bay', kb.cache);
+        renderKbGrid();
+
+        tutor.chats = mergedChats;
+        await kb.store.setItem('knowledge_bay', kb.cache); // belt-and-suspenders flush
+        await tutor.store.setItem('tutor_chats', tutor.chats);
+        tutor.renderSidebarList();
+        if (tutor.currentId) tutor.renderChat?.();
+
+        // 5 — Write merged data back to Drive
+        const newFileId = await driveWriteSyncFile(token, fileId, {
+          kbItems: mergedKb, tutorChats: mergedChats, syncedAt: Date.now()
+        });
+        if (!fileId) localStorage.setItem(SYNC_FILE_KEY, newFileId);
+
+        updateSyncUI('synced', user);
+        showToast('✓ Synced — your data is up to date across all devices');
+
+      } catch (err) {
+        console.error('[Sync]', err);
+        showToast('Sync failed — will retry on next save', 'error');
+        updateSyncUI('error');
+      }
+    }
+
+    // ── Push current data to Drive (debounced) ────────
+    async function pushToDrive() {
+      if (!state.driveSyncToken || state.driveSyncing) return;
+      state.driveSyncing = true;
+      updateSyncUI('syncing');
+      try {
+        let fileId = localStorage.getItem(SYNC_FILE_KEY);
+        const data = { kbItems: kb.cache, tutorChats: tutor.chats, syncedAt: Date.now() };
+        const newId = await driveWriteSyncFile(state.driveSyncToken, fileId, data);
+        if (!fileId) localStorage.setItem(SYNC_FILE_KEY, newId);
+        updateSyncUI('synced');
+      } catch (err) {
+        console.error('[Sync push]', err);
+        // Token expired → clear so button prompts re-auth
+        if (String(err.message).includes('401') || String(err.message).includes('403')) {
+          state.driveSyncToken = null;
+          updateSyncUI('expired');
+        } else {
+          updateSyncUI('error');
+        }
+      } finally {
+        state.driveSyncing = false;
+      }
+    }
+
+    function scheduleDrivePush() {
+      if (!state.driveSyncToken) return;
+      clearTimeout(state.driveSyncTimer);
+      state.driveSyncTimer = setTimeout(pushToDrive, 3000);
+    }
+
+    // ── UI updates ───────────────────────────────────
+    function updateSyncUI(status, user) {
+      const { syncSignedOut, syncSignedIn, syncName, syncAvatar, syncStatus, btnSyncSignIn } = dom;
+      if (!syncSignedOut) return;
+
+      const resolvedUser = user || (() => {
+        try { return JSON.parse(localStorage.getItem(SYNC_USER_KEY)); } catch { return null; }
+      })();
+
+      if (status === 'signed-out' || status === 'expired') {
+        syncSignedOut.classList.remove('hidden');
+        syncSignedIn.classList.add('hidden');
+        btnSyncSignIn.innerHTML = `
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+          </svg>
+          ${status === 'expired' ? 'Re-connect Google' : 'Sync across devices'}`;
+        return;
+      }
+
+      syncSignedOut.classList.add('hidden');
+      syncSignedIn.classList.remove('hidden');
+
+      if (resolvedUser) {
+        syncName.textContent = resolvedUser.name || resolvedUser.email || 'Google account';
+        if (resolvedUser.picture) {
+          syncAvatar.src = resolvedUser.picture;
+          syncAvatar.style.display = '';
+        } else {
+          syncAvatar.style.display = 'none';
+        }
+      }
+
+      if (status === 'syncing') {
+        syncStatus.innerHTML = `<span class="sync-syncing-dot"></span> Syncing\u2026`;
+      } else if (status === 'synced') {
+        syncStatus.textContent = `Synced \u2014 ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      } else if (status === 'error') {
+        syncStatus.textContent = 'Sync failed \u2014 will retry';
+      } else if (status === 'signed-in') {
+        syncStatus.textContent = 'Connected \u2014 tap to sync now';
+      }
+    }
+
     // ─── Retry (keeps files intact) ─────────────────
     function retryFromError() {
       renderUploadZones();
@@ -3371,6 +3723,7 @@
 
       async save() {
         await this.store.setItem('tutor_chats', this.chats);
+        scheduleDrivePush();
       },
 
       current() {
@@ -4126,6 +4479,10 @@
     // ═══════════════════════════════════════════════════════════
 
     // Nav
+    // Sync
+    dom.btnSyncSignIn.addEventListener('click', triggerSyncSignIn);
+    dom.btnSyncSignOut.addEventListener('click', signOutSync);
+
     dom.btnHamburger.addEventListener('click', () => {
       if (dom.sidebar.classList.contains('open')) closeSidebar();
       else openSidebar();
@@ -4424,14 +4781,25 @@
     });
 
     async function initAfterAuth() {
-      // Google OAuth init (deferred)
+      // Google OAuth init (deferred) — Docs export + Drive sync
       const gisInterval = setInterval(() => {
         if (typeof google !== 'undefined' && google.accounts) {
           initGoogleOAuth();
+          initDriveSyncClient();
           clearInterval(gisInterval);
         }
       }, 500);
       setTimeout(() => clearInterval(gisInterval), 10000);
+
+      // Restore sync UI from last session (token expired but show who was connected)
+      const storedUser = localStorage.getItem(SYNC_USER_KEY);
+      if (storedUser) {
+        try {
+          const user = JSON.parse(storedUser);
+          // Show as expired so user knows to re-tap to reconnect
+          updateSyncUI('expired', user);
+        } catch { /* ignore */ }
+      }
 
       // Init KB + Tutor stores
       await kb.init();
