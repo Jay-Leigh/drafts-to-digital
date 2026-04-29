@@ -3384,6 +3384,86 @@
       createGoogleDoc();
     }
 
+    // ─── Markdown → Google Docs API requests ─────────
+    function parseInlineMarkdown(text) {
+      const segments = [];
+      const regex = /\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|__(.+?)__|___(.+?)___|\*(.+?)\*|_(.+?)_/g;
+      let last = 0, m;
+      while ((m = regex.exec(text)) !== null) {
+        if (m.index > last) segments.push({ text: text.slice(last, m.index) });
+        if (m[1]) segments.push({ text: m[1], bold: true, italic: true });
+        else if (m[2] || m[3]) segments.push({ text: m[2] || m[3], bold: true });
+        else if (m[4]) segments.push({ text: m[4], bold: true, italic: true });
+        else segments.push({ text: m[5] || m[6], italic: true });
+        last = m.index + m[0].length;
+      }
+      if (last < text.length) segments.push({ text: text.slice(last) });
+      return segments.length ? segments : [{ text }];
+    }
+
+    function markdownToDocsRequests(markdown) {
+      const requests = [];
+      const lines = markdown.split('\n');
+      let idx = 1;
+
+      for (const line of lines) {
+        let style = 'NORMAL_TEXT', raw = line, isBullet = false;
+        const hMatch = line.match(/^(#{1,4}) (.+)/);
+        const bMatch = line.match(/^[-*] (.+)/);
+
+        if (hMatch) {
+          const levels = { 1: 'HEADING_1', 2: 'HEADING_2', 3: 'HEADING_3', 4: 'HEADING_4' };
+          style = levels[hMatch[1].length] || 'HEADING_3';
+          raw = hMatch[2];
+        } else if (bMatch) {
+          isBullet = true;
+          raw = bMatch[1];
+        }
+
+        const segments = parseInlineMarkdown(raw);
+        const plain = segments.map(s => s.text).join('') + '\n';
+
+        requests.push({ insertText: { location: { index: idx }, text: plain } });
+
+        const lineStart = idx, lineEnd = idx + plain.length;
+
+        if (style !== 'NORMAL_TEXT') {
+          requests.push({
+            updateParagraphStyle: {
+              range: { startIndex: lineStart, endIndex: lineEnd },
+              paragraphStyle: { namedStyleType: style },
+              fields: 'namedStyleType'
+            }
+          });
+        } else if (isBullet) {
+          requests.push({
+            createParagraphBullets: {
+              range: { startIndex: lineStart, endIndex: lineEnd - 1 },
+              bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE'
+            }
+          });
+        }
+
+        let segIdx = lineStart;
+        for (const seg of segments) {
+          const segEnd = segIdx + seg.text.length;
+          if (seg.bold || seg.italic) {
+            requests.push({
+              updateTextStyle: {
+                range: { startIndex: segIdx, endIndex: segEnd },
+                textStyle: { ...(seg.bold && { bold: true }), ...(seg.italic && { italic: true }) },
+                fields: [seg.bold && 'bold', seg.italic && 'italic'].filter(Boolean).join(',')
+              }
+            });
+          }
+          segIdx = segEnd;
+        }
+
+        idx += plain.length;
+      }
+      return requests;
+    }
+
     async function createGoogleDoc() {
       try {
         const text = state.resultMode === 'transcribe' ? dom.resultTextarea.value : state.resultText;
@@ -3401,7 +3481,7 @@
         const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${doc.documentId}:batchUpdate`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${state.googleAccessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ requests: [{ insertText: { location: { index: 1 }, text } }] }),
+          body: JSON.stringify({ requests: ['template', 'reviewer'].includes(state.resultMode) ? markdownToDocsRequests(text) : [{ insertText: { location: { index: 1 }, text } }] }),
         });
         if (!updateRes.ok) throw new Error(`Docs update failed: ${updateRes.status}`);
 
