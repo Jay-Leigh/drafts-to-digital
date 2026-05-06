@@ -1230,13 +1230,30 @@
     }
     .history-empty svg { opacity: 0.3; }
     .history-empty p { font-size: 14px; }
+    .history-panel-head-actions { display: flex; align-items: center; gap: 8px; }
+    .hist-clear-btn {
+      font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 6px;
+      background: transparent; border: 1px solid rgba(212,201,168,0.7);
+      color: rgba(26,46,28,0.45); cursor: pointer; transition: all 0.15s ease;
+    }
+    .hist-clear-btn:hover { background: rgba(220,38,38,0.07); border-color: rgba(220,38,38,0.3); color: #dc2626; }
     .history-entry {
-      background: white; border: 1px solid rgba(212,201,168,0.5);
+      position: relative; background: white; border: 1px solid rgba(212,201,168,0.5);
       border-radius: 12px; padding: 13px 14px;
       cursor: pointer; transition: all 0.15s ease;
     }
     .history-entry:hover { border-color: rgba(44,95,45,0.35); box-shadow: 0 2px 8px rgba(26,46,28,0.06); }
-    .history-entry-head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+    .history-entry-del {
+      position: absolute; top: 8px; right: 8px; width: 22px; height: 22px;
+      border-radius: 5px; background: rgba(220,38,38,0.07); border: 1px solid rgba(220,38,38,0.18);
+      color: #dc2626; font-size: 14px; line-height: 1; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.15s ease, background 0.15s ease;
+    }
+    .history-entry:hover .history-entry-del,
+    .history-entry.longpress-active .history-entry-del { opacity: 1; }
+    .history-entry-del:hover { background: rgba(220,38,38,0.15); }
+    .history-entry-head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; padding-right: 20px; }
     .history-mode-badge {
       font-size: 10px; font-weight: 600; text-transform: uppercase;
       letter-spacing: 0.06em; padding: 2px 7px; border-radius: 5px;
@@ -2010,7 +2027,10 @@
   <aside id="historyPanel" class="history-panel" aria-label="Generation history">
     <div class="history-panel-head">
       <h3>Generation History</h3>
-      <button id="historyClose" class="history-panel-close" aria-label="Close">&times;</button>
+      <div class="history-panel-head-actions">
+        <button id="historyClearAll" class="hist-clear-btn">Clear All</button>
+        <button id="historyClose" class="history-panel-close" aria-label="Close">&times;</button>
+      </div>
     </div>
     <div id="historyList" class="history-list"></div>
   </aside>
@@ -2463,6 +2483,22 @@
       }
     }
 
+    async function deleteHistoryEntry(id) {
+      const all = await getHistory();
+      const updated = all.filter(e => e.id !== id);
+      await _historyStore.setItem('entries', updated).catch(() => {});
+      const btn = document.getElementById('historyBtn');
+      if (btn) btn.classList.toggle('has-entries', updated.length > 0);
+      renderHistoryList();
+    }
+
+    async function clearAllHistory() {
+      await _historyStore.setItem('entries', []).catch(() => {});
+      const btn = document.getElementById('historyBtn');
+      if (btn) btn.classList.remove('has-entries');
+      renderHistoryList();
+    }
+
     // ─── History Panel UI ───────────────────────────
     function toggleHistoryPanel(open) {
       const overlay = document.getElementById('historyOverlay');
@@ -2494,13 +2530,27 @@
         div.className = 'history-entry';
         div.dataset.id = e.id;
         div.innerHTML = `
+          <button class="history-entry-del" title="Delete entry" aria-label="Delete">&times;</button>
           <div class="history-entry-head">
             <span class="history-mode-badge ${badgeClass}">${e.mode}</span>
             <span class="history-entry-date">${date}</span>
           </div>
           <div class="history-entry-preview">${escapeHtml(e.preview)}</div>
           <div class="history-entry-meta">${e.wordCount.toLocaleString()} words${e.fileNames?.length ? ' &middot; ' + e.fileNames.slice(0,2).map(escapeHtml).join(', ') + (e.fileNames.length > 2 ? ' +' + (e.fileNames.length-2) + ' more' : '') : ''}</div>`;
-        div.addEventListener('click', () => openHistoryResult(e));
+        div.querySelector('.history-entry-del').addEventListener('click', async (ev) => {
+          ev.stopPropagation();
+          await deleteHistoryEntry(e.id);
+        });
+        div.addEventListener('click', () => {
+          if (div.classList.contains('longpress-active')) { div.classList.remove('longpress-active'); return; }
+          openHistoryResult(e);
+        });
+        let _lpTimer = null;
+        div.addEventListener('touchstart', () => {
+          _lpTimer = setTimeout(() => { div.classList.add('longpress-active'); _lpTimer = null; }, 500);
+        }, { passive: true });
+        div.addEventListener('touchend', () => { clearTimeout(_lpTimer); _lpTimer = null; });
+        div.addEventListener('touchmove', () => { clearTimeout(_lpTimer); _lpTimer = null; });
         list.appendChild(div);
       }
     }
@@ -3642,7 +3692,7 @@
         showToolSection('sectionResult');
         showToast('Processing complete!');
         const fileNames = Object.values(state.zones).flat().map(f => f.name);
-        saveToHistory(state.mode, resultText, fileNames);
+        saveToHistory(state.resultMode, resultText, fileNames);
         clearDraft();
 
       } catch (error) {
@@ -5255,6 +5305,7 @@
     document.getElementById('historyBtn').addEventListener('click', () => toggleHistoryPanel(true));
     document.getElementById('historyClose').addEventListener('click', () => toggleHistoryPanel(false));
     document.getElementById('historyOverlay').addEventListener('click', () => toggleHistoryPanel(false));
+    document.getElementById('historyClearAll').addEventListener('click', () => clearAllHistory());
     document.getElementById('historyResultClose').addEventListener('click', () => {
       document.getElementById('historyResultModal').classList.remove('open');
     });
