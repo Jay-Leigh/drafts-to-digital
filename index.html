@@ -2005,6 +2005,27 @@
     </div>
   </div>
 
+  <!-- ── History Panel ── -->
+  <div id="historyOverlay" class="history-overlay"></div>
+  <aside id="historyPanel" class="history-panel" aria-label="Generation history">
+    <div class="history-panel-head">
+      <h3>Generation History</h3>
+      <button id="historyClose" class="history-panel-close" aria-label="Close">&times;</button>
+    </div>
+    <div id="historyList" class="history-list"></div>
+  </aside>
+
+  <!-- ── History Result Modal ── -->
+  <div id="historyResultModal" class="history-result-modal">
+    <div class="history-result-box">
+      <div class="history-result-modal-head">
+        <h4 id="historyResultTitle">Result</h4>
+        <button id="historyResultClose" class="history-result-modal-close">&times;</button>
+      </div>
+      <div id="historyResultBody" class="history-result-body"></div>
+    </div>
+  </div>
+
   <!-- ======== APPLICATION LOGIC ======== -->
   <script>
   (() => {
@@ -5358,26 +5379,5 @@
 
   })();
   </script>
-
-  <!-- ── History Panel ── -->
-  <div id="historyOverlay" class="history-overlay"></div>
-  <aside id="historyPanel" class="history-panel" aria-label="Generation history">
-    <div class="history-panel-head">
-      <h3>Generation History</h3>
-      <button id="historyClose" class="history-panel-close" aria-label="Close">&times;</button>
-    </div>
-    <div id="historyList" class="history-list"></div>
-  </aside>
-
-  <!-- ── History Result Modal ── -->
-  <div id="historyResultModal" class="history-result-modal">
-    <div class="history-result-box">
-      <div class="history-result-modal-head">
-        <h4 id="historyResultTitle">Result</h4>
-        <button id="historyResultClose" class="history-result-modal-close">&times;</button>
-      </div>
-      <div id="historyResultBody" class="history-result-body"></div>
-    </div>
-  </div>
 </body>
 </html>
