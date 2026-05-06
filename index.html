@@ -1144,6 +1144,153 @@
       animation: sync-pulse 1.2s ease-in-out infinite;
     }
     @keyframes sync-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+    /* ───────── TOAST — action variant ───────── */
+    .toast-persistent { pointer-events: auto !important; }
+    .toast-body { display: flex; align-items: center; gap: 10px; }
+    .toast-msg { flex: 1; min-width: 0; }
+    .toast-action-btn {
+      flex-shrink: 0; padding: 5px 11px;
+      font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 600;
+      color: #2c5f2d; background: rgba(255,255,255,0.9);
+      border: 1px solid rgba(44,95,45,0.4); border-radius: 7px;
+      cursor: pointer; white-space: nowrap;
+      transition: background 0.15s, color 0.15s;
+    }
+    .toast-action-btn:hover { background: white; color: #1a2e1c; }
+    .toast-close-btn {
+      flex-shrink: 0; width: 22px; height: 22px;
+      border: none; background: none; cursor: pointer;
+      color: rgba(255,255,255,0.7); font-size: 16px; line-height: 1;
+      padding: 0; display: flex; align-items: center; justify-content: center;
+      border-radius: 4px; transition: color 0.15s;
+    }
+    .toast-close-btn:hover { color: white; }
+
+    /* ───────── HISTORY BUTTON (topbar) ───────── */
+    .history-topbar-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 12px;
+      font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 500;
+      color: rgba(26,46,28,0.55);
+      background: white; border: 1px solid rgba(212,201,168,0.6);
+      border-radius: 9px; cursor: pointer;
+      transition: all 0.2s ease; flex-shrink: 0;
+    }
+    .history-topbar-btn:hover { color: #2c5f2d; border-color: rgba(44,95,45,0.45); }
+    .history-topbar-btn .hist-dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: #2c5f2d; display: none; flex-shrink: 0;
+    }
+    .history-topbar-btn.has-entries .hist-dot { display: block; }
+
+    /* ───────── HISTORY PANEL (slide-in from right) ───────── */
+    .history-overlay {
+      position: fixed; inset: 0; z-index: 55;
+      background: rgba(26,46,28,0.35); backdrop-filter: blur(2px);
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+    .history-overlay.open { opacity: 1; pointer-events: auto; }
+    .history-panel {
+      position: fixed; top: 0; right: 0; bottom: 0;
+      width: min(420px, 100vw); z-index: 56;
+      background: #faf8f3; border-left: 1px solid rgba(212,201,168,0.55);
+      display: flex; flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+      box-shadow: -6px 0 32px rgba(26,46,28,0.12);
+    }
+    .history-panel.open { transform: translateX(0); }
+    .history-panel-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 20px 14px;
+      border-bottom: 1px solid rgba(212,201,168,0.4);
+      flex-shrink: 0;
+    }
+    .history-panel-head h3 { font-size: 17px; font-weight: 600; color: #1a2e1c; }
+    .history-panel-close {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: white; border: 1px solid rgba(212,201,168,0.6);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: rgba(26,46,28,0.5); font-size: 18px; line-height: 1;
+      transition: all 0.15s ease;
+    }
+    .history-panel-close:hover { color: #1a2e1c; border-color: rgba(44,95,45,0.35); }
+    .history-list {
+      flex: 1; overflow-y: auto; padding: 12px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .history-list::-webkit-scrollbar { width: 4px; }
+    .history-list::-webkit-scrollbar-thumb { background: #c4b896; border-radius: 2px; }
+    .history-empty {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 8px; padding: 40px 20px;
+      color: rgba(26,46,28,0.35); text-align: center;
+    }
+    .history-empty svg { opacity: 0.3; }
+    .history-empty p { font-size: 14px; }
+    .history-entry {
+      background: white; border: 1px solid rgba(212,201,168,0.5);
+      border-radius: 12px; padding: 13px 14px;
+      cursor: pointer; transition: all 0.15s ease;
+    }
+    .history-entry:hover { border-color: rgba(44,95,45,0.35); box-shadow: 0 2px 8px rgba(26,46,28,0.06); }
+    .history-entry-head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+    .history-mode-badge {
+      font-size: 10px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.06em; padding: 2px 7px; border-radius: 5px;
+    }
+    .badge-transcribe { background: rgba(44,95,45,0.1); color: #2c5f2d; }
+    .badge-template   { background: rgba(37,99,235,0.1); color: #1d4ed8; }
+    .badge-reviewer   { background: rgba(124,58,237,0.1); color: #6d28d9; }
+    .history-entry-date { font-size: 11px; color: rgba(26,46,28,0.38); margin-left: auto; }
+    .history-entry-preview {
+      font-size: 13px; color: rgba(26,46,28,0.65); line-height: 1.4;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .history-entry-meta { font-size: 11px; color: rgba(26,46,28,0.35); margin-top: 5px; }
+
+    /* History result modal */
+    .history-result-modal {
+      position: fixed; inset: 0; z-index: 60;
+      background: rgba(26,46,28,0.45); backdrop-filter: blur(3px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px; opacity: 0; pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .history-result-modal.open { opacity: 1; pointer-events: auto; }
+    .history-result-box {
+      background: white; border-radius: 16px;
+      width: 100%; max-width: 720px; max-height: 82vh;
+      display: flex; flex-direction: column;
+      box-shadow: 0 20px 60px rgba(26,46,28,0.2);
+      transform: translateY(12px);
+      transition: transform 0.2s ease;
+    }
+    .history-result-modal.open .history-result-box { transform: translateY(0); }
+    .history-result-modal-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 16px 20px; border-bottom: 1px solid rgba(212,201,168,0.4);
+      flex-shrink: 0;
+    }
+    .history-result-modal-head h4 { font-size: 16px; font-weight: 600; color: #1a2e1c; flex: 1; min-width: 0; }
+    .history-result-modal-close {
+      width: 32px; height: 32px; border-radius: 8px;
+      background: #f5f0e1; border: 1px solid rgba(212,201,168,0.6);
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      color: rgba(26,46,28,0.5); font-size: 18px; line-height: 1;
+      flex-shrink: 0; transition: all 0.15s;
+    }
+    .history-result-modal-close:hover { color: #1a2e1c; }
+    .history-result-body {
+      flex: 1; overflow-y: auto; padding: 20px;
+      font-family: 'Outfit', sans-serif; font-size: 14px;
+      line-height: 1.6; color: #1a2e1c; white-space: pre-wrap;
+    }
+    .history-result-body::-webkit-scrollbar { width: 4px; }
+    .history-result-body::-webkit-scrollbar-thumb { background: #c4b896; border-radius: 2px; }
   </style>
 </head>
 
@@ -1280,6 +1427,11 @@
           <span class="topbar-title">Student Tools Hub</span>
         </div>
         <span class="topbar-badge">AI-powered academic assistant</span>
+        <button id="historyBtn" class="history-topbar-btn" title="View generation history">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          History
+          <span class="hist-dot"></span>
+        </button>
       </div>
 
       <main class="content">
@@ -2190,6 +2342,164 @@
       btnSyncSignOut:       $('btnSyncSignOut'),
     };
 
+    // ═══════════════════════════════════════════════════════════
+    // ─── Draft + History Persistence ──────────────────────────
+    // ═══════════════════════════════════════════════════════════
+    const HISTORY_TTL = 30 * 24 * 60 * 60 * 1000;
+
+    const _draftStore   = localforage.createInstance({ name: 'sth_cache', storeName: 'drafts' });
+    const _historyStore = localforage.createInstance({ name: 'sth_cache', storeName: 'history' });
+
+    let _saveDraftTimer = null;
+    function scheduleDraftSave() {
+      clearTimeout(_saveDraftTimer);
+      _saveDraftTimer = setTimeout(saveDraft, 600);
+    }
+
+    async function saveDraft() {
+      if (!state.mode) return;
+      const totalFiles = Object.values(state.zones).reduce((s, a) => s + a.length, 0);
+      if (totalFiles === 0 && !state.userNotes && !state.resourceUrl) {
+        await _draftStore.removeItem('current').catch(() => {});
+        return;
+      }
+      const zones = {};
+      for (const [role, files] of Object.entries(state.zones)) {
+        zones[role] = files.map(f => ({ name: f.name, type: f.type, mime: f.mime, size: f.size, file: f.file }));
+      }
+      await _draftStore.setItem('current', {
+        mode: state.mode, zones, userNotes: state.userNotes,
+        resourceUrl: state.resourceUrl, timestamp: Date.now(),
+      }).catch(() => {});
+    }
+
+    async function clearDraft() {
+      await _draftStore.removeItem('current').catch(() => {});
+    }
+
+    async function loadDraft() {
+      return _draftStore.getItem('current').catch(() => null);
+    }
+
+    async function restoreDraft(draft) {
+      state.mode = draft.mode;
+      document.querySelectorAll('.mode-card').forEach(card => {
+        card.classList.toggle('active', card.dataset.mode === draft.mode);
+      });
+      const meta = MODE_META[draft.mode];
+      if (meta) {
+        dom.toolTitle.textContent = meta.title;
+        dom.toolSubtitle.textContent = meta.sub;
+      }
+      renderUploadZones();
+      await new Promise(r => setTimeout(r, 80));
+      for (const [role, files] of Object.entries(draft.zones || {})) {
+        state.zones[role] = files.map(f => ({
+          id: generateId(), file: f.file, name: f.name, type: f.type,
+          mime: f.mime, size: f.size,
+          thumbUrl: f.type === 'image' && f.file ? URL.createObjectURL(f.file) : null,
+        }));
+        renderFileGrid(role);
+      }
+      const notesEl = document.getElementById('notesInput');
+      const urlEl   = document.getElementById('urlInput');
+      if (notesEl) { notesEl.value = draft.userNotes || ''; state.userNotes = draft.userNotes || ''; }
+      if (urlEl)   { urlEl.value   = draft.resourceUrl || ''; state.resourceUrl = draft.resourceUrl || ''; }
+      updateActionState();
+      location.hash = '#tool';
+      showToast('Draft restored \u2014 pick up where you left off.');
+    }
+
+    let _lastSavedHistoryId = null;
+
+    async function saveToHistory(mode, resultText, fileNames) {
+      const words = resultText.trim() ? resultText.trim().split(/\s+/).length : 0;
+      const preview = resultText.trim().slice(0, 160).replace(/\n/g, ' ');
+      const entry = {
+        id: `h_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
+        mode, resultText, fileNames, wordCount: words,
+        preview: preview + (resultText.length > 160 ? '\u2026' : ''),
+        timestamp: Date.now(),
+      };
+      _lastSavedHistoryId = entry.id;
+      const all = (await _historyStore.getItem('entries').catch(() => null)) || [];
+      all.unshift(entry);
+      await _historyStore.setItem('entries', all).catch(() => {});
+      const btn = document.getElementById('historyBtn');
+      if (btn) btn.classList.add('has-entries');
+    }
+
+    async function getHistory() {
+      return (await _historyStore.getItem('entries').catch(() => null)) || [];
+    }
+
+    async function purgeExpiredHistory() {
+      const all = await getHistory();
+      const cutoff = Date.now() - HISTORY_TTL;
+      const kept = all.filter(e => e.timestamp >= cutoff);
+      if (kept.length !== all.length) {
+        await _historyStore.setItem('entries', kept).catch(() => {});
+      }
+    }
+
+    // ─── History Panel UI ───────────────────────────
+    function toggleHistoryPanel(open) {
+      const overlay = document.getElementById('historyOverlay');
+      const panel   = document.getElementById('historyPanel');
+      if (open) {
+        renderHistoryList();
+        overlay.classList.add('open');
+        panel.classList.add('open');
+      } else {
+        overlay.classList.remove('open');
+        panel.classList.remove('open');
+      }
+    }
+
+    async function renderHistoryList() {
+      const list = document.getElementById('historyList');
+      if (!list) return;
+      const entries = await getHistory();
+      if (!entries.length) {
+        list.innerHTML = `<div class="history-empty"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><p>No saved generations yet.<br>Your results will appear here after processing.</p></div>`;
+        return;
+      }
+      list.innerHTML = '';
+      for (const e of entries) {
+        const badgeClass = `badge-${e.mode}`;
+        const label = MODE_META[e.mode]?.resultTitle || e.mode;
+        const date  = new Date(e.timestamp).toLocaleDateString('en-ZA', { day:'numeric', month:'short', year:'numeric' });
+        const div = document.createElement('div');
+        div.className = 'history-entry';
+        div.dataset.id = e.id;
+        div.innerHTML = `
+          <div class="history-entry-head">
+            <span class="history-mode-badge ${badgeClass}">${e.mode}</span>
+            <span class="history-entry-date">${date}</span>
+          </div>
+          <div class="history-entry-preview">${escapeHtml(e.preview)}</div>
+          <div class="history-entry-meta">${e.wordCount.toLocaleString()} words${e.fileNames?.length ? ' &middot; ' + e.fileNames.slice(0,2).map(escapeHtml).join(', ') + (e.fileNames.length > 2 ? ' +' + (e.fileNames.length-2) + ' more' : '') : ''}</div>`;
+        div.addEventListener('click', () => openHistoryResult(e));
+        list.appendChild(div);
+      }
+    }
+
+    function openHistoryResult(entry) {
+      const modal = document.getElementById('historyResultModal');
+      const title = document.getElementById('historyResultTitle');
+      const body  = document.getElementById('historyResultBody');
+      title.textContent = MODE_META[entry.mode]?.resultTitle || 'Result';
+      if (entry.mode === 'transcribe') {
+        body.style.whiteSpace = 'pre-wrap';
+        body.textContent = entry.resultText;
+      } else {
+        body.style.whiteSpace = 'normal';
+        try { body.innerHTML = marked.parse(entry.resultText); }
+        catch { body.textContent = entry.resultText; }
+      }
+      modal.classList.add('open');
+    }
+
     // ─── Utilities ──────────────────────────────────
     const generateId = () => `f_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
@@ -2199,10 +2509,19 @@
       });
     }
 
-    function showToast(msg, type = 'success') {
-      dom.toast.textContent = msg;
-      dom.toast.className = `toast toast-${type} show`;
-      setTimeout(() => dom.toast.classList.remove('show'), 3500);
+    let _toastTimer = null;
+    function showToast(msg, type = 'success', opts = {}) {
+      if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
+      const { action, actionLabel, persistent } = opts;
+      if (action && actionLabel) {
+        dom.toast.innerHTML = `<div class="toast-body"><span class="toast-msg">${msg}</span><button class="toast-action-btn">${actionLabel}</button><button class="toast-close-btn">&times;</button></div>`;
+        dom.toast.querySelector('.toast-action-btn').addEventListener('click', () => { dom.toast.classList.remove('show', 'toast-persistent'); action(); });
+        dom.toast.querySelector('.toast-close-btn').addEventListener('click', () => { dom.toast.classList.remove('show', 'toast-persistent'); });
+      } else {
+        dom.toast.textContent = msg;
+      }
+      dom.toast.className = `toast toast-${type} show${persistent ? ' toast-persistent' : ''}`;
+      if (!persistent) { _toastTimer = setTimeout(() => dom.toast.classList.remove('show'), 3500); }
     }
 
     // Promise-based in-UI confirm dialog (replaces browser confirm())
@@ -2907,8 +3226,8 @@
         const notesIn = extras.querySelector('#notesInput');
         urlIn.value = state.resourceUrl;
         notesIn.value = state.userNotes;
-        urlIn.addEventListener('input', () => { state.resourceUrl = urlIn.value; });
-        notesIn.addEventListener('input', () => { state.userNotes = notesIn.value; });
+        urlIn.addEventListener('input', () => { state.resourceUrl = urlIn.value; scheduleDraftSave(); });
+        notesIn.addEventListener('input', () => { state.userNotes = notesIn.value; scheduleDraftSave(); });
       }
 
       dom.actionArea.classList.remove('hidden');
@@ -3000,6 +3319,7 @@
       if (added) {
         renderFileGrid(role);
         updateActionState();
+        scheduleDraftSave();
       }
     }
 
@@ -3054,6 +3374,7 @@
           state.zones[r] = (state.zones[r] || []).filter(x => x.id !== id);
           renderFileGrid(r);
           updateActionState();
+          scheduleDraftSave();
         });
       });
     }
@@ -3299,6 +3620,9 @@
         displayResult();
         showToolSection('sectionResult');
         showToast('Processing complete!');
+        const fileNames = Object.values(state.zones).flat().map(f => f.name);
+        saveToHistory(state.mode, resultText, fileNames);
+        clearDraft();
 
       } catch (error) {
         handleAppError(
@@ -3841,6 +4165,8 @@
 
     // ─── Full Reset (clears everything in the current tool) ─
     function resetApp() {
+      const hadResult = !!state.resultText;
+      const prevMode  = state.resultMode;
       Object.values(state.zones).forEach(files =>
         files.forEach(f => { if (f.thumbUrl && !f.fromKb) URL.revokeObjectURL(f.thumbUrl); })
       );
@@ -3854,9 +4180,18 @@
       dom.resultContent.innerHTML = '';
       [dom.statWords, dom.statChars, dom.statReadTime].forEach(el => { el.textContent = '\u2014'; });
 
+      clearDraft();
       if (state.mode) renderUploadZones();
       updateActionState();
       showToolSection('sectionUpload');
+
+      if (hadResult && prevMode) {
+        const label = MODE_META[prevMode]?.resultTitle || 'Your result';
+        showToast(`${label} is saved`, 'success', {
+          actionLabel: 'View in History', persistent: true,
+          action: () => toggleHistoryPanel(true),
+        });
+      }
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -4895,6 +5230,19 @@
       a.addEventListener('click', () => closeSidebar());
     });
 
+    // History panel
+    document.getElementById('historyBtn').addEventListener('click', () => toggleHistoryPanel(true));
+    document.getElementById('historyClose').addEventListener('click', () => toggleHistoryPanel(false));
+    document.getElementById('historyOverlay').addEventListener('click', () => toggleHistoryPanel(false));
+    document.getElementById('historyResultClose').addEventListener('click', () => {
+      document.getElementById('historyResultModal').classList.remove('open');
+    });
+    document.getElementById('historyResultModal').addEventListener('click', e => {
+      if (e.target === document.getElementById('historyResultModal')) {
+        document.getElementById('historyResultModal').classList.remove('open');
+      }
+    });
+
     // Route on hash change
     window.addEventListener('hashchange', navigate);
 
@@ -4959,6 +5307,26 @@
       await tutor.init();
       wireKbDropzone();
 
+      // History: purge expired entries and light up the button if any exist
+      purgeExpiredHistory();
+      getHistory().then(entries => {
+        const btn = document.getElementById('historyBtn');
+        if (btn) btn.classList.toggle('has-entries', entries.length > 0);
+      });
+
+      // Draft: show resume toast if a draft was saved
+      const _draft = await loadDraft();
+      if (_draft && _draft.mode) {
+        const totalFiles = Object.values(_draft.zones || {}).reduce((s, a) => s + a.length, 0);
+        if (totalFiles > 0 || _draft.userNotes || _draft.resourceUrl) {
+          const label = MODE_META[_draft.mode]?.btnLabel || _draft.mode;
+          showToast(`You have an unsaved ${label} draft`, 'success', {
+            actionLabel: 'Resume', persistent: true,
+            action: () => restoreDraft(_draft),
+          });
+        }
+      }
+
       // Dev reminder
       console.info(
         '%c[STH v2.0]%c n8n webhook needs a new switch branch for `mode === "tutor"`.\n' +
@@ -4990,5 +5358,26 @@
 
   })();
   </script>
+
+  <!-- ── History Panel ── -->
+  <div id="historyOverlay" class="history-overlay"></div>
+  <aside id="historyPanel" class="history-panel" aria-label="Generation history">
+    <div class="history-panel-head">
+      <h3>Generation History</h3>
+      <button id="historyClose" class="history-panel-close" aria-label="Close">&times;</button>
+    </div>
+    <div id="historyList" class="history-list"></div>
+  </aside>
+
+  <!-- ── History Result Modal ── -->
+  <div id="historyResultModal" class="history-result-modal">
+    <div class="history-result-box">
+      <div class="history-result-modal-head">
+        <h4 id="historyResultTitle">Result</h4>
+        <button id="historyResultClose" class="history-result-modal-close">&times;</button>
+      </div>
+      <div id="historyResultBody" class="history-result-body"></div>
+    </div>
+  </div>
 </body>
 </html>
