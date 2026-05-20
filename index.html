@@ -200,21 +200,6 @@
       .content { padding: 20px 16px 60px; }
     }
 
-    /* ── Compact sidebar for short viewports (phones in landscape, small screens) ── */
-    @media (max-height: 660px) {
-      .sidebar-header { padding: 12px 16px 10px; }
-      .sidebar-title-box { width: 30px; height: 30px; }
-      .sidebar-title h1 { font-size: 15px; }
-      .sidebar-nav { padding: 6px 0 4px; }
-      .sidebar-nav-section { padding: 5px 16px 2px; font-size: 9px; }
-      .nav-link { padding: 7px 16px 7px 14px; font-size: 13px; }
-      .sidebar-tutor-chats { padding: 6px 12px 10px; }
-      .sync-section { padding: 8px 12px 10px; }
-    }
-    /* Safety net: if nav overflows on very short screens, let it scroll */
-    .sidebar-nav { overflow-y: auto; }
-    .sidebar-nav::-webkit-scrollbar { width: 0; }
-
     /* ───────── VIEW HEADER (Back / Home) ───────── */
     .view-header {
       display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
@@ -635,34 +620,6 @@
       border-radius: 16px;
       overflow: hidden;
     }
-
-    /* ── Full-page tutor mode ── */
-    .main-area.tutor-mode .content {
-      padding: 0 !important;
-      max-width: 100% !important;
-      margin: 0 !important;
-      width: 100%;
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-    }
-    .main-area.tutor-mode #viewTutor.active {
-      flex: 1;
-      display: flex !important;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .main-area.tutor-mode .tutor-shell {
-      flex: 1;
-      height: auto !important;
-      min-height: 0;
-      border: none !important;
-      border-left: none !important;
-      border-right: none !important;
-      border-bottom: none !important;
-      border-radius: 0 !important;
-      border-top: 1px solid rgba(212,201,168,0.4) !important;
-    }
     .tutor-head {
       padding: 14px 18px;
       border-bottom: 1px solid rgba(212,201,168,0.4);
@@ -726,286 +683,6 @@
       0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
       40% { transform: translateY(-4px); opacity: 1; }
     }
-    /* Message action bar */
-    .msg-wrapper { display: flex; flex-direction: column; align-items: flex-start; }
-    .msg-actions {
-      display: flex; gap: 2px; padding: 2px 0;
-      opacity: 0; transition: opacity 0.15s ease;
-    }
-    .msg-wrapper:hover .msg-actions { opacity: 1; }
-    .msg-action-btn {
-      display: flex; align-items: center; gap: 4px;
-      padding: 3px 8px; border: none; background: transparent;
-      color: rgba(26,46,28,0.45); font-family: 'Outfit', sans-serif;
-      font-size: 11.5px; border-radius: 6px; cursor: pointer;
-      transition: background 0.15s, color 0.15s;
-    }
-    .msg-action-btn:hover { background: rgba(44,95,45,0.09); color: #2c5f2d; }
-    /* Quote reference above user reply */
-    .quote-ref {
-      max-width: 82%; align-self: flex-end;
-      background: rgba(44,95,45,0.07); border-left: 3px solid #2c5f2d;
-      border-radius: 10px 10px 0 0; padding: 8px 14px;
-      font-size: 13px; color: rgba(26,46,28,0.65); font-style: italic;
-      word-break: break-word; line-height: 1.45;
-    }
-    .quote-ref-label {
-      font-size: 10.5px; font-weight: 600; font-style: normal;
-      color: #2c5f2d; letter-spacing: 0.03em; display: block; margin-bottom: 3px;
-    }
-    .chat-bubble.user.with-quote { border-top-right-radius: 3px; }
-    /* Quote bar in composer */
-    .quote-bar {
-      display: none; align-items: flex-start; gap: 8px;
-      padding: 10px 16px 8px;
-      background: rgba(44,95,45,0.05); border-left: 3px solid #2c5f2d;
-    }
-    .quote-bar.active { display: flex; }
-    .quote-bar-text {
-      font-size: 13px; color: rgba(26,46,28,0.65); font-style: italic;
-      line-height: 1.4; overflow: hidden; display: -webkit-box;
-      -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-    }
-    .quote-bar-label {
-      font-size: 10.5px; font-weight: 600; font-style: normal;
-      color: #2c5f2d; display: block; margin-bottom: 2px; letter-spacing: 0.03em;
-    }
-    .quote-bar-close {
-      flex-shrink: 0; background: none; border: none;
-      color: rgba(26,46,28,0.35); cursor: pointer;
-      font-size: 18px; line-height: 1; padding: 0; margin-top: -1px;
-    }
-    .quote-bar-close:hover { color: #2c5f2d; }
-    /* Chat search */
-    .chat-search-wrap {
-      position: relative;
-      padding: 0 14px 10px;
-    }
-    .sidebar-tutor-chats .chat-search-wrap { padding: 6px 14px 8px; }
-    .chat-search-input {
-      width: 100%;
-      padding: 7px 12px 7px 30px;
-      border: 1px solid rgba(212,201,168,0.55);
-      border-radius: 8px;
-      font-family: 'Outfit', sans-serif;
-      font-size: 12.5px;
-      background: rgba(250,247,240,0.6);
-      outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
-    }
-    .chat-search-input:focus { border-color: #2c5f2d; box-shadow: 0 0 0 2px rgba(44,95,45,0.08); background: white; }
-    .chat-search-icon {
-      position: absolute; left: 22px; top: 50%;
-      transform: translateY(-50%);
-      color: rgba(26,46,28,0.38); pointer-events: none;
-    }
-    .sidebar-tutor-chats .chat-search-icon { left: 22px; }
-    .chat-search-clear {
-      position: absolute; right: 22px; top: 50%;
-      transform: translateY(-50%);
-      background: none; border: none; cursor: pointer;
-      color: rgba(26,46,28,0.4); font-size: 16px;
-      line-height: 1; padding: 0 2px; display: none;
-    }
-    .chat-search-clear.visible { display: block; }
-    .chat-bubble.model mark, .chat-bubble.user mark {
-      background: #fef3b6; color: inherit; padding: 0 2px; border-radius: 3px;
-    }
-    .chat-bubble.dimmed { opacity: 0.35; }
-    .tutor-head-row {
-      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-    }
-    .tutor-head-title-wrap {
-      display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;
-    }
-    #tutorChatTitle { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .rename-inline {
-      flex-shrink: 0;
-      width: 30px; height: 30px;
-      display: flex; align-items: center; justify-content: center;
-      background: white;
-      border: 1px solid rgba(212,201,168,0.7);
-      border-radius: 8px; cursor: pointer;
-      color: rgba(26,46,28,0.45);
-      transition: all 0.15s ease;
-    }
-    .rename-inline:hover { color: #2c5f2d; border-color: rgba(44,95,45,0.45); background: rgba(44,95,45,0.04); }
-
-    /* Tutor head action buttons — equal-sized blocks with clear borders */
-    .tutor-head .btn-nav {
-      display: inline-flex; align-items: center; justify-content: center; gap: 5px;
-      height: 36px; min-width: 36px; padding: 0 11px;
-      font-family: 'Outfit', sans-serif; font-size: 12.5px; font-weight: 500;
-      color: rgba(26,46,28,0.65);
-      background: white;
-      border: 1px solid rgba(212,201,168,0.7);
-      border-radius: 9px; cursor: pointer;
-      transition: all 0.15s ease; flex-shrink: 0;
-    }
-    .tutor-head .btn-nav:hover {
-      color: #2c5f2d;
-      border-color: rgba(44,95,45,0.45);
-      background: rgba(44,95,45,0.04);
-    }
-    /* Icon-only buttons: perfectly square */
-    #btnToggleChatSearch, .tutor-home-btn { padding: 0; width: 36px; }
-
-    /* Reference Generator */
-    .refs-shell {
-      display: flex; flex-direction: column; gap: 20px;
-      max-width: 960px; margin: 0 auto;
-    }
-    .refs-style-row {
-      display: flex; align-items: center; gap: 12px;
-      padding: 14px 16px; background: white;
-      border: 1px solid rgba(212,201,168,0.55);
-      border-radius: 12px;
-    }
-    .refs-style-row label {
-      font-size: 13px; font-weight: 600; color: #1a2e1c;
-    }
-    .refs-style-select {
-      padding: 7px 10px; font-family: 'Outfit', sans-serif; font-size: 13px;
-      border: 1px solid rgba(212,201,168,0.6); border-radius: 8px;
-      background: white; cursor: pointer; outline: none;
-    }
-    .refs-source-adders {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
-    }
-    @media (max-width: 700px) { .refs-source-adders { grid-template-columns: 1fr 1fr; } }
-    .refs-adder-btn {
-      display: flex; flex-direction: column; align-items: center; gap: 6px;
-      padding: 16px 10px; background: white;
-      border: 1px dashed rgba(44,95,45,0.3);
-      border-radius: 12px; cursor: pointer;
-      font-family: 'Outfit', sans-serif; font-size: 12.5px; font-weight: 500;
-      color: #1a2e1c; transition: all 0.15s;
-    }
-    .refs-adder-btn:hover { border-color: #2c5f2d; background: rgba(44,95,45,0.04); transform: translateY(-1px); }
-    .refs-adder-btn svg { color: #2c5f2d; }
-    .refs-sources-list {
-      display: flex; flex-direction: column; gap: 8px;
-    }
-    .refs-source-row {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 14px; background: white;
-      border: 1px solid rgba(212,201,168,0.55);
-      border-radius: 10px;
-    }
-    .refs-source-type {
-      flex-shrink: 0; font-size: 10.5px; font-weight: 700;
-      padding: 3px 8px; border-radius: 6px;
-      letter-spacing: 0.04em; text-transform: uppercase;
-    }
-    .refs-source-type.link { background: rgba(44,95,45,0.1); color: #2c5f2d; }
-    .refs-source-type.youtube { background: rgba(196,54,54,0.1); color: #c43636; }
-    .refs-source-type.kb { background: rgba(212,157,39,0.15); color: #8a6a1a; }
-    .refs-source-type.upload { background: rgba(60,100,160,0.1); color: #3c64a0; }
-    .refs-source-info { flex: 1; min-width: 0; }
-    .refs-source-name { font-size: 13px; color: #1a2e1c; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .refs-source-sub { font-size: 11.5px; color: rgba(26,46,28,0.5); }
-    .refs-source-remove {
-      background: none; border: none; cursor: pointer;
-      color: rgba(26,46,28,0.4); font-size: 18px; padding: 2px 6px;
-    }
-    .refs-source-remove:hover { color: #9b2226; }
-    .refs-empty {
-      text-align: center; padding: 28px; color: rgba(26,46,28,0.45);
-      font-size: 13.5px; background: rgba(250,247,240,0.5);
-      border: 1px dashed rgba(212,201,168,0.5); border-radius: 12px;
-    }
-    .refs-generate-row {
-      display: flex; gap: 10px; justify-content: flex-end; align-items: center;
-    }
-    .refs-generate-btn {
-      background: #2c5f2d; color: white; border: none;
-      padding: 11px 22px; border-radius: 10px;
-      font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 13.5px;
-      cursor: pointer; transition: all 0.15s;
-      display: flex; align-items: center; gap: 7px;
-      box-shadow: 0 6px 14px rgba(44,95,45,0.18);
-    }
-    .refs-generate-btn:hover:not(:disabled) { background: #1e4620; transform: translateY(-1px); }
-    .refs-generate-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .refs-results {
-      background: white; border: 1px solid rgba(212,201,168,0.55);
-      border-radius: 12px; padding: 24px 28px;
-      display: none;
-    }
-    .refs-results.visible { display: block; }
-    .refs-results-head {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 18px; padding-bottom: 12px;
-      border-bottom: 1px solid rgba(212,201,168,0.5);
-    }
-    .refs-results h3 {
-      font-family: 'DM Serif Display', serif; font-size: 22px;
-      color: #1a2e1c; margin: 0;
-    }
-    .refs-results-actions { display: flex; gap: 8px; }
-    .refs-list { list-style: none; padding: 0; margin: 0; }
-    .refs-list li {
-      padding: 10px 0; font-size: 14px; line-height: 1.6;
-      color: #1a2e1c; border-bottom: 1px solid rgba(212,201,168,0.3);
-      padding-left: 2em; text-indent: -2em;
-      word-break: break-word;
-    }
-    .refs-list li:last-child { border-bottom: none; }
-    .refs-list li.pending { color: rgba(26,46,28,0.4); font-style: italic; }
-    .refs-list li.error { color: #9b2226; font-style: italic; }
-    /* Inline add-source sub-panels */
-    .refs-input-panel {
-      background: white; border: 1px solid rgba(212,201,168,0.6);
-      border-radius: 10px; padding: 14px 16px;
-      display: none; gap: 10px; flex-direction: column;
-    }
-    .refs-input-panel.visible { display: flex; }
-    .refs-input-panel input[type="url"], .refs-input-panel input[type="text"] {
-      padding: 9px 12px; font-family: 'Outfit', sans-serif; font-size: 13px;
-      border: 1px solid rgba(212,201,168,0.6); border-radius: 8px; outline: none;
-    }
-    .refs-input-panel input:focus { border-color: #2c5f2d; }
-    .refs-input-panel-btns { display: flex; gap: 8px; justify-content: flex-end; }
-    .refs-panel-btn {
-      padding: 7px 14px; border-radius: 8px; font-size: 13px;
-      font-family: 'Outfit', sans-serif; cursor: pointer; border: none;
-    }
-    .refs-panel-btn.primary { background: #2c5f2d; color: white; }
-    .refs-panel-btn.primary:hover { background: #1e4620; }
-    .refs-panel-btn.ghost { background: transparent; color: rgba(26,46,28,0.6); }
-    .refs-panel-btn.ghost:hover { background: rgba(212,201,168,0.3); }
-    /* Export picker modal */
-    .export-picker-choice {
-      display: flex; flex-direction: column; gap: 8px;
-      padding: 12px 0;
-    }
-    .export-picker-option {
-      display: flex; align-items: center; gap: 12px;
-      padding: 14px 16px; background: rgba(250,247,240,0.5);
-      border: 1px solid rgba(212,201,168,0.5); border-radius: 10px;
-      cursor: pointer; transition: all 0.15s;
-    }
-    .export-picker-option:hover { background: white; border-color: #2c5f2d; }
-    .export-picker-option svg { flex-shrink: 0; color: #2c5f2d; }
-    .export-picker-option strong { display: block; font-size: 13.5px; color: #1a2e1c; }
-    .export-picker-option small { font-size: 12px; color: rgba(26,46,28,0.55); }
-    .export-picker-url-row {
-      display: none; padding: 12px 0 0;
-    }
-    .export-picker-url-row.visible { display: flex; flex-direction: column; gap: 10px; }
-    .export-picker-url-row input {
-      padding: 9px 12px; font-family: 'Outfit', sans-serif; font-size: 13px;
-      border: 1px solid rgba(212,201,168,0.6); border-radius: 8px; outline: none;
-    }
-    /* Selection-to-quote tooltip */
-    .selection-tooltip {
-      position: fixed; z-index: 9999; background: #1a2e1c; color: white;
-      border-radius: 8px; padding: 6px 13px;
-      font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 500;
-      cursor: pointer; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,0.25);
-      display: none; transform: translateX(-50%); user-select: none;
-    }
-    .selection-tooltip.visible { display: block; }
     .tutor-empty {
       margin: auto;
       text-align: center; max-width: 380px;
@@ -1015,13 +692,10 @@
     .tutor-empty h4 { font-family: 'DM Serif Display', serif; font-size: 20px; color: #1a2e1c; margin-bottom: 8px; }
 
     .tutor-composer {
+      padding: 14px 16px;
       border-top: 1px solid rgba(212,201,168,0.4);
       background: white;
-      display: flex; flex-direction: column;
-    }
-    .tutor-composer-row {
       display: flex; gap: 10px; align-items: flex-end;
-      padding: 14px 16px;
     }
     .tutor-input {
       flex: 1;
@@ -1095,219 +769,6 @@
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: #c4b896; border-radius: 3px; }
-
-    /* ───────── SYNC SECTION ───────── */
-    .sync-section {
-      flex-shrink: 0;
-      padding: 10px 14px 14px;
-      border-top: 1px solid rgba(212,201,168,0.4);
-    }
-    .sync-btn {
-      width: 100%;
-      display: flex; align-items: center; gap: 8px;
-      padding: 9px 12px;
-      border-radius: 10px;
-      background: rgba(44,95,45,0.07);
-      border: 1px solid rgba(44,95,45,0.18);
-      color: #2c5f2d;
-      font-family: 'Outfit', sans-serif;
-      font-size: 13px; font-weight: 500;
-      cursor: pointer; transition: background 0.15s;
-    }
-    .sync-btn:hover { background: rgba(44,95,45,0.13); }
-    .sync-hint {
-      font-size: 11px; color: rgba(26,46,28,0.4);
-      text-align: center; margin-top: 6px; line-height: 1.4;
-    }
-    .sync-user-row { display: flex; align-items: center; gap: 10px; }
-    .sync-avatar {
-      width: 30px; height: 30px; border-radius: 50%;
-      object-fit: cover; flex-shrink: 0;
-      background: rgba(44,95,45,0.1);
-    }
-    .sync-user-info { flex: 1; min-width: 0; }
-    .sync-user-name {
-      font-size: 13px; font-weight: 500; color: #1a2e1c;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-    .sync-user-status { font-size: 11px; color: rgba(26,46,28,0.4); }
-    .sync-sign-out-btn {
-      flex-shrink: 0; padding: 4px; border-radius: 6px;
-      background: transparent; border: none;
-      color: rgba(26,46,28,0.35); cursor: pointer;
-      transition: background 0.15s, color 0.15s; line-height: 0;
-    }
-    .sync-sign-out-btn:hover { background: rgba(26,46,28,0.08); color: #1a2e1c; }
-    .sync-syncing-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: #2c5f2d; display: inline-block;
-      animation: sync-pulse 1.2s ease-in-out infinite;
-    }
-    @keyframes sync-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
-
-    /* ───────── TOAST — action variant ───────── */
-    .toast-persistent { pointer-events: auto !important; }
-    .toast-body { display: flex; align-items: center; gap: 10px; }
-    .toast-msg { flex: 1; min-width: 0; }
-    .toast-action-btn {
-      flex-shrink: 0; padding: 5px 11px;
-      font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 600;
-      color: #2c5f2d; background: rgba(255,255,255,0.9);
-      border: 1px solid rgba(44,95,45,0.4); border-radius: 7px;
-      cursor: pointer; white-space: nowrap;
-      transition: background 0.15s, color 0.15s;
-    }
-    .toast-action-btn:hover { background: white; color: #1a2e1c; }
-    .toast-close-btn {
-      flex-shrink: 0; width: 22px; height: 22px;
-      border: none; background: none; cursor: pointer;
-      color: rgba(255,255,255,0.7); font-size: 16px; line-height: 1;
-      padding: 0; display: flex; align-items: center; justify-content: center;
-      border-radius: 4px; transition: color 0.15s;
-    }
-    .toast-close-btn:hover { color: white; }
-
-    /* ───────── HISTORY BUTTON (topbar) ───────── */
-    .history-topbar-btn {
-      display: flex; align-items: center; gap: 6px;
-      padding: 7px 12px;
-      font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 500;
-      color: rgba(26,46,28,0.55);
-      background: white; border: 1px solid rgba(212,201,168,0.6);
-      border-radius: 9px; cursor: pointer;
-      transition: all 0.2s ease; flex-shrink: 0;
-    }
-    .history-topbar-btn:hover { color: #2c5f2d; border-color: rgba(44,95,45,0.45); }
-    .history-topbar-btn .hist-dot {
-      width: 7px; height: 7px; border-radius: 50%;
-      background: #2c5f2d; display: none; flex-shrink: 0;
-    }
-    .history-topbar-btn.has-entries .hist-dot { display: block; }
-
-    /* ───────── HISTORY PANEL (slide-in from right) ───────── */
-    .history-overlay {
-      position: fixed; inset: 0; z-index: 55;
-      background: rgba(26,46,28,0.35); backdrop-filter: blur(2px);
-      opacity: 0; pointer-events: none;
-      transition: opacity 0.25s ease;
-    }
-    .history-overlay.open { opacity: 1; pointer-events: auto; }
-    .history-panel {
-      position: fixed; top: 0; right: 0; bottom: 0;
-      width: min(420px, 100vw); z-index: 56;
-      background: #faf8f3; border-left: 1px solid rgba(212,201,168,0.55);
-      display: flex; flex-direction: column;
-      transform: translateX(100%);
-      transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
-      box-shadow: -6px 0 32px rgba(26,46,28,0.12);
-    }
-    .history-panel.open { transform: translateX(0); }
-    .history-panel-head {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 18px 20px 14px;
-      border-bottom: 1px solid rgba(212,201,168,0.4);
-      flex-shrink: 0;
-    }
-    .history-panel-head h3 { font-size: 17px; font-weight: 600; color: #1a2e1c; }
-    .history-panel-close {
-      width: 32px; height: 32px; border-radius: 8px;
-      background: white; border: 1px solid rgba(212,201,168,0.6);
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      color: rgba(26,46,28,0.5); font-size: 18px; line-height: 1;
-      transition: all 0.15s ease;
-    }
-    .history-panel-close:hover { color: #1a2e1c; border-color: rgba(44,95,45,0.35); }
-    .history-list {
-      flex: 1; overflow-y: auto; padding: 12px;
-      display: flex; flex-direction: column; gap: 8px;
-    }
-    .history-list::-webkit-scrollbar { width: 4px; }
-    .history-list::-webkit-scrollbar-thumb { background: #c4b896; border-radius: 2px; }
-    .history-empty {
-      flex: 1; display: flex; flex-direction: column; align-items: center;
-      justify-content: center; gap: 8px; padding: 40px 20px;
-      color: rgba(26,46,28,0.35); text-align: center;
-    }
-    .history-empty svg { opacity: 0.3; }
-    .history-empty p { font-size: 14px; }
-    .history-panel-head-actions { display: flex; align-items: center; gap: 8px; }
-    .hist-clear-btn {
-      font-size: 12px; font-weight: 500; padding: 4px 10px; border-radius: 6px;
-      background: transparent; border: 1px solid rgba(212,201,168,0.7);
-      color: rgba(26,46,28,0.45); cursor: pointer; transition: all 0.15s ease;
-    }
-    .hist-clear-btn:hover { background: rgba(220,38,38,0.07); border-color: rgba(220,38,38,0.3); color: #dc2626; }
-    .history-entry {
-      position: relative; background: white; border: 1px solid rgba(212,201,168,0.5);
-      border-radius: 12px; padding: 13px 14px;
-      cursor: pointer; transition: all 0.15s ease;
-    }
-    .history-entry:hover { border-color: rgba(44,95,45,0.35); box-shadow: 0 2px 8px rgba(26,46,28,0.06); }
-    .history-entry-del {
-      position: absolute; top: 8px; right: 8px; width: 22px; height: 22px;
-      border-radius: 5px; background: rgba(220,38,38,0.07); border: 1px solid rgba(220,38,38,0.18);
-      color: #dc2626; font-size: 14px; line-height: 1; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      opacity: 0; transition: opacity 0.15s ease, background 0.15s ease;
-    }
-    .history-entry:hover .history-entry-del,
-    .history-entry.longpress-active .history-entry-del { opacity: 1; }
-    .history-entry-del:hover { background: rgba(220,38,38,0.15); }
-    .history-entry-head { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; padding-right: 20px; }
-    .history-mode-badge {
-      font-size: 10px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.06em; padding: 2px 7px; border-radius: 5px;
-    }
-    .badge-transcribe { background: rgba(44,95,45,0.1); color: #2c5f2d; }
-    .badge-template   { background: rgba(37,99,235,0.1); color: #1d4ed8; }
-    .badge-reviewer   { background: rgba(124,58,237,0.1); color: #6d28d9; }
-    .history-entry-date { font-size: 11px; color: rgba(26,46,28,0.38); margin-left: auto; }
-    .history-entry-preview {
-      font-size: 13px; color: rgba(26,46,28,0.65); line-height: 1.4;
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-    .history-entry-meta { font-size: 11px; color: rgba(26,46,28,0.35); margin-top: 5px; }
-
-    /* History result modal */
-    .history-result-modal {
-      position: fixed; inset: 0; z-index: 60;
-      background: rgba(26,46,28,0.45); backdrop-filter: blur(3px);
-      display: flex; align-items: center; justify-content: center;
-      padding: 20px; opacity: 0; pointer-events: none;
-      transition: opacity 0.2s ease;
-    }
-    .history-result-modal.open { opacity: 1; pointer-events: auto; }
-    .history-result-box {
-      background: white; border-radius: 16px;
-      width: 100%; max-width: 720px; max-height: 82vh;
-      display: flex; flex-direction: column;
-      box-shadow: 0 20px 60px rgba(26,46,28,0.2);
-      transform: translateY(12px);
-      transition: transform 0.2s ease;
-    }
-    .history-result-modal.open .history-result-box { transform: translateY(0); }
-    .history-result-modal-head {
-      display: flex; align-items: center; gap: 10px;
-      padding: 16px 20px; border-bottom: 1px solid rgba(212,201,168,0.4);
-      flex-shrink: 0;
-    }
-    .history-result-modal-head h4 { font-size: 16px; font-weight: 600; color: #1a2e1c; flex: 1; min-width: 0; }
-    .history-result-modal-close {
-      width: 32px; height: 32px; border-radius: 8px;
-      background: #f5f0e1; border: 1px solid rgba(212,201,168,0.6);
-      cursor: pointer; display: flex; align-items: center; justify-content: center;
-      color: rgba(26,46,28,0.5); font-size: 18px; line-height: 1;
-      flex-shrink: 0; transition: all 0.15s;
-    }
-    .history-result-modal-close:hover { color: #1a2e1c; }
-    .history-result-body {
-      flex: 1; overflow-y: auto; padding: 20px;
-      font-family: 'Outfit', sans-serif; font-size: 14px;
-      line-height: 1.6; color: #1a2e1c; white-space: pre-wrap;
-    }
-    .history-result-body::-webkit-scrollbar { width: 4px; }
-    .history-result-body::-webkit-scrollbar-thumb { background: #c4b896; border-radius: 2px; }
   </style>
 </head>
 
@@ -1374,10 +835,6 @@
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15l2 2 4-4"/></svg>
           Reviewer
         </a>
-        <a class="nav-link" data-route="references" href="#references">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="13" y2="11"/></svg>
-          References
-        </a>
         <div class="sidebar-nav-section">Study Space</div>
         <a class="nav-link" data-route="knowledge" href="#knowledge">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
@@ -1393,42 +850,11 @@
         <div class="section-row">
           <h4>Recent Chats</h4>
         </div>
-        <div class="chat-search-wrap">
-          <svg class="chat-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input id="sidebarChatSearch" class="chat-search-input" type="text" placeholder="Search all chats…" />
-          <button id="sidebarChatSearchClear" class="chat-search-clear" title="Clear">×</button>
-        </div>
         <div class="new-chat-btn" id="btnNewChat">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           New chat
         </div>
         <div id="tutorChatList"></div>
-      </div>
-
-      <!-- ── Google Sync ── -->
-      <div id="syncSection" class="sync-section">
-        <div id="syncSignedOut">
-          <button id="btnSyncSignIn" class="sync-btn">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-            </svg>
-            Sync across devices
-          </button>
-          <p class="sync-hint">Sign in with Google to keep your data on every device</p>
-        </div>
-        <div id="syncSignedIn" class="hidden sync-user-row">
-          <img id="syncAvatar" class="sync-avatar" src="" alt="" />
-          <div class="sync-user-info">
-            <p id="syncName" class="sync-user-name"></p>
-            <p id="syncStatus" class="sync-user-status">Synced</p>
-          </div>
-          <button id="btnSyncSignOut" class="sync-sign-out-btn" title="Sign out of sync">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        </div>
       </div>
     </aside>
 
@@ -1444,11 +870,6 @@
           <span class="topbar-title">Student Tools Hub</span>
         </div>
         <span class="topbar-badge">AI-powered academic assistant</span>
-        <button id="historyBtn" class="history-topbar-btn" title="View generation history">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          History
-          <span class="hist-dot"></span>
-        </button>
       </div>
 
       <main class="content">
@@ -1506,16 +927,6 @@
               </div>
               <h3 class="text-lg mt-3">Tutor</h3>
               <p class="font-body text-sm text-ink/45 mt-1">Chat through topics with saved context and history</p>
-            </a>
-            <a class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center bg-white/50" href="#references">
-              <div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2c5f2d" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-                  <line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="13" y2="11"/>
-                </svg>
-              </div>
-              <h3 class="text-lg mt-3">References</h3>
-              <p class="font-body text-sm text-ink/45 mt-1">Generate formatted reference lists from any source</p>
             </a>
           </div>
         </section>
@@ -1694,8 +1105,8 @@
           <p id="kbEmpty" class="text-center text-ink/35 py-10 font-body hidden">Nothing saved yet. Upload a file above to start building your library.</p>
         </section>
 
-        <!-- ============ VIEW: REFERENCES ============ -->
-        <section id="viewReference" class="view">
+        <!-- ============ VIEW: TUTOR ============ -->
+        <section id="viewTutor" class="view">
           <div class="view-header">
             <button class="btn-nav" data-nav="back">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
@@ -1705,145 +1116,37 @@
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
               Home
             </button>
-          </div>
-
-          <div class="view-intro">
-            <div>
-              <h2>References</h2>
-              <p>Drop in your sources &mdash; articles, YouTube videos, notes from your Knowledge Bay, or fresh uploads. We&rsquo;ll generate a styled reference list you can copy or export.</p>
+            <div class="view-title-block">
+              <h2>Tutor</h2>
+              <p>Attach your notes, ask away &mdash; your chat stays saved on this device.</p>
             </div>
           </div>
 
-          <div class="refs-shell">
-            <div class="refs-style-row">
-              <label for="refsStyleSelect">Citation style</label>
-              <select id="refsStyleSelect" class="refs-style-select">
-                <option value="Harvard" selected>Harvard (default)</option>
-                <option value="APA">APA (7th ed.)</option>
-                <option value="MLA">MLA (9th ed.)</option>
-                <option value="Chicago">Chicago (Author-Date)</option>
-              </select>
-              <span class="text-xs text-ink/45" style="margin-left:auto">AI-generated. Always double-check before submission.</span>
-            </div>
-
-            <div class="refs-source-adders">
-              <button class="refs-adder-btn" data-add="link">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                Add article link
-              </button>
-              <button class="refs-adder-btn" data-add="youtube">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02"/></svg>
-                Add YouTube video
-              </button>
-              <button class="refs-adder-btn" data-add="kb">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-                From Knowledge Bay
-              </button>
-              <button class="refs-adder-btn" data-add="upload">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                Upload a new file
-              </button>
-            </div>
-
-            <div id="refsLinkPanel" class="refs-input-panel">
-              <input id="refsLinkUrl" type="url" placeholder="https://... (article URL)" />
-              <div class="refs-input-panel-btns">
-                <button class="refs-panel-btn ghost" data-panel-cancel="link">Cancel</button>
-                <button class="refs-panel-btn primary" data-panel-confirm="link">Add link</button>
-              </div>
-            </div>
-
-            <div id="refsYoutubePanel" class="refs-input-panel">
-              <input id="refsYoutubeUrl" type="url" placeholder="https://youtube.com/watch?v=..." />
-              <div class="refs-input-panel-btns">
-                <button class="refs-panel-btn ghost" data-panel-cancel="youtube">Cancel</button>
-                <button class="refs-panel-btn primary" data-panel-confirm="youtube">Add video</button>
-              </div>
-            </div>
-
-            <input id="refsFileInput" type="file" accept=".pdf,.docx,.txt,image/*" multiple style="display:none" />
-
-            <div>
-              <h3 class="text-lg mb-3">Sources <span id="refsSourceCount" class="text-xs text-ink/40" style="font-weight:400"></span></h3>
-              <div id="refsSourcesList" class="refs-sources-list"></div>
-            </div>
-
-            <div class="refs-generate-row">
-              <button id="refsGenerateBtn" class="refs-generate-btn" disabled>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2 7h7l-5.5 4 2 7-5.5-4-5.5 4 2-7L3 9h7z"/></svg>
-                Generate References
-              </button>
-            </div>
-
-            <div id="refsResults" class="refs-results">
-              <div class="refs-results-head">
-                <h3>References</h3>
-                <div class="refs-results-actions">
-                  <button id="refsCopyBtn" class="btn-nav" title="Copy to clipboard">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                    Copy
-                  </button>
-                  <button id="refsExportBtn" class="btn-nav" title="Export to Google Docs">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                    Export
-                  </button>
-                </div>
-              </div>
-              <ol id="refsList" class="refs-list"></ol>
-            </div>
-          </div>
-        </section>
-
-        <!-- ============ VIEW: TUTOR ============ -->
-        <section id="viewTutor" class="view">
           <div class="tutor-shell">
             <div class="tutor-head">
-              <div class="tutor-head-row" style="width:100%">
-                <div class="tutor-head-title-wrap">
-                  <h3 id="tutorChatTitle">New chat</h3>
-                  <button id="btnRenameChat" class="rename-inline" title="Rename chat">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                  </button>
-                </div>
-                <div class="flex gap-3">
-                  <button class="btn-nav tutor-home-btn" data-nav="home" title="Go to Home" style="display:none">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-                  </button>
-                  <button id="btnToggleChatSearch" class="btn-nav" title="Search in this chat">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                  </button>
-                  <button id="btnTutorAttach" class="btn-nav" title="Attach resources">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-                    Attach
-                  </button>
-                </div>
+              <div>
+                <h3 id="tutorChatTitle">New chat</h3>
+                <div class="tutor-attached" id="tutorAttachedSummary">No resources attached</div>
               </div>
-              <div class="tutor-attached" id="tutorAttachedSummary" style="margin-top:6px">No resources attached</div>
-            </div>
-
-            <div id="chatSearchWrap" class="chat-search-wrap" style="display:none; padding-top:10px">
-              <svg class="chat-search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-              <input id="chatSearchInput" class="chat-search-input" type="text" placeholder="Search in this chat…" />
-              <button id="chatSearchClear" class="chat-search-clear" title="Clear">×</button>
+              <div class="flex gap-2">
+                <button id="btnRenameChat" class="btn-nav" title="Rename chat">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                </button>
+                <button id="btnTutorAttach" class="btn-nav" title="Attach resources">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                  Attach
+                </button>
+              </div>
             </div>
 
             <div class="tutor-messages" id="tutorMessages"></div>
 
             <div class="tutor-composer">
-              <div id="quoteBar" class="quote-bar">
-                <div style="flex:1;min-width:0">
-                  <span class="quote-bar-label">Replying to Tutor</span>
-                  <span class="quote-bar-text" id="quoteBarText"></span>
-                </div>
-                <button class="quote-bar-close" id="btnClearQuote" title="Cancel reply">×</button>
-              </div>
-              <div class="tutor-composer-row">
-                <textarea id="tutorInput" class="tutor-input" placeholder="Ask your tutor anything&hellip; (Shift+Enter for newline)" rows="1"></textarea>
-                <button id="btnTutorSend" class="tutor-send" disabled>
-                  Send
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                </button>
-              </div>
+              <textarea id="tutorInput" class="tutor-input" placeholder="Ask your tutor anything&hellip; (Shift+Enter for newline)" rows="1"></textarea>
+              <button id="btnTutorSend" class="tutor-send" disabled>
+                Send
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              </button>
             </div>
           </div>
         </section>
@@ -1963,88 +1266,6 @@
 
   <!-- Toast -->
   <div id="toast" class="toast"></div>
-  <div id="selectionTooltip" class="selection-tooltip">Quote selection</div>
-
-  <!-- ============ EXPORT PICKER MODAL ============ -->
-  <div id="exportPickerModal" class="modal-overlay">
-    <div class="modal-box" style="max-width:520px">
-      <div class="modal-head">
-        <div>
-          <h3 class="text-lg">Export to Google Docs</h3>
-          <p class="text-xs text-ink/45">Where should this go?</p>
-        </div>
-        <button class="btn-nav" id="exportPickerClose">Close</button>
-      </div>
-      <div class="modal-body">
-        <div class="export-picker-choice">
-          <div class="export-picker-option" data-export-choice="new">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-            <div>
-              <strong>Create a new Google Doc</strong>
-              <small>A fresh document in your Drive</small>
-            </div>
-          </div>
-          <div class="export-picker-option" data-export-choice="existing">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            <div>
-              <strong>Append to an existing doc</strong>
-              <small>Paste the Google Docs URL below</small>
-            </div>
-          </div>
-        </div>
-        <div id="exportPickerUrlRow" class="export-picker-url-row">
-          <input id="exportPickerUrlInput" type="url" placeholder="https://docs.google.com/document/d/..." />
-          <div class="flex gap-2 justify-end">
-            <button class="refs-panel-btn ghost" id="exportPickerUrlCancel">Back</button>
-            <button class="refs-panel-btn primary" id="exportPickerUrlConfirm">Append</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============ KB PREVIEW MODAL (reuses existing kbReaderModal via openKbReader) ============ -->
-  <!-- References: KB attach uses the tutorAttachModal pattern reused below -->
-  <div id="refsKbAttachModal" class="modal-overlay">
-    <div class="modal-box">
-      <div class="modal-head">
-        <div>
-          <h3 class="text-lg">Attach from Knowledge Bay</h3>
-          <p class="text-xs text-ink/45">Pick the resources you want referenced</p>
-        </div>
-        <button class="btn-nav" id="refsKbAttachClose">Close</button>
-      </div>
-      <div class="modal-body" id="refsKbAttachList"></div>
-      <div class="modal-foot">
-        <button class="btn-nav" id="refsKbAttachCancel">Cancel</button>
-        <button id="refsKbAttachConfirm" class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-5 py-2 rounded-lg transition disabled:opacity-40" disabled>Attach selected</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── History Panel ── -->
-  <div id="historyOverlay" class="history-overlay"></div>
-  <aside id="historyPanel" class="history-panel" aria-label="Generation history">
-    <div class="history-panel-head">
-      <h3>Generation History</h3>
-      <div class="history-panel-head-actions">
-        <button id="historyClearAll" class="hist-clear-btn">Clear All</button>
-        <button id="historyClose" class="history-panel-close" aria-label="Close">&times;</button>
-      </div>
-    </div>
-    <div id="historyList" class="history-list"></div>
-  </aside>
-
-  <!-- ── History Result Modal ── -->
-  <div id="historyResultModal" class="history-result-modal">
-    <div class="history-result-box">
-      <div class="history-result-modal-head">
-        <h4 id="historyResultTitle">Result</h4>
-        <button id="historyResultClose" class="history-result-modal-close">&times;</button>
-      </div>
-      <div id="historyResultBody" class="history-result-body"></div>
-    </div>
-  </div>
 
   <!-- ======== APPLICATION LOGIC ======== -->
   <script>
@@ -2061,7 +1282,7 @@
     const ACCEPTED_TYPES = '.jpg,.jpeg,.png,.pdf,.docx,.txt';
     const BATCH_SIZE = 5;
     const BATCH_DELAY_MS = 5000;
-    const REQUEST_TIMEOUT_MS = 600000; // 10 min
+    const REQUEST_TIMEOUT_MS = 300000; // 5 min
     const MAX_RETRIES = 3;
 
     const ZONE_CONFIGS = {
@@ -2204,13 +1425,6 @@
       kbPickerSelection: new Set(),
       tutorTyping: false,
       tutorScraping: false,
-      sidebarSearch: '',
-      chatSearch: '',
-      refsPendingExport: null,
-      driveSyncToken: null,
-      driveSyncClient: null,
-      driveSyncing: false,
-      driveSyncTimer: null,
     };
 
     // ─── DOM Refs ───────────────────────────────────
@@ -2303,49 +1517,6 @@
       tutorAttachConfirm:   $('tutorAttachConfirm'),
       tutorAttachClose:     $('tutorAttachClose'),
       tutorAttachCancel:    $('tutorAttachCancel'),
-      quoteBar:             $('quoteBar'),
-      quoteBarText:         $('quoteBarText'),
-      btnClearQuote:        $('btnClearQuote'),
-      selectionTooltip:     $('selectionTooltip'),
-
-      // Chat search
-      sidebarChatSearch:        $('sidebarChatSearch'),
-      sidebarChatSearchClear:   $('sidebarChatSearchClear'),
-      btnToggleChatSearch:      $('btnToggleChatSearch'),
-      chatSearchWrap:           $('chatSearchWrap'),
-      chatSearchInput:          $('chatSearchInput'),
-      chatSearchClear:          $('chatSearchClear'),
-
-      // References view
-      viewReference:            $('viewReference'),
-      refsStyleSelect:          $('refsStyleSelect'),
-      refsLinkPanel:            $('refsLinkPanel'),
-      refsLinkUrl:              $('refsLinkUrl'),
-      refsYoutubePanel:         $('refsYoutubePanel'),
-      refsYoutubeUrl:           $('refsYoutubeUrl'),
-      refsFileInput:            $('refsFileInput'),
-      refsSourceCount:          $('refsSourceCount'),
-      refsSourcesList:          $('refsSourcesList'),
-      refsGenerateBtn:          $('refsGenerateBtn'),
-      refsResults:              $('refsResults'),
-      refsList:                 $('refsList'),
-      refsCopyBtn:              $('refsCopyBtn'),
-      refsExportBtn:            $('refsExportBtn'),
-
-      // Refs KB attach modal
-      refsKbAttachModal:        $('refsKbAttachModal'),
-      refsKbAttachList:         $('refsKbAttachList'),
-      refsKbAttachClose:        $('refsKbAttachClose'),
-      refsKbAttachCancel:       $('refsKbAttachCancel'),
-      refsKbAttachConfirm:      $('refsKbAttachConfirm'),
-
-      // Export picker modal
-      exportPickerModal:        $('exportPickerModal'),
-      exportPickerClose:        $('exportPickerClose'),
-      exportPickerUrlRow:       $('exportPickerUrlRow'),
-      exportPickerUrlInput:     $('exportPickerUrlInput'),
-      exportPickerUrlCancel:    $('exportPickerUrlCancel'),
-      exportPickerUrlConfirm:   $('exportPickerUrlConfirm'),
 
       // KB reader modal
       kbReaderModal:        $('kbReaderModal'),
@@ -2371,205 +1542,7 @@
       scrapePreviewClose:   $('scrapePreviewClose'),
       scrapePreviewDiscard: $('scrapePreviewDiscard'),
       scrapePreviewSave:    $('scrapePreviewSave'),
-
-      // Sync
-      syncSection:          $('syncSection'),
-      syncSignedOut:        $('syncSignedOut'),
-      syncSignedIn:         $('syncSignedIn'),
-      syncAvatar:           $('syncAvatar'),
-      syncName:             $('syncName'),
-      syncStatus:           $('syncStatus'),
-      btnSyncSignIn:        $('btnSyncSignIn'),
-      btnSyncSignOut:       $('btnSyncSignOut'),
     };
-
-    // ═══════════════════════════════════════════════════════════
-    // ─── Draft + History Persistence ──────────────────────────
-    // ═══════════════════════════════════════════════════════════
-    const HISTORY_TTL = 30 * 24 * 60 * 60 * 1000;
-
-    const _draftStore   = localforage.createInstance({ name: 'sth_cache', storeName: 'drafts' });
-    const _historyStore = localforage.createInstance({ name: 'sth_cache', storeName: 'history' });
-
-    let _saveDraftTimer = null;
-    function scheduleDraftSave() {
-      clearTimeout(_saveDraftTimer);
-      _saveDraftTimer = setTimeout(saveDraft, 600);
-    }
-
-    async function saveDraft() {
-      if (!state.mode) return;
-      const totalFiles = Object.values(state.zones).reduce((s, a) => s + a.length, 0);
-      if (totalFiles === 0 && !state.userNotes && !state.resourceUrl) {
-        await _draftStore.removeItem('current').catch(() => {});
-        return;
-      }
-      const zones = {};
-      for (const [role, files] of Object.entries(state.zones)) {
-        zones[role] = files.map(f => ({ name: f.name, type: f.type, mime: f.mime, size: f.size, file: f.file }));
-      }
-      await _draftStore.setItem('current', {
-        mode: state.mode, zones, userNotes: state.userNotes,
-        resourceUrl: state.resourceUrl, timestamp: Date.now(),
-      }).catch(() => {});
-    }
-
-    async function clearDraft() {
-      await _draftStore.removeItem('current').catch(() => {});
-    }
-
-    async function loadDraft() {
-      return _draftStore.getItem('current').catch(() => null);
-    }
-
-    async function restoreDraft(draft) {
-      state.mode = draft.mode;
-      document.querySelectorAll('.mode-card').forEach(card => {
-        card.classList.toggle('active', card.dataset.mode === draft.mode);
-      });
-      const meta = MODE_META[draft.mode];
-      if (meta) {
-        dom.toolTitle.textContent = meta.title;
-        dom.toolSubtitle.textContent = meta.sub;
-      }
-      renderUploadZones();
-      await new Promise(r => setTimeout(r, 80));
-      for (const [role, files] of Object.entries(draft.zones || {})) {
-        state.zones[role] = files.map(f => ({
-          id: generateId(), file: f.file, name: f.name, type: f.type,
-          mime: f.mime, size: f.size,
-          thumbUrl: f.type === 'image' && f.file ? URL.createObjectURL(f.file) : null,
-        }));
-        renderFileGrid(role);
-      }
-      const notesEl = document.getElementById('notesInput');
-      const urlEl   = document.getElementById('urlInput');
-      if (notesEl) { notesEl.value = draft.userNotes || ''; state.userNotes = draft.userNotes || ''; }
-      if (urlEl)   { urlEl.value   = draft.resourceUrl || ''; state.resourceUrl = draft.resourceUrl || ''; }
-      updateActionState();
-      location.hash = '#tool';
-      showToast('Draft restored \u2014 pick up where you left off.');
-    }
-
-    let _lastSavedHistoryId = null;
-
-    async function saveToHistory(mode, resultText, fileNames) {
-      const words = resultText.trim() ? resultText.trim().split(/\s+/).length : 0;
-      const preview = resultText.trim().slice(0, 160).replace(/\n/g, ' ');
-      const entry = {
-        id: `h_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
-        mode, resultText, fileNames, wordCount: words,
-        preview: preview + (resultText.length > 160 ? '\u2026' : ''),
-        timestamp: Date.now(),
-      };
-      _lastSavedHistoryId = entry.id;
-      const all = (await _historyStore.getItem('entries').catch(() => null)) || [];
-      all.unshift(entry);
-      await _historyStore.setItem('entries', all).catch(() => {});
-      const btn = document.getElementById('historyBtn');
-      if (btn) btn.classList.add('has-entries');
-    }
-
-    async function getHistory() {
-      return (await _historyStore.getItem('entries').catch(() => null)) || [];
-    }
-
-    async function purgeExpiredHistory() {
-      const all = await getHistory();
-      const cutoff = Date.now() - HISTORY_TTL;
-      const kept = all.filter(e => e.timestamp >= cutoff);
-      if (kept.length !== all.length) {
-        await _historyStore.setItem('entries', kept).catch(() => {});
-      }
-    }
-
-    async function deleteHistoryEntry(id) {
-      const all = await getHistory();
-      const updated = all.filter(e => e.id !== id);
-      await _historyStore.setItem('entries', updated).catch(() => {});
-      const btn = document.getElementById('historyBtn');
-      if (btn) btn.classList.toggle('has-entries', updated.length > 0);
-      renderHistoryList();
-    }
-
-    async function clearAllHistory() {
-      await _historyStore.setItem('entries', []).catch(() => {});
-      const btn = document.getElementById('historyBtn');
-      if (btn) btn.classList.remove('has-entries');
-      renderHistoryList();
-    }
-
-    // ─── History Panel UI ───────────────────────────
-    function toggleHistoryPanel(open) {
-      const overlay = document.getElementById('historyOverlay');
-      const panel   = document.getElementById('historyPanel');
-      if (open) {
-        renderHistoryList();
-        overlay.classList.add('open');
-        panel.classList.add('open');
-      } else {
-        overlay.classList.remove('open');
-        panel.classList.remove('open');
-      }
-    }
-
-    async function renderHistoryList() {
-      const list = document.getElementById('historyList');
-      if (!list) return;
-      const entries = await getHistory();
-      if (!entries.length) {
-        list.innerHTML = `<div class="history-empty"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><p>No saved generations yet.<br>Your results will appear here after processing.</p></div>`;
-        return;
-      }
-      list.innerHTML = '';
-      for (const e of entries) {
-        const badgeClass = `badge-${e.mode}`;
-        const label = MODE_META[e.mode]?.resultTitle || e.mode;
-        const date  = new Date(e.timestamp).toLocaleDateString('en-ZA', { day:'numeric', month:'short', year:'numeric' });
-        const div = document.createElement('div');
-        div.className = 'history-entry';
-        div.dataset.id = e.id;
-        div.innerHTML = `
-          <button class="history-entry-del" title="Delete entry" aria-label="Delete">&times;</button>
-          <div class="history-entry-head">
-            <span class="history-mode-badge ${badgeClass}">${e.mode}</span>
-            <span class="history-entry-date">${date}</span>
-          </div>
-          <div class="history-entry-preview">${escapeHtml(e.preview)}</div>
-          <div class="history-entry-meta">${e.wordCount.toLocaleString()} words${e.fileNames?.length ? ' &middot; ' + e.fileNames.slice(0,2).map(escapeHtml).join(', ') + (e.fileNames.length > 2 ? ' +' + (e.fileNames.length-2) + ' more' : '') : ''}</div>`;
-        div.querySelector('.history-entry-del').addEventListener('click', async (ev) => {
-          ev.stopPropagation();
-          await deleteHistoryEntry(e.id);
-        });
-        div.addEventListener('click', () => {
-          if (div.classList.contains('longpress-active')) { div.classList.remove('longpress-active'); return; }
-          openHistoryResult(e);
-        });
-        let _lpTimer = null;
-        div.addEventListener('touchstart', () => {
-          _lpTimer = setTimeout(() => { div.classList.add('longpress-active'); _lpTimer = null; }, 500);
-        }, { passive: true });
-        div.addEventListener('touchend', () => { clearTimeout(_lpTimer); _lpTimer = null; });
-        div.addEventListener('touchmove', () => { clearTimeout(_lpTimer); _lpTimer = null; });
-        list.appendChild(div);
-      }
-    }
-
-    function openHistoryResult(entry) {
-      const modal = document.getElementById('historyResultModal');
-      const title = document.getElementById('historyResultTitle');
-      const body  = document.getElementById('historyResultBody');
-      title.textContent = MODE_META[entry.mode]?.resultTitle || 'Result';
-      if (entry.mode === 'transcribe') {
-        body.style.whiteSpace = 'pre-wrap';
-        body.textContent = entry.resultText;
-      } else {
-        body.style.whiteSpace = 'normal';
-        try { body.innerHTML = marked.parse(entry.resultText); }
-        catch { body.textContent = entry.resultText; }
-      }
-      modal.classList.add('open');
-    }
 
     // ─── Utilities ──────────────────────────────────
     const generateId = () => `f_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -2580,19 +1553,10 @@
       });
     }
 
-    let _toastTimer = null;
-    function showToast(msg, type = 'success', opts = {}) {
-      if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
-      const { action, actionLabel, persistent } = opts;
-      if (action && actionLabel) {
-        dom.toast.innerHTML = `<div class="toast-body"><span class="toast-msg">${msg}</span><button class="toast-action-btn">${actionLabel}</button><button class="toast-close-btn">&times;</button></div>`;
-        dom.toast.querySelector('.toast-action-btn').addEventListener('click', () => { dom.toast.classList.remove('show', 'toast-persistent'); action(); });
-        dom.toast.querySelector('.toast-close-btn').addEventListener('click', () => { dom.toast.classList.remove('show', 'toast-persistent'); });
-      } else {
-        dom.toast.textContent = msg;
-      }
-      dom.toast.className = `toast toast-${type} show${persistent ? ' toast-persistent' : ''}`;
-      if (!persistent) { _toastTimer = setTimeout(() => dom.toast.classList.remove('show'), 3500); }
+    function showToast(msg, type = 'success') {
+      dom.toast.textContent = msg;
+      dom.toast.className = `toast toast-${type} show`;
+      setTimeout(() => dom.toast.classList.remove('show'), 3500);
     }
 
     // Promise-based in-UI confirm dialog (replaces browser confirm())
@@ -2818,14 +1782,12 @@
 
         this.cache.push(entry);
         await this.store.setItem('knowledge_bay', this.cache);
-        scheduleDrivePush();
         return entry;
       },
 
       async remove(id) {
         this.cache = this.cache.filter(i => i.id !== id);
         await this.store.setItem('knowledge_bay', this.cache);
-        scheduleDrivePush();
       },
 
       imageDataUrl(entry) {
@@ -2853,7 +1815,6 @@
         };
         this.cache.push(entry);
         await this.store.setItem('knowledge_bay', this.cache);
-        scheduleDrivePush();
         return entry;
       },
 
@@ -2861,9 +1822,7 @@
         const item = this.cache.find(i => i.id === id);
         if (!item || !newName.trim()) return;
         item.name = newName.trim();
-        item.updatedAt = Date.now();
         await this.store.setItem('knowledge_bay', this.cache);
-        scheduleDrivePush();
       },
     };
 
@@ -3006,9 +1965,9 @@
     // Wire KB dropzone
     function wireKbDropzone() {
       dom.kbDropzone.addEventListener('click', () => dom.kbFileInput.click());
+      dom.kbFileInput.addEventListener('click', e => { e.target.value = null; });
       dom.kbFileInput.addEventListener('change', e => {
         kbHandleFiles(e.target.files);
-        dom.kbFileInput.value = '';
       });
       ['dragenter', 'dragover'].forEach(evt =>
         dom.kbDropzone.addEventListener(evt, e => { e.preventDefault(); dom.kbDropzone.classList.add('dragover'); })
@@ -3166,7 +2125,6 @@
       transcribe: { view: 'viewTool', mode: 'transcribe' },
       template:   { view: 'viewTool', mode: 'template' },
       reviewer:   { view: 'viewTool', mode: 'reviewer' },
-      references: { view: 'viewReference' },
       knowledge:  { view: 'viewKnowledge' },
       tutor:      { view: 'viewTutor' },
     };
@@ -3190,19 +2148,11 @@
       state.currentRoute = name;
 
       // Show only this view
-      ['viewHome', 'viewTool', 'viewKnowledge', 'viewTutor', 'viewReference'].forEach(v => {
+      ['viewHome', 'viewTool', 'viewKnowledge', 'viewTutor'].forEach(v => {
         dom[v].classList.toggle('active', v === cfg.view);
       });
 
       updateSidebarActive(name);
-
-      // Full-page tutor mode: expand chat to fill viewport
-      const isTutor = name === 'tutor';
-      document.querySelector('.main-area').classList.toggle('tutor-mode', isTutor);
-      // Show a Home button inside the tutor head only on mobile (sidebar hidden)
-      document.querySelectorAll('.tutor-home-btn').forEach(btn => {
-        btn.style.display = (isTutor && window.innerWidth <= 900) ? '' : 'none';
-      });
 
       if (cfg.mode) {
         selectMode(cfg.mode);
@@ -3216,12 +2166,8 @@
         tutor.openChat(arg);
       }
 
-      if (name === 'references') {
-        refs.render();
-      }
-
       closeSidebar();
-      if (!isTutor) window.scrollTo({ top: 0, behavior: 'instant' });
+      window.scrollTo({ top: 0, behavior: 'instant' });
     }
 
     function openSidebar() {
@@ -3297,8 +2243,8 @@
         const notesIn = extras.querySelector('#notesInput');
         urlIn.value = state.resourceUrl;
         notesIn.value = state.userNotes;
-        urlIn.addEventListener('input', () => { state.resourceUrl = urlIn.value; scheduleDraftSave(); });
-        notesIn.addEventListener('input', () => { state.userNotes = notesIn.value; scheduleDraftSave(); });
+        urlIn.addEventListener('input', () => { state.resourceUrl = urlIn.value; });
+        notesIn.addEventListener('input', () => { state.userNotes = notesIn.value; });
       }
 
       dom.actionArea.classList.remove('hidden');
@@ -3346,7 +2292,8 @@
 
       dz.addEventListener('click', () => input.click());
       dz.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') input.click(); });
-      input.addEventListener('change', e => { handleFilesForZone(cfg.role, e.target.files); input.value = ''; });
+      input.addEventListener('click', e => { e.target.value = null; });
+      input.addEventListener('change', e => { handleFilesForZone(cfg.role, e.target.files); });
 
       ['dragenter', 'dragover'].forEach(evt =>
         dz.addEventListener(evt, e => { e.preventDefault(); dz.classList.add('dragover'); })
@@ -3390,7 +2337,6 @@
       if (added) {
         renderFileGrid(role);
         updateActionState();
-        scheduleDraftSave();
       }
     }
 
@@ -3445,7 +2391,6 @@
           state.zones[r] = (state.zones[r] || []).filter(x => x.id !== id);
           renderFileGrid(r);
           updateActionState();
-          scheduleDraftSave();
         });
       });
     }
@@ -3691,9 +2636,6 @@
         displayResult();
         showToolSection('sectionResult');
         showToast('Processing complete!');
-        const fileNames = Object.values(state.zones).flat().map(f => f.name);
-        saveToHistory(state.resultMode, resultText, fileNames);
-        clearDraft();
 
       } catch (error) {
         handleAppError(
@@ -3779,86 +2721,6 @@
       createGoogleDoc();
     }
 
-    // ─── Markdown → Google Docs API requests ─────────
-    function parseInlineMarkdown(text) {
-      const segments = [];
-      const regex = /\*\*\*(.+?)\*\*\*|\*\*(.+?)\*\*|__(.+?)__|___(.+?)___|\*(.+?)\*|_(.+?)_/g;
-      let last = 0, m;
-      while ((m = regex.exec(text)) !== null) {
-        if (m.index > last) segments.push({ text: text.slice(last, m.index) });
-        if (m[1]) segments.push({ text: m[1], bold: true, italic: true });
-        else if (m[2] || m[3]) segments.push({ text: m[2] || m[3], bold: true });
-        else if (m[4]) segments.push({ text: m[4], bold: true, italic: true });
-        else segments.push({ text: m[5] || m[6], italic: true });
-        last = m.index + m[0].length;
-      }
-      if (last < text.length) segments.push({ text: text.slice(last) });
-      return segments.length ? segments : [{ text }];
-    }
-
-    function markdownToDocsRequests(markdown) {
-      const requests = [];
-      const lines = markdown.split('\n');
-      let idx = 1;
-
-      for (const line of lines) {
-        let style = 'NORMAL_TEXT', raw = line, isBullet = false;
-        const hMatch = line.match(/^(#{1,4}) (.+)/);
-        const bMatch = line.match(/^[-*] (.+)/);
-
-        if (hMatch) {
-          const levels = { 1: 'HEADING_1', 2: 'HEADING_2', 3: 'HEADING_3', 4: 'HEADING_4' };
-          style = levels[hMatch[1].length] || 'HEADING_3';
-          raw = hMatch[2];
-        } else if (bMatch) {
-          isBullet = true;
-          raw = bMatch[1];
-        }
-
-        const segments = parseInlineMarkdown(raw);
-        const plain = segments.map(s => s.text).join('') + '\n';
-
-        requests.push({ insertText: { location: { index: idx }, text: plain } });
-
-        const lineStart = idx, lineEnd = idx + plain.length;
-
-        if (style !== 'NORMAL_TEXT') {
-          requests.push({
-            updateParagraphStyle: {
-              range: { startIndex: lineStart, endIndex: lineEnd },
-              paragraphStyle: { namedStyleType: style },
-              fields: 'namedStyleType'
-            }
-          });
-        } else if (isBullet) {
-          requests.push({
-            createParagraphBullets: {
-              range: { startIndex: lineStart, endIndex: lineEnd - 1 },
-              bulletPreset: 'BULLET_DISC_CIRCLE_SQUARE'
-            }
-          });
-        }
-
-        let segIdx = lineStart;
-        for (const seg of segments) {
-          const segEnd = segIdx + seg.text.length;
-          if (seg.bold || seg.italic) {
-            requests.push({
-              updateTextStyle: {
-                range: { startIndex: segIdx, endIndex: segEnd },
-                textStyle: { ...(seg.bold && { bold: true }), ...(seg.italic && { italic: true }) },
-                fields: [seg.bold && 'bold', seg.italic && 'italic'].filter(Boolean).join(',')
-              }
-            });
-          }
-          segIdx = segEnd;
-        }
-
-        idx += plain.length;
-      }
-      return requests;
-    }
-
     async function createGoogleDoc() {
       try {
         const text = state.resultMode === 'transcribe' ? dom.resultTextarea.value : state.resultText;
@@ -3876,7 +2738,7 @@
         const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${doc.documentId}:batchUpdate`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${state.googleAccessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ requests: ['template', 'reviewer'].includes(state.resultMode) ? markdownToDocsRequests(text) : [{ insertText: { location: { index: 1 }, text } }] }),
+          body: JSON.stringify({ requests: [{ insertText: { location: { index: 1 }, text } }] }),
         });
         if (!updateRes.ok) throw new Error(`Docs update failed: ${updateRes.status}`);
 
@@ -3899,326 +2761,6 @@
       else state.googleTokenClient.requestAccessToken();
     }
 
-    // ─── Reusable Google Docs helpers ────────────────
-    function ensureGoogleToken() {
-      return new Promise((resolve, reject) => {
-        if (state.googleAccessToken) return resolve(state.googleAccessToken);
-        if (!state.googleTokenClient) initGoogleOAuth();
-        if (!state.googleTokenClient) return reject(new Error('Google services not loaded'));
-        const client = state.googleTokenClient;
-        const originalCallback = client.callback;
-        client.callback = (resp) => {
-          client.callback = originalCallback;
-          if (resp.error) return reject(new Error(resp.error));
-          state.googleAccessToken = resp.access_token;
-          resolve(resp.access_token);
-        };
-        client.requestAccessToken();
-      });
-    }
-
-    async function createGoogleDocFromContent(title, content) {
-      const token = await ensureGoogleToken();
-      const createRes = await fetch('https://docs.googleapis.com/v1/documents', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title }),
-      });
-      if (!createRes.ok) throw new Error(`Docs create failed: ${createRes.status}`);
-      const doc = await createRes.json();
-      const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${doc.documentId}:batchUpdate`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requests: [{ insertText: { location: { index: 1 }, text: content } }] }),
-      });
-      if (!updateRes.ok) throw new Error(`Docs update failed: ${updateRes.status}`);
-      window.open(`https://docs.google.com/document/d/${doc.documentId}/edit`, '_blank');
-      return doc.documentId;
-    }
-
-    function extractDocIdFromUrl(url) {
-      if (!url) return null;
-      const m = url.match(/\/document\/d\/([a-zA-Z0-9_-]+)/);
-      return m ? m[1] : (url.match(/^[a-zA-Z0-9_-]{20,}$/) ? url : null);
-    }
-
-    async function appendToGoogleDoc(docId, content) {
-      const token = await ensureGoogleToken();
-      const getRes = await fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-      if (!getRes.ok) throw new Error(`Docs get failed: ${getRes.status}`);
-      const docData = await getRes.json();
-      const body = docData.body.content;
-      const endIndex = body[body.length - 1].endIndex - 1;
-      const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${docId}:batchUpdate`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requests: [{ insertText: { location: { index: endIndex }, text: `\n\n${content}` } }] }),
-      });
-      if (!updateRes.ok) throw new Error(`Docs update failed: ${updateRes.status}`);
-      window.open(`https://docs.google.com/document/d/${docId}/edit`, '_blank');
-      return docId;
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // ─── GOOGLE DRIVE APP-DATA SYNC ────────────────────────────
-    // ═══════════════════════════════════════════════════════════
-    const SYNC_SCOPE    = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
-    const SYNC_FILE     = 'sth-userdata-v1.json';
-    const SYNC_USER_KEY = 'sth_sync_user';
-    const SYNC_FILE_KEY = 'sth_sync_file_id';
-
-    // ── Token client ────────────────────────────────
-    function initDriveSyncClient() {
-      if (typeof google === 'undefined' || !google.accounts) return;
-      if (state.driveSyncClient) return;
-      state.driveSyncClient = google.accounts.oauth2.initTokenClient({
-        client_id: CONFIG.googleClientId,
-        scope: SYNC_SCOPE,
-        callback: onDriveSyncToken,
-      });
-    }
-
-    function onDriveSyncToken(resp) {
-      if (resp.error) { showToast('Google sign-in cancelled.', 'error'); return; }
-      state.driveSyncToken = resp.access_token;
-      runInitialSync();
-    }
-
-    function triggerSyncSignIn() {
-      if (!state.driveSyncClient) {
-        initDriveSyncClient();
-        if (!state.driveSyncClient) {
-          showToast('Google services still loading — try again in a moment.', 'error');
-          return;
-        }
-      }
-      state.driveSyncClient.requestAccessToken();
-    }
-
-    function signOutSync() {
-      state.driveSyncToken = null;
-      state.driveSyncClient = null;
-      clearTimeout(state.driveSyncTimer);
-      localStorage.removeItem(SYNC_USER_KEY);
-      localStorage.removeItem(SYNC_FILE_KEY);
-      updateSyncUI('signed-out');
-      showToast('Signed out of sync');
-    }
-
-    // ── Drive REST helpers ───────────────────────────
-    async function driveListSyncFile(token) {
-      const q = encodeURIComponent(`name='${SYNC_FILE}'`);
-      const res = await fetch(
-        `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id)`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (!res.ok) throw new Error(`Drive list: ${res.status}`);
-      const { files } = await res.json();
-      return files[0]?.id || null;
-    }
-
-    async function driveReadSyncFile(token, fileId) {
-      const res = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (!res.ok) throw new Error(`Drive read: ${res.status}`);
-      return res.json();
-    }
-
-    async function driveWriteSyncFile(token, fileId, data) {
-      const bodyJson = JSON.stringify(data);
-      if (fileId) {
-        const res = await fetch(
-          `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
-          { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: bodyJson }
-        );
-        if (!res.ok) throw new Error(`Drive update: ${res.status}`);
-        return fileId;
-      } else {
-        const form = new FormData();
-        form.append('metadata', new Blob(
-          [JSON.stringify({ name: SYNC_FILE, parents: ['appDataFolder'] })],
-          { type: 'application/json' }
-        ));
-        form.append('file', new Blob([bodyJson], { type: 'application/json' }));
-        const res = await fetch(
-          'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
-          { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }
-        );
-        if (!res.ok) throw new Error(`Drive create: ${res.status}`);
-        const file = await res.json();
-        return file.id;
-      }
-    }
-
-    async function driveFetchUserInfo(token) {
-      const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) return null;
-      const { name, email, picture } = await res.json();
-      return { name, email, picture };
-    }
-
-    // ── Merge logic ──────────────────────────────────
-    function mergeKbItems(local, remote) {
-      const map = new Map();
-      for (const item of remote) map.set(item.id, item);
-      for (const item of local) {
-        const existing = map.get(item.id);
-        if (!existing) { map.set(item.id, item); continue; }
-        const localTs  = item.updatedAt  || item.timestamp  || 0;
-        const remoteTs = existing.updatedAt || existing.timestamp || 0;
-        if (localTs >= remoteTs) map.set(item.id, item);
-      }
-      return [...map.values()];
-    }
-
-    function mergeTutorChats(local, remote) {
-      const map = new Map();
-      for (const chat of remote) map.set(chat.id, chat);
-      for (const chat of local) {
-        const existing = map.get(chat.id);
-        if (!existing) { map.set(chat.id, chat); continue; }
-        const localTs  = chat.updated  || chat.timestamp  || 0;
-        const remoteTs = existing.updated || existing.timestamp || 0;
-        if (localTs >= remoteTs) map.set(chat.id, chat);
-      }
-      return [...map.values()];
-    }
-
-    // ── Initial sync (merge + write) ─────────────────
-    async function runInitialSync() {
-      const token = state.driveSyncToken;
-      updateSyncUI('syncing');
-      try {
-        // 1 — Fetch user info
-        const user = await driveFetchUserInfo(token);
-        if (user) localStorage.setItem(SYNC_USER_KEY, JSON.stringify(user));
-
-        // 2 — Locate / read the Drive file
-        let fileId = localStorage.getItem(SYNC_FILE_KEY);
-        let remote = { kbItems: [], tutorChats: [] };
-
-        if (!fileId) {
-          fileId = await driveListSyncFile(token);
-          if (fileId) localStorage.setItem(SYNC_FILE_KEY, fileId);
-        }
-        if (fileId) {
-          try { remote = await driveReadSyncFile(token, fileId); }
-          catch { /* corrupt / deleted — start fresh */ }
-        }
-
-        // 3 — Merge local + remote
-        const mergedKb    = mergeKbItems(kb.cache,       remote.kbItems     || []);
-        const mergedChats = mergeTutorChats(tutor.chats, remote.tutorChats  || []);
-
-        // 4 — Persist merged data locally
-        kb.cache = mergedKb;
-        await kb.store.setItem('knowledge_bay', kb.cache);
-        renderKbGrid();
-
-        tutor.chats = mergedChats;
-        await kb.store.setItem('knowledge_bay', kb.cache); // belt-and-suspenders flush
-        await tutor.store.setItem('tutor_chats', tutor.chats);
-        tutor.renderSidebarList();
-        if (tutor.currentId) tutor.renderChat?.();
-
-        // 5 — Write merged data back to Drive
-        const newFileId = await driveWriteSyncFile(token, fileId, {
-          kbItems: mergedKb, tutorChats: mergedChats, syncedAt: Date.now()
-        });
-        if (!fileId) localStorage.setItem(SYNC_FILE_KEY, newFileId);
-
-        updateSyncUI('synced', user);
-        showToast('✓ Synced — your data is up to date across all devices');
-
-      } catch (err) {
-        console.error('[Sync]', err);
-        showToast('Sync failed — will retry on next save', 'error');
-        updateSyncUI('error');
-      }
-    }
-
-    // ── Push current data to Drive (debounced) ────────
-    async function pushToDrive() {
-      if (!state.driveSyncToken || state.driveSyncing) return;
-      state.driveSyncing = true;
-      updateSyncUI('syncing');
-      try {
-        let fileId = localStorage.getItem(SYNC_FILE_KEY);
-        const data = { kbItems: kb.cache, tutorChats: tutor.chats, syncedAt: Date.now() };
-        const newId = await driveWriteSyncFile(state.driveSyncToken, fileId, data);
-        if (!fileId) localStorage.setItem(SYNC_FILE_KEY, newId);
-        updateSyncUI('synced');
-      } catch (err) {
-        console.error('[Sync push]', err);
-        // Token expired → clear so button prompts re-auth
-        if (String(err.message).includes('401') || String(err.message).includes('403')) {
-          state.driveSyncToken = null;
-          updateSyncUI('expired');
-        } else {
-          updateSyncUI('error');
-        }
-      } finally {
-        state.driveSyncing = false;
-      }
-    }
-
-    function scheduleDrivePush() {
-      if (!state.driveSyncToken) return;
-      clearTimeout(state.driveSyncTimer);
-      state.driveSyncTimer = setTimeout(pushToDrive, 3000);
-    }
-
-    // ── UI updates ───────────────────────────────────
-    function updateSyncUI(status, user) {
-      const { syncSignedOut, syncSignedIn, syncName, syncAvatar, syncStatus, btnSyncSignIn } = dom;
-      if (!syncSignedOut) return;
-
-      const resolvedUser = user || (() => {
-        try { return JSON.parse(localStorage.getItem(SYNC_USER_KEY)); } catch { return null; }
-      })();
-
-      if (status === 'signed-out' || status === 'expired') {
-        syncSignedOut.classList.remove('hidden');
-        syncSignedIn.classList.add('hidden');
-        btnSyncSignIn.innerHTML = `
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
-            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
-          </svg>
-          ${status === 'expired' ? 'Re-connect Google' : 'Sync across devices'}`;
-        return;
-      }
-
-      syncSignedOut.classList.add('hidden');
-      syncSignedIn.classList.remove('hidden');
-
-      if (resolvedUser) {
-        syncName.textContent = resolvedUser.name || resolvedUser.email || 'Google account';
-        if (resolvedUser.picture) {
-          syncAvatar.src = resolvedUser.picture;
-          syncAvatar.style.display = '';
-        } else {
-          syncAvatar.style.display = 'none';
-        }
-      }
-
-      if (status === 'syncing') {
-        syncStatus.innerHTML = `<span class="sync-syncing-dot"></span> Syncing\u2026`;
-      } else if (status === 'synced') {
-        syncStatus.textContent = `Synced \u2014 ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-      } else if (status === 'error') {
-        syncStatus.textContent = 'Sync failed \u2014 will retry';
-      } else if (status === 'signed-in') {
-        syncStatus.textContent = 'Connected \u2014 tap to sync now';
-      }
-    }
-
     // ─── Retry (keeps files intact) ─────────────────
     function retryFromError() {
       renderUploadZones();
@@ -4236,8 +2778,6 @@
 
     // ─── Full Reset (clears everything in the current tool) ─
     function resetApp() {
-      const hadResult = !!state.resultText;
-      const prevMode  = state.resultMode;
       Object.values(state.zones).forEach(files =>
         files.forEach(f => { if (f.thumbUrl && !f.fromKb) URL.revokeObjectURL(f.thumbUrl); })
       );
@@ -4251,18 +2791,9 @@
       dom.resultContent.innerHTML = '';
       [dom.statWords, dom.statChars, dom.statReadTime].forEach(el => { el.textContent = '\u2014'; });
 
-      clearDraft();
       if (state.mode) renderUploadZones();
       updateActionState();
       showToolSection('sectionUpload');
-
-      if (hadResult && prevMode) {
-        const label = MODE_META[prevMode]?.resultTitle || 'Your result';
-        showToast(`${label} is saved`, 'success', {
-          actionLabel: 'View in History', persistent: true,
-          action: () => toggleHistoryPanel(true),
-        });
-      }
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -4272,7 +2803,6 @@
       store: null,
       chats: [],
       currentId: null,
-      activeQuote: null,
 
       async init() {
         this.store = localforage.createInstance({ name: 'sth_tutor', storeName: 'chats' });
@@ -4282,7 +2812,6 @@
 
       async save() {
         await this.store.setItem('tutor_chats', this.chats);
-        scheduleDrivePush();
       },
 
       current() {
@@ -4359,51 +2888,11 @@
         this.renderChat();
       },
 
-      setQuote(text) {
-        const plain = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[#*`_~]/g, '').trim();
-        this.activeQuote = plain;
-        const preview = plain.length > 120 ? plain.slice(0, 120) + '…' : plain;
-        dom.quoteBarText.textContent = preview;
-        dom.quoteBar.classList.add('active');
-        dom.tutorInput.focus();
-      },
-
-      clearQuote() {
-        this.activeQuote = null;
-        dom.quoteBar.classList.remove('active');
-        dom.quoteBarText.textContent = '';
-      },
-
-      copyMessage(text) {
-        const plain = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[#*`_~]/g, '').trim();
-        navigator.clipboard.writeText(plain).then(() => {
-          showToast('Copied to clipboard');
-        }).catch(() => {
-          showToast('Could not copy — select and copy manually', 'error');
-        });
-      },
-
-      async exportMessage(text) {
-        const plain = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[#*`_~]/g, '').trim();
-        const title = `Tutor message — ${new Date().toLocaleString('en-ZA')}`;
-        try {
-          showToast('Creating Google Doc…');
-          await createGoogleDocFromContent(title, plain);
-          showToast('Exported to Google Docs!');
-        } catch (err) {
-          console.error('[STH] Google export failed:', err);
-          navigator.clipboard.writeText(plain).catch(() => {});
-          showToast('Export failed — copied to clipboard as fallback', 'error');
-        }
-      },
-
       async send(text) {
         const c = this.current();
         if (!c || !text.trim() || state.tutorTyping || state.tutorScraping) return;
 
-        const activeQuote = this.activeQuote;
-        this.clearQuote();
-        c.messages.push({ role: 'user', text: text.trim(), ...(activeQuote ? { quote: activeQuote } : {}) });
+        c.messages.push({ role: 'user', text: text.trim() });
         c.updated = Date.now();
         if (c.title === 'New chat') {
           c.title = text.trim().slice(0, 60) + (text.length > 60 ? '…' : '');
@@ -4452,10 +2941,7 @@
           mode: 'tutor',
           systemPrompt: TUTOR_SYSTEM_PROMPT,
           attachedContext,
-          messages: c.messages.map(m => ({
-            role: m.role,
-            text: m.quote ? `[Referencing tutor's earlier message: "${m.quote}"]\n\n${m.text}` : m.text,
-          })),
+          messages: c.messages.map(m => ({ role: m.role, text: m.text })),
           chatId: c.id,
           chatTitle: c.title,
         };
@@ -4495,17 +2981,10 @@
       },
 
       renderSidebarList() {
-        const q = (state.sidebarSearch || '').toLowerCase().trim();
-        let items = [...this.chats].sort((a, b) => b.updated - a.updated);
-        if (q) {
-          items = items.filter(c => {
-            if ((c.title || '').toLowerCase().includes(q)) return true;
-            return (c.messages || []).some(m => (m.text || '').toLowerCase().includes(q));
-          });
-        }
+        const items = [...this.chats].sort((a, b) => b.updated - a.updated);
         dom.tutorChatList.innerHTML = '';
         if (!items.length) {
-          dom.tutorChatList.innerHTML = `<p class="chat-empty">${q ? 'No chats match.' : 'No chats yet.'}</p>`;
+          dom.tutorChatList.innerHTML = '<p class="chat-empty">No chats yet.</p>';
           return;
         }
         for (const c of items) {
@@ -4569,52 +3048,18 @@
             </div>`;
         } else {
           for (const msg of c.messages) {
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble ${msg.role}`;
             if (msg.role === 'model') {
-              const wrapper = document.createElement('div');
-              wrapper.className = 'msg-wrapper';
-              const bubble = document.createElement('div');
-              bubble.className = 'chat-bubble model';
               try {
                 bubble.innerHTML = marked.parse(msg.text || '');
               } catch {
                 bubble.textContent = msg.text || '';
               }
-              const actions = document.createElement('div');
-              actions.className = 'msg-actions';
-              actions.innerHTML = `
-                <button class="msg-action-btn" title="Reply to this message">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
-                  Reply
-                </button>
-                <button class="msg-action-btn" title="Copy to clipboard">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                  Copy
-                </button>
-                <button class="msg-action-btn" title="Export to Google Docs">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Export
-                </button>`;
-              const [replyBtn, copyBtn, exportBtn] = actions.querySelectorAll('.msg-action-btn');
-              const msgText = msg.text;
-              replyBtn.addEventListener('click', () => tutor.setQuote(msgText));
-              copyBtn.addEventListener('click', () => tutor.copyMessage(msgText));
-              exportBtn.addEventListener('click', () => tutor.exportMessage(msgText));
-              wrapper.appendChild(bubble);
-              wrapper.appendChild(actions);
-              dom.tutorMessages.appendChild(wrapper);
             } else {
-              if (msg.quote) {
-                const quoteRef = document.createElement('div');
-                quoteRef.className = 'quote-ref';
-                const preview = msg.quote.length > 200 ? msg.quote.slice(0, 200) + '…' : msg.quote;
-                quoteRef.innerHTML = `<span class="quote-ref-label">Replying to Tutor</span>${escapeHtml(preview)}`;
-                dom.tutorMessages.appendChild(quoteRef);
-              }
-              const bubble = document.createElement('div');
-              bubble.className = `chat-bubble user${msg.quote ? ' with-quote' : ''}`;
               bubble.textContent = msg.text || '';
-              dom.tutorMessages.appendChild(bubble);
             }
+            dom.tutorMessages.appendChild(bubble);
           }
           if (state.tutorScraping) {
             const reading = document.createElement('div');
@@ -4629,59 +3074,14 @@
           }
         }
 
-        // Apply in-chat search highlight if active
-        const q = (state.chatSearch || '').trim();
-        if (q) {
-          const qLower = q.toLowerCase();
-          const bubbles = dom.tutorMessages.querySelectorAll('.chat-bubble.user, .chat-bubble.model');
-          let firstMatch = null;
-          bubbles.forEach(b => {
-            if ((b.textContent || '').toLowerCase().includes(qLower)) {
-              b.classList.remove('dimmed');
-              highlightTextNodes(b, q);
-              if (!firstMatch) firstMatch = b;
-            } else {
-              b.classList.add('dimmed');
-            }
-          });
-          requestAnimationFrame(() => {
-            if (firstMatch) firstMatch.scrollIntoView({ block: 'center', behavior: 'smooth' });
-          });
-        } else {
-          // Scroll to bottom normally
-          requestAnimationFrame(() => {
-            dom.tutorMessages.scrollTop = dom.tutorMessages.scrollHeight;
-          });
-        }
+        // Scroll to bottom
+        requestAnimationFrame(() => {
+          dom.tutorMessages.scrollTop = dom.tutorMessages.scrollHeight;
+        });
 
         this.updateSendButton();
       },
     };
-
-    // Walk text nodes inside an element and wrap query matches in <mark>.
-    function highlightTextNodes(root, query) {
-      const qLower = query.toLowerCase();
-      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
-      const nodes = [];
-      let n; while ((n = walker.nextNode())) nodes.push(n);
-      for (const textNode of nodes) {
-        const txt = textNode.nodeValue;
-        if (!txt || !txt.toLowerCase().includes(qLower)) continue;
-        const frag = document.createDocumentFragment();
-        let lastIdx = 0;
-        let idx = txt.toLowerCase().indexOf(qLower);
-        while (idx !== -1) {
-          if (idx > lastIdx) frag.appendChild(document.createTextNode(txt.slice(lastIdx, idx)));
-          const mark = document.createElement('mark');
-          mark.textContent = txt.slice(idx, idx + query.length);
-          frag.appendChild(mark);
-          lastIdx = idx + query.length;
-          idx = txt.toLowerCase().indexOf(qLower, lastIdx);
-        }
-        if (lastIdx < txt.length) frag.appendChild(document.createTextNode(txt.slice(lastIdx)));
-        textNode.parentNode.replaceChild(frag, textNode);
-      }
-    }
 
     // ─── Tutor attach modal ─────────────────────────
     let tutorAttachSelection = new Set();
@@ -4749,299 +3149,10 @@
     }
 
     // ═══════════════════════════════════════════════════════════
-    // ─── REFERENCES MODULE ─────────────────────────────────────
-    // ═══════════════════════════════════════════════════════════
-    const refs = {
-      style: 'Harvard',
-      sources: [], // { id, kind: 'link'|'youtube'|'kb'|'upload', label, sub, meta }
-      results: [], // { sourceId, citation, error? }
-
-      nextId() { return 'ref_' + Math.random().toString(36).slice(2, 10); },
-
-      render() {
-        dom.refsStyleSelect.value = this.style;
-        // Source list
-        dom.refsSourcesList.innerHTML = '';
-        if (!this.sources.length) {
-          dom.refsSourcesList.innerHTML = '<div class="refs-empty">No sources yet — pick one of the options above to add your first.</div>';
-        } else {
-          for (const src of this.sources) {
-            const row = document.createElement('div');
-            row.className = 'refs-source-row';
-            row.innerHTML = `
-              <span class="refs-source-type ${src.kind}">${src.kind === 'youtube' ? 'YT' : src.kind}</span>
-              <div class="refs-source-info">
-                <div class="refs-source-name">${escapeHtml(src.label)}</div>
-                <div class="refs-source-sub">${escapeHtml(src.sub || '')}</div>
-              </div>
-              <button class="refs-source-remove" title="Remove">×</button>`;
-            row.querySelector('.refs-source-remove').addEventListener('click', () => {
-              this.sources = this.sources.filter(s => s.id !== src.id);
-              this.render();
-            });
-            dom.refsSourcesList.appendChild(row);
-          }
-        }
-        dom.refsSourceCount.textContent = this.sources.length ? `(${this.sources.length})` : '';
-        dom.refsGenerateBtn.disabled = this.sources.length === 0;
-
-        // Results
-        if (this.results.length) {
-          dom.refsResults.classList.add('visible');
-          dom.refsList.innerHTML = '';
-          for (const r of this.results) {
-            const li = document.createElement('li');
-            if (r.error) { li.className = 'error'; li.textContent = `[${r.label}] — ${r.error}`; }
-            else if (r.pending) { li.className = 'pending'; li.textContent = `Generating… ${r.label}`; }
-            else li.textContent = r.citation;
-            dom.refsList.appendChild(li);
-          }
-        } else {
-          dom.refsResults.classList.remove('visible');
-        }
-      },
-
-      addSource(src) {
-        src.id = this.nextId();
-        this.sources.push(src);
-        this.render();
-      },
-
-      async addLink(url) {
-        if (!/^https?:\/\//i.test(url)) { showToast('Invalid URL', 'error'); return; }
-        this.addSource({ kind: 'link', label: url, sub: 'Article link · will be scraped on generate', meta: { url } });
-      },
-
-      async addYoutube(url) {
-        const vid = this.extractYouTubeId(url);
-        if (!vid) { showToast('Not a valid YouTube URL', 'error'); return; }
-        showToast('Fetching video info…');
-        try {
-          const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
-          let meta = { url, videoId: vid };
-          if (oembedRes.ok) {
-            const data = await oembedRes.json();
-            meta.title = data.title;
-            meta.author = data.author_name;
-          }
-          this.addSource({
-            kind: 'youtube',
-            label: meta.title || `YouTube video ${vid}`,
-            sub: `${meta.author || 'Channel'} · year will be scraped on generate`,
-            meta,
-          });
-        } catch (err) {
-          showToast('Could not fetch video metadata — adding link only', 'error');
-          this.addSource({ kind: 'youtube', label: url, sub: 'YouTube link', meta: { url, videoId: vid } });
-        }
-      },
-
-      extractYouTubeId(url) {
-        const m = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-        return m ? m[1] : null;
-      },
-
-      addFromKb(kbItem) {
-        this.addSource({
-          kind: 'kb',
-          label: kbItem.name,
-          sub: `${kbItem.type.toUpperCase()} · from Knowledge Bay`,
-          meta: { kbId: kbItem.id, name: kbItem.name, content: (kbItem.content || '').slice(0, 2500) },
-        });
-      },
-
-      async addUpload(file) {
-        try {
-          showToast(`Adding ${file.name}…`);
-          const entry = await kb.add(file);
-          this.addSource({
-            kind: 'upload',
-            label: entry.name,
-            sub: `${entry.type.toUpperCase()} · saved to Knowledge Bay`,
-            meta: { kbId: entry.id, name: entry.name, content: (entry.content || '').slice(0, 2500) },
-          });
-          showToast(`${file.name} added`);
-        } catch (err) {
-          console.error('[refs] upload failed:', err);
-          showToast(err.message || 'Upload failed', 'error');
-        }
-      },
-
-      async generate() {
-        if (!this.sources.length) return;
-        this.style = dom.refsStyleSelect.value || 'Harvard';
-        dom.refsGenerateBtn.disabled = true;
-
-        // Initialize results with pending placeholders
-        this.results = this.sources.map(s => ({ sourceId: s.id, label: s.label, pending: true }));
-        this.render();
-
-        for (let i = 0; i < this.sources.length; i++) {
-          const src = this.sources[i];
-          try {
-            const extra = await this.enrichSource(src);
-            const payload = {
-              mode: 'reference',
-              style: this.style,
-              source: {
-                kind: src.kind,
-                label: src.label,
-                meta: { ...src.meta, ...extra },
-              },
-            };
-            const data = await sendToWebhook(payload);
-            const citation = (data && (data.citation || data.text || data.result)) || '';
-            this.results[i] = { sourceId: src.id, label: src.label, citation: citation || '(No citation returned.)' };
-          } catch (err) {
-            console.error('[refs] generate failed for source', src, err);
-            this.results[i] = { sourceId: src.id, label: src.label, error: err.message || 'Generation failed' };
-          }
-          this.render();
-        }
-        dom.refsGenerateBtn.disabled = false;
-        showToast('References generated');
-      },
-
-      async enrichSource(src) {
-        // Scrape links and YouTube URLs for extra metadata
-        if (src.kind === 'link') {
-          const scraped = await scrapeUrl(src.meta.url).catch(() => null);
-          if (scraped && !scraped.error) return { scrapedText: (scraped.text || '').slice(0, 3000) };
-          return {};
-        }
-        if (src.kind === 'youtube') {
-          const scraped = await scrapeUrl(src.meta.url).catch(() => null);
-          if (scraped && !scraped.error) return { scrapedText: (scraped.text || '').slice(0, 3000) };
-          return {};
-        }
-        return {};
-      },
-
-      buildPlainText() {
-        const lines = ['References', ''];
-        for (const r of this.results) {
-          if (r.error) lines.push(`[${r.label}] — ${r.error}`);
-          else if (r.citation) lines.push(r.citation);
-        }
-        return lines.join('\n\n');
-      },
-
-      async copyAll() {
-        const text = this.buildPlainText();
-        try {
-          await navigator.clipboard.writeText(text);
-          showToast('References copied');
-        } catch {
-          showToast('Could not copy', 'error');
-        }
-      },
-
-      exportAll() {
-        if (!this.results.length) return;
-        state.refsPendingExport = this.buildPlainText();
-        openExportPicker();
-      },
-    };
-
-    // ═══════════════════════════════════════════════════════════
-    // ─── References: KB attach modal ───────────────────────────
-    // ═══════════════════════════════════════════════════════════
-    let refsKbSelection = new Set();
-    function openRefsKbAttach() {
-      refsKbSelection = new Set();
-      renderRefsKbAttachList();
-      dom.refsKbAttachConfirm.disabled = true;
-      dom.refsKbAttachModal.classList.add('open');
-    }
-    function closeRefsKbAttach() { dom.refsKbAttachModal.classList.remove('open'); }
-    function renderRefsKbAttachList() {
-      const items = kb.list();
-      dom.refsKbAttachList.innerHTML = '';
-      if (!items.length) {
-        dom.refsKbAttachList.innerHTML = '<p class="text-center text-ink/40 py-8 font-body text-sm">Your Knowledge Bay is empty — upload a file first from the Knowledge Bay tab.</p>';
-        return;
-      }
-      for (const item of items) {
-        const row = document.createElement('div');
-        row.className = 'kb-pick-row' + (refsKbSelection.has(item.id) ? ' selected' : '');
-        row.dataset.id = item.id;
-        row.innerHTML = `
-          <div class="kb-pick-check">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-          </div>
-          <div class="flex-1 min-w-0">
-            <div class="text-sm font-medium text-ink/80 truncate">${escapeHtml(item.name)}</div>
-            <div class="text-xs text-ink/40">${item.type.toUpperCase()} · ${formatSize(item.size)}</div>
-          </div>
-          <button class="kb-row-peek" data-peek="${item.id}" title="Preview file">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          </button>`;
-        row.addEventListener('click', (e) => {
-          if (e.target.closest('.kb-row-peek')) return;
-          if (refsKbSelection.has(item.id)) { refsKbSelection.delete(item.id); row.classList.remove('selected'); }
-          else { refsKbSelection.add(item.id); row.classList.add('selected'); }
-          dom.refsKbAttachConfirm.disabled = refsKbSelection.size === 0;
-        });
-        row.querySelector('.kb-row-peek').addEventListener('click', (e) => {
-          e.stopPropagation();
-          openKbReader(item.id, 'refsKbAttach');
-        });
-        dom.refsKbAttachList.appendChild(row);
-      }
-    }
-    async function confirmRefsKbAttach() {
-      for (const id of refsKbSelection) {
-        const item = await kb.get(id);
-        if (item) refs.addFromKb(item);
-      }
-      closeRefsKbAttach();
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // ─── Export picker (reference list + tutor) ────────────────
-    // ═══════════════════════════════════════════════════════════
-    function openExportPicker() {
-      dom.exportPickerUrlRow.classList.remove('visible');
-      dom.exportPickerUrlInput.value = '';
-      dom.exportPickerModal.classList.add('open');
-    }
-    function closeExportPicker() {
-      dom.exportPickerModal.classList.remove('open');
-      state.refsPendingExport = null;
-    }
-    async function executePendingRefsExport(mode, url) {
-      const text = state.refsPendingExport;
-      if (!text) return;
-      try {
-        if (mode === 'new') {
-          showToast('Creating Google Doc…');
-          await createGoogleDocFromContent(`References — ${new Date().toLocaleDateString('en-ZA')}`, text);
-          showToast('Exported to Google Docs!');
-        } else {
-          const docId = extractDocIdFromUrl(url);
-          if (!docId) { showToast('Invalid Google Docs URL', 'error'); return; }
-          showToast('Appending to Google Doc…');
-          await appendToGoogleDoc(docId, text);
-          showToast('Appended to Google Doc!');
-        }
-      } catch (err) {
-        console.error('[refs] export failed:', err);
-        navigator.clipboard.writeText(text).catch(() => {});
-        showToast('Export failed — copied to clipboard instead', 'error');
-      } finally {
-        closeExportPicker();
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════
     // ─── Event Bindings ────────────────────────────────────────
     // ═══════════════════════════════════════════════════════════
 
     // Nav
-    // Sync
-    dom.btnSyncSignIn.addEventListener('click', triggerSyncSignIn);
-    dom.btnSyncSignOut.addEventListener('click', signOutSync);
-
     dom.btnHamburger.addEventListener('click', () => {
       if (dom.sidebar.classList.contains('open')) closeSidebar();
       else openSidebar();
@@ -5118,159 +3229,6 @@
     dom.tutorAttachConfirm.addEventListener('click', confirmTutorAttach);
     dom.tutorAttachModal.addEventListener('click', e => { if (e.target === dom.tutorAttachModal) closeTutorAttach(); });
 
-    dom.btnClearQuote.addEventListener('click', () => tutor.clearQuote());
-
-    // Selection-to-quote tooltip
-    const selTip = dom.selectionTooltip;
-    let selTipActive = false;
-    function hideSelTip() { selTip.classList.remove('visible'); selTipActive = false; }
-    dom.tutorMessages.addEventListener('mouseup', () => {
-      setTimeout(() => {
-        const sel = window.getSelection();
-        const selectedText = sel && sel.toString().trim();
-        if (!selectedText || selectedText.length < 8) { hideSelTip(); return; }
-        let node = sel.anchorNode;
-        while (node && node !== dom.tutorMessages) {
-          if (node.classList && node.classList.contains('chat-bubble') && node.classList.contains('model')) {
-            const range = sel.getRangeAt(0);
-            const rect = range.getBoundingClientRect();
-            selTip.style.top = (rect.top - 42) + 'px';
-            selTip.style.left = (rect.left + rect.width / 2) + 'px';
-            selTip.classList.add('visible');
-            selTipActive = true;
-            selTip._quoted = selectedText;
-            return;
-          }
-          node = node.parentNode;
-        }
-        hideSelTip();
-      }, 10);
-    });
-    selTip.addEventListener('click', () => {
-      if (selTip._quoted) {
-        tutor.setQuote(selTip._quoted);
-        window.getSelection().removeAllRanges();
-        hideSelTip();
-      }
-    });
-    document.addEventListener('mousedown', e => {
-      if (selTipActive && !selTip.contains(e.target)) hideSelTip();
-    });
-
-    // Sidebar chat search
-    dom.sidebarChatSearch.addEventListener('input', () => {
-      state.sidebarSearch = dom.sidebarChatSearch.value;
-      dom.sidebarChatSearchClear.classList.toggle('visible', !!state.sidebarSearch);
-      tutor.renderSidebarList();
-    });
-    dom.sidebarChatSearchClear.addEventListener('click', () => {
-      dom.sidebarChatSearch.value = '';
-      state.sidebarSearch = '';
-      dom.sidebarChatSearchClear.classList.remove('visible');
-      tutor.renderSidebarList();
-    });
-
-    // In-chat search
-    dom.btnToggleChatSearch.addEventListener('click', () => {
-      const isOpen = dom.chatSearchWrap.style.display !== 'none';
-      dom.chatSearchWrap.style.display = isOpen ? 'none' : 'block';
-      if (!isOpen) {
-        dom.chatSearchInput.focus();
-      } else {
-        dom.chatSearchInput.value = '';
-        state.chatSearch = '';
-        dom.chatSearchClear.classList.remove('visible');
-        tutor.renderChat();
-      }
-    });
-    dom.chatSearchInput.addEventListener('input', () => {
-      state.chatSearch = dom.chatSearchInput.value;
-      dom.chatSearchClear.classList.toggle('visible', !!state.chatSearch);
-      tutor.renderChat();
-    });
-    dom.chatSearchClear.addEventListener('click', () => {
-      dom.chatSearchInput.value = '';
-      state.chatSearch = '';
-      dom.chatSearchClear.classList.remove('visible');
-      tutor.renderChat();
-      dom.chatSearchInput.focus();
-    });
-
-    // References: source adders
-    document.querySelectorAll('[data-add]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const kind = btn.dataset.add;
-        if (kind === 'link') {
-          dom.refsLinkPanel.classList.add('visible');
-          dom.refsYoutubePanel.classList.remove('visible');
-          dom.refsLinkUrl.focus();
-        } else if (kind === 'youtube') {
-          dom.refsYoutubePanel.classList.add('visible');
-          dom.refsLinkPanel.classList.remove('visible');
-          dom.refsYoutubeUrl.focus();
-        } else if (kind === 'kb') {
-          openRefsKbAttach();
-        } else if (kind === 'upload') {
-          dom.refsFileInput.click();
-        }
-      });
-    });
-    document.querySelectorAll('[data-panel-cancel]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const kind = btn.dataset.panelCancel;
-        if (kind === 'link') { dom.refsLinkPanel.classList.remove('visible'); dom.refsLinkUrl.value = ''; }
-        else if (kind === 'youtube') { dom.refsYoutubePanel.classList.remove('visible'); dom.refsYoutubeUrl.value = ''; }
-      });
-    });
-    document.querySelectorAll('[data-panel-confirm]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const kind = btn.dataset.panelConfirm;
-        if (kind === 'link') {
-          const v = dom.refsLinkUrl.value.trim();
-          if (v) { await refs.addLink(v); dom.refsLinkUrl.value = ''; dom.refsLinkPanel.classList.remove('visible'); }
-        } else if (kind === 'youtube') {
-          const v = dom.refsYoutubeUrl.value.trim();
-          if (v) { await refs.addYoutube(v); dom.refsYoutubeUrl.value = ''; dom.refsYoutubePanel.classList.remove('visible'); }
-        }
-      });
-    });
-    dom.refsFileInput.addEventListener('change', async (e) => {
-      for (const f of e.target.files) await refs.addUpload(f);
-      e.target.value = '';
-    });
-    dom.refsStyleSelect.addEventListener('change', () => { refs.style = dom.refsStyleSelect.value; });
-    dom.refsGenerateBtn.addEventListener('click', () => refs.generate());
-    dom.refsCopyBtn.addEventListener('click', () => refs.copyAll());
-    dom.refsExportBtn.addEventListener('click', () => refs.exportAll());
-
-    // References KB attach modal
-    dom.refsKbAttachClose.addEventListener('click', closeRefsKbAttach);
-    dom.refsKbAttachCancel.addEventListener('click', closeRefsKbAttach);
-    dom.refsKbAttachConfirm.addEventListener('click', confirmRefsKbAttach);
-    dom.refsKbAttachModal.addEventListener('click', e => { if (e.target === dom.refsKbAttachModal) closeRefsKbAttach(); });
-
-    // Export picker modal
-    dom.exportPickerClose.addEventListener('click', closeExportPicker);
-    dom.exportPickerModal.addEventListener('click', e => { if (e.target === dom.exportPickerModal) closeExportPicker(); });
-    document.querySelectorAll('[data-export-choice]').forEach(opt => {
-      opt.addEventListener('click', () => {
-        const choice = opt.dataset.exportChoice;
-        if (choice === 'new') {
-          executePendingRefsExport('new');
-        } else {
-          dom.exportPickerUrlRow.classList.add('visible');
-          dom.exportPickerUrlInput.focus();
-        }
-      });
-    });
-    dom.exportPickerUrlCancel.addEventListener('click', () => {
-      dom.exportPickerUrlRow.classList.remove('visible');
-    });
-    dom.exportPickerUrlConfirm.addEventListener('click', () => {
-      const url = dom.exportPickerUrlInput.value.trim();
-      executePendingRefsExport('existing', url);
-    });
-
     dom.tutorInput.addEventListener('input', () => {
       // auto-resize
       dom.tutorInput.style.height = 'auto';
@@ -5299,20 +3257,6 @@
     // Sidebar nav clicks close the drawer on mobile (href navigation still fires)
     document.querySelectorAll('.nav-link').forEach(a => {
       a.addEventListener('click', () => closeSidebar());
-    });
-
-    // History panel
-    document.getElementById('historyBtn').addEventListener('click', () => toggleHistoryPanel(true));
-    document.getElementById('historyClose').addEventListener('click', () => toggleHistoryPanel(false));
-    document.getElementById('historyOverlay').addEventListener('click', () => toggleHistoryPanel(false));
-    document.getElementById('historyClearAll').addEventListener('click', () => clearAllHistory());
-    document.getElementById('historyResultClose').addEventListener('click', () => {
-      document.getElementById('historyResultModal').classList.remove('open');
-    });
-    document.getElementById('historyResultModal').addEventListener('click', e => {
-      if (e.target === document.getElementById('historyResultModal')) {
-        document.getElementById('historyResultModal').classList.remove('open');
-      }
     });
 
     // Route on hash change
@@ -5354,50 +3298,19 @@
     });
 
     async function initAfterAuth() {
-      // Google OAuth init (deferred) — Docs export + Drive sync
+      // Google OAuth init (deferred)
       const gisInterval = setInterval(() => {
         if (typeof google !== 'undefined' && google.accounts) {
           initGoogleOAuth();
-          initDriveSyncClient();
           clearInterval(gisInterval);
         }
       }, 500);
       setTimeout(() => clearInterval(gisInterval), 10000);
 
-      // Restore sync UI from last session (token expired but show who was connected)
-      const storedUser = localStorage.getItem(SYNC_USER_KEY);
-      if (storedUser) {
-        try {
-          const user = JSON.parse(storedUser);
-          // Show as expired so user knows to re-tap to reconnect
-          updateSyncUI('expired', user);
-        } catch { /* ignore */ }
-      }
-
       // Init KB + Tutor stores
       await kb.init();
       await tutor.init();
       wireKbDropzone();
-
-      // History: purge expired entries and light up the button if any exist
-      purgeExpiredHistory();
-      getHistory().then(entries => {
-        const btn = document.getElementById('historyBtn');
-        if (btn) btn.classList.toggle('has-entries', entries.length > 0);
-      });
-
-      // Draft: show resume toast if a draft was saved
-      const _draft = await loadDraft();
-      if (_draft && _draft.mode) {
-        const totalFiles = Object.values(_draft.zones || {}).reduce((s, a) => s + a.length, 0);
-        if (totalFiles > 0 || _draft.userNotes || _draft.resourceUrl) {
-          const label = MODE_META[_draft.mode]?.btnLabel || _draft.mode;
-          showToast(`You have an unsaved ${label} draft`, 'success', {
-            actionLabel: 'Resume', persistent: true,
-            action: () => restoreDraft(_draft),
-          });
-        }
-      }
 
       // Dev reminder
       console.info(
