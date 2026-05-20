@@ -1965,9 +1965,9 @@
     // Wire KB dropzone
     function wireKbDropzone() {
       dom.kbDropzone.addEventListener('click', () => dom.kbFileInput.click());
-      dom.kbFileInput.addEventListener('click', e => { e.target.value = null; });
       dom.kbFileInput.addEventListener('change', e => {
         kbHandleFiles(e.target.files);
+        dom.kbFileInput.value = '';
       });
       ['dragenter', 'dragover'].forEach(evt =>
         dom.kbDropzone.addEventListener(evt, e => { e.preventDefault(); dom.kbDropzone.classList.add('dragover'); })
@@ -2292,8 +2292,7 @@
 
       dz.addEventListener('click', () => input.click());
       dz.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') input.click(); });
-      input.addEventListener('click', e => { e.target.value = null; });
-      input.addEventListener('change', e => { handleFilesForZone(cfg.role, e.target.files); });
+      input.addEventListener('change', e => { handleFilesForZone(cfg.role, e.target.files); input.value = ''; });
 
       ['dragenter', 'dragover'].forEach(evt =>
         dz.addEventListener(evt, e => { e.preventDefault(); dz.classList.add('dragover'); })
