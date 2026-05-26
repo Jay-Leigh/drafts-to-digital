@@ -3546,6 +3546,19 @@
         }
       }
       if (fileObj.type === 'pdf') {
+        // Transcribe needs pixel-level image data (handwriting recognition) → raw base64
+        // All other modes only need the text content → extract first to keep payload small
+        if (state.mode === 'transcribe') {
+          const base64 = await fileToBase64(fileObj.file);
+          return { role: fileObj.role, type: 'inline', base64, mime_type: 'application/pdf', name: fileObj.name };
+        }
+        updateProgress(null, `Extracting text from ${fileObj.name}…`);
+        const text = await extractPdfText(fileObj.file);
+        if (text) {
+          return { role: fileObj.role, type: 'text', content: text, name: fileObj.name };
+        }
+        // Scanned PDF — no extractable text, fall back to inline base64
+        console.warn(`${fileObj.name}: no extractable text (scanned PDF), falling back to inline`);
         const base64 = await fileToBase64(fileObj.file);
         return { role: fileObj.role, type: 'inline', base64, mime_type: 'application/pdf', name: fileObj.name };
       }
@@ -3560,6 +3573,34 @@
         return { role: fileObj.role, type: 'text', content, name: fileObj.name };
       }
       throw new Error(`Unsupported file type: ${fileObj.type}`);
+    }
+
+    // ─── Knowledge Bay Auto-Save ─────────────────────
+    // Silently saves a freshly-processed file to KB so the user never has to
+    // re-upload the same document.  Skips very large base64 blobs to avoid
+    // filling localStorage.
+    async function autoSaveToKb(fileObj, processedDoc) {
+      try {
+        if (kb.cache.some(k => k.name === fileObj.name)) return; // already stored
+        const content = processedDoc.type === 'text'
+          ? processedDoc.content
+          : (processedDoc.base64 || '');
+        // Don't cache large inline blobs — they'd strain localStorage
+        if (processedDoc.type === 'inline' && content.length > 6 * 1024 * 1024) return;
+        kb.cache.push({
+          id: generateId(),
+          name: fileObj.name,
+          type: fileObj.type,
+          mime: fileObj.mime,
+          size: fileObj.size,
+          timestamp: Date.now(),
+          content,
+        });
+        await kb.store.setItem('knowledge_bay', kb.cache);
+        scheduleDrivePush();
+      } catch (e) {
+        console.warn('Auto-KB save failed (non-critical):', e);
+      }
     }
 
     // ─── Progress UI ────────────────────────────────
@@ -3615,7 +3656,7 @@
           return await res.json();
         } catch (err) {
           lastErr = err;
-          if (err.name === 'AbortError') { clearTimeout(timeout); throw new Error('Request timed out (5 min). Please try with fewer/smaller files.'); }
+          if (err.name === 'AbortError') { clearTimeout(timeout); throw new Error('Request timed out (10 min). Please try with fewer/smaller files.'); }
         }
       }
       clearTimeout(timeout);
@@ -3637,10 +3678,19 @@
           for (const f of files) allFiles.push({ ...f, role });
         }
 
+        const newKbNames = [];
         for (let i = 0; i < allFiles.length; i++) {
           updateProgress(Math.round((i / allFiles.length) * 35), `Processing ${allFiles[i].name}\u2026`);
           const doc = await processFileObj(allFiles[i]);
           documents.push(doc);
+          // Auto-save fresh files to Knowledge Bay for future re-use
+          if (!allFiles[i].fromKb) {
+            const wasNew = !kb.cache.some(k => k.name === allFiles[i].name);
+            await autoSaveToKb(allFiles[i], doc);
+            if (wasNew && kb.cache.some(k => k.name === allFiles[i].name)) {
+              newKbNames.push(allFiles[i].name);
+            }
+          }
         }
 
         updateProgress(40, 'Sending to AI\u2026');
@@ -3671,6 +3721,29 @@
             if (bIdx < batches.length - 1) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
           }
           resultText = parts.join('\n\n');
+          // Auto-save transcription result to Knowledge Bay as searchable text
+          if (resultText.trim()) {
+            try {
+              const srcNames = allFiles.filter(f => !f.fromKb).map(f => f.name.replace(/\.[^/.]+$/, ''));
+              if (srcNames.length) {
+                const resultName = srcNames.join(' + ') + ' (transcribed)';
+                if (!kb.cache.some(k => k.name === resultName)) {
+                  kb.cache.push({
+                    id: generateId(),
+                    name: resultName,
+                    type: 'txt',
+                    mime: 'text/plain',
+                    size: resultText.length,
+                    timestamp: Date.now(),
+                    content: resultText.trim(),
+                  });
+                  await kb.store.setItem('knowledge_bay', kb.cache);
+                  scheduleDrivePush();
+                  newKbNames.push(resultName);
+                }
+              }
+            } catch (e) { console.warn('Auto-KB transcribe result save:', e); }
+          }
         } else {
           updateProgress(50, 'AI is analyzing your documents\u2026');
           const data = await sendToWebhook({
@@ -3691,7 +3764,11 @@
         state.resultMode = state.mode;
         displayResult();
         showToolSection('sectionResult');
-        showToast('Processing complete!');
+        if (newKbNames.length) {
+          showToast(`Done! ${newKbNames.length} file${newKbNames.length > 1 ? 's' : ''} saved to Knowledge Bay for future use.`);
+        } else {
+          showToast('Processing complete!');
+        }
         const fileNames = Object.values(state.zones).flat().map(f => f.name);
         saveToHistory(state.resultMode, resultText, fileNames);
         clearDraft();
