@@ -1308,6 +1308,28 @@
     }
     .history-result-body::-webkit-scrollbar { width: 4px; }
     .history-result-body::-webkit-scrollbar-thumb { background: #c4b896; border-radius: 2px; }
+
+    /* History result action bar */
+    .history-result-actions {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 16px; flex-shrink: 0;
+      border-bottom: 1px solid rgba(212,201,168,0.4);
+      background: #faf8f3;
+    }
+    .hist-res-btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 13px; border-radius: 8px;
+      font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 500;
+      cursor: pointer; border: 1px solid rgba(212,201,168,0.65);
+      background: white; color: rgba(26,46,28,0.72);
+      transition: all 0.15s ease; white-space: nowrap;
+    }
+    .hist-res-btn:hover { border-color: rgba(44,95,45,0.4); color: #2c5f2d; background: rgba(44,95,45,0.05); }
+    .hist-res-btn-docs { margin-left: auto; }
+    @media (max-width: 480px) {
+      .history-result-actions { flex-wrap: wrap; }
+      .hist-res-btn-docs { margin-left: 0; }
+    }
   </style>
 </head>
 
@@ -2042,6 +2064,20 @@
         <h4 id="historyResultTitle">Result</h4>
         <button id="historyResultClose" class="history-result-modal-close">&times;</button>
       </div>
+      <div class="history-result-actions">
+        <button id="historyResultCopy" class="hist-res-btn" title="Copy to clipboard">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy
+        </button>
+        <button id="historyResultDownload" class="hist-res-btn" title="Download file">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download
+        </button>
+        <button id="historyResultExportDocs" class="hist-res-btn hist-res-btn-docs" title="Export to Google Docs">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Export to Google Docs
+        </button>
+      </div>
       <div id="historyResultBody" class="history-result-body"></div>
     </div>
   </div>
@@ -2555,7 +2591,10 @@
       }
     }
 
+    let _historyCurrentEntry = null;
+
     function openHistoryResult(entry) {
+      _historyCurrentEntry = entry;
       const modal = document.getElementById('historyResultModal');
       const title = document.getElementById('historyResultTitle');
       const body  = document.getElementById('historyResultBody');
@@ -2569,6 +2608,64 @@
         catch { body.textContent = entry.resultText; }
       }
       modal.classList.add('open');
+    }
+
+    async function copyHistoryResult() {
+      if (!_historyCurrentEntry) return;
+      try {
+        await navigator.clipboard.writeText(_historyCurrentEntry.resultText);
+        showToast('Copied to clipboard!');
+      } catch {
+        showToast('Copy failed — select and copy manually', 'error');
+      }
+    }
+
+    function downloadHistoryResult() {
+      if (!_historyCurrentEntry) return;
+      const entry = _historyCurrentEntry;
+      const meta = MODE_META[entry.mode];
+      const ext  = meta?.ext || 'txt';
+      const mime = ext === 'md' ? 'text/markdown' : 'text/plain';
+      const blob = new Blob([entry.resultText], { type: `${mime};charset=utf-8` });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      a.download = `student-tools-${entry.mode}-${new Date(entry.timestamp).toISOString().slice(0,10)}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('File downloaded!');
+    }
+
+    async function exportHistoryResultToDocs() {
+      if (!_historyCurrentEntry) return;
+      const entry = _historyCurrentEntry;
+      try {
+        const token = await ensureGoogleToken();
+        const meta  = MODE_META[entry.mode];
+        const title = `Student Tools Hub - ${meta?.resultTitle || entry.mode} - ${new Date(entry.timestamp).toLocaleDateString('en-ZA')}`;
+        const createRes = await fetch('https://docs.googleapis.com/v1/documents', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title }),
+        });
+        if (!createRes.ok) throw new Error(`Docs create failed: ${createRes.status}`);
+        const doc = await createRes.json();
+        const requests = ['template', 'reviewer'].includes(entry.mode)
+          ? markdownToDocsRequests(entry.resultText)
+          : [{ insertText: { location: { index: 1 }, text: entry.resultText } }];
+        const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${doc.documentId}:batchUpdate`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requests }),
+        });
+        if (!updateRes.ok) throw new Error(`Docs update failed: ${updateRes.status}`);
+        showToast('Exported to Google Docs!');
+        window.open(`https://docs.google.com/document/d/${doc.documentId}/edit`, '_blank');
+      } catch (err) {
+        handleAppError('Couldn\u2019t create Google Doc. Check permissions and try again.', err);
+      }
     }
 
     // ─── Utilities ──────────────────────────────────
@@ -5387,6 +5484,9 @@
     document.getElementById('historyResultClose').addEventListener('click', () => {
       document.getElementById('historyResultModal').classList.remove('open');
     });
+    document.getElementById('historyResultCopy').addEventListener('click', copyHistoryResult);
+    document.getElementById('historyResultDownload').addEventListener('click', downloadHistoryResult);
+    document.getElementById('historyResultExportDocs').addEventListener('click', exportHistoryResultToDocs);
     document.getElementById('historyResultModal').addEventListener('click', e => {
       if (e.target === document.getElementById('historyResultModal')) {
         document.getElementById('historyResultModal').classList.remove('open');
