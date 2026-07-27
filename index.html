@@ -15,6 +15,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -628,6 +630,7 @@
 
     /* ───────── TUTOR ───────── */
     .tutor-shell {
+      position: relative;
       display: flex; flex-direction: column;
       height: calc(100vh - 110px); min-height: 500px;
       background: white;
@@ -637,6 +640,16 @@
     }
 
     /* ── Full-page tutor mode ── */
+    /* Tutor is a fixed-height app screen: only the message list scrolls */
+    body.tutor-fullscreen { overflow: hidden; }
+    body.tutor-fullscreen .app-content {
+      height: 100vh; height: 100dvh;
+      min-height: 0; overflow: hidden;
+    }
+    body.tutor-fullscreen .main-area,
+    body.tutor-fullscreen .main-area.tutor-mode .content,
+    body.tutor-fullscreen .main-area.tutor-mode #viewTutor.active { min-height: 0; }
+    body.tutor-fullscreen .main-area { overflow: hidden; }
     .main-area.tutor-mode .content {
       padding: 0 !important;
       max-width: 100% !important;
@@ -1058,6 +1071,155 @@
     }
     .tutor-attach:hover { color: #2c5f2d; border-color: #2c5f2d; }
 
+    /* ───────── COMPOSER ATTACHMENTS ───────── */
+    .attach-wrap { position: relative; display: flex; }
+    .composer-attach {
+      position: relative;
+      width: 44px; height: 44px;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 12px;
+      background: white; color: rgba(26,46,28,0.55);
+      border: 1px solid rgba(212,201,168,0.6);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .composer-attach:hover:not(:disabled) { color: #2c5f2d; border-color: #2c5f2d; background: rgba(44,95,45,0.04); }
+    .composer-attach:disabled { opacity: 0.45; cursor: not-allowed; }
+    .composer-attach.open { color: #2c5f2d; border-color: #2c5f2d; }
+    .attach-badge, .attach-count {
+      min-width: 16px; height: 16px; padding: 0 4px;
+      border-radius: 8px;
+      background: #2c5f2d; color: white;
+      font-size: 10px; font-weight: 600; line-height: 16px;
+      text-align: center;
+    }
+    .attach-badge { position: absolute; top: -5px; right: -5px; box-shadow: 0 0 0 2px white; }
+    .attach-count { display: inline-block; margin-left: 2px; }
+    .attach-menu {
+      display: none;
+      position: absolute; bottom: 52px; left: 0; z-index: 40;
+      min-width: 208px;
+      background: white;
+      border: 1px solid rgba(212,201,168,0.7);
+      border-radius: 12px;
+      box-shadow: 0 10px 28px rgba(26,46,28,0.14);
+      padding: 5px;
+      animation: fadeUp 0.16s ease-out;
+    }
+    .attach-menu.open { display: block; }
+    .attach-menu button {
+      display: flex; align-items: center; gap: 9px;
+      width: 100%; padding: 9px 10px;
+      border: none; background: transparent;
+      border-radius: 8px;
+      font-family: 'Outfit', sans-serif; font-size: 13px; color: rgba(26,46,28,0.8);
+      cursor: pointer; text-align: left;
+      transition: background 0.15s ease;
+    }
+    .attach-menu button:hover { background: rgba(44,95,45,0.07); color: #2c5f2d; }
+
+    .tutor-chips {
+      display: none;
+      flex-wrap: wrap; gap: 6px;
+      padding: 10px 16px 0;
+    }
+    .tutor-chips.active { display: flex; }
+    .tutor-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      max-width: 230px;
+      padding: 5px 8px 5px 9px;
+      border-radius: 9px;
+      background: rgba(44,95,45,0.06);
+      border: 1px solid rgba(44,95,45,0.16);
+      font-size: 12px; color: rgba(26,46,28,0.8);
+    }
+    .tutor-chip.pending { opacity: 0.7; }
+    .tutor-chip-ext {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+      color: #2c5f2d; background: rgba(44,95,45,0.12);
+      padding: 2px 5px; border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .tutor-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tutor-chip-x {
+      border: none; background: transparent; cursor: pointer;
+      color: rgba(26,46,28,0.4); font-size: 15px; line-height: 1;
+      padding: 0 1px;
+    }
+    .tutor-chip-x:hover { color: #b23c17; }
+    .tutor-chip-spinner {
+      width: 11px; height: 11px; flex-shrink: 0;
+      border: 2px solid rgba(44,95,45,0.2); border-top-color: #2c5f2d;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    .tutor-nudge {
+      display: none; align-items: center; gap: 8px;
+      padding: 9px 16px;
+      background: rgba(212,201,168,0.18);
+      border-bottom: 1px solid rgba(212,201,168,0.4);
+      font-size: 12.5px; color: rgba(26,46,28,0.62);
+    }
+    .tutor-nudge.active { display: flex; }
+    .tutor-nudge-btn {
+      border: 1px solid rgba(44,95,45,0.3); background: white;
+      color: #2c5f2d; font-family: 'Outfit', sans-serif;
+      font-size: 12px; font-weight: 600;
+      padding: 4px 11px; border-radius: 8px; cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .tutor-nudge-btn:hover { background: #2c5f2d; color: white; }
+    .tutor-nudge-close {
+      border: none; background: transparent; cursor: pointer;
+      color: rgba(26,46,28,0.35); font-size: 17px; line-height: 1; padding: 0 2px;
+    }
+    .tutor-nudge-close:hover { color: rgba(26,46,28,0.7); }
+
+    .tutor-drop-overlay {
+      display: none;
+      position: absolute; inset: 0; z-index: 45;
+      background: rgba(250,247,240,0.92);
+      backdrop-filter: blur(2px);
+      align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    .tutor-drop-overlay.active { display: flex; }
+    .tutor-drop-card {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      padding: 30px 40px;
+      border: 2px dashed #2c5f2d; border-radius: 16px;
+      color: #2c5f2d;
+      font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 500;
+    }
+
+    /* ───────── FUSED CHAT HEADER ON SCROLL ───────── */
+    .topbar-chat-title {
+      display: none;
+      font-size: 14px; font-weight: 500; color: #1a2e1c;
+      max-width: 46vw;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      animation: fadeUp 0.2s ease-out;
+    }
+    .topbar.show-chat-title .topbar-badge { display: none; }
+    .topbar.show-chat-title .topbar-chat-title { display: block; }
+    @media (max-width: 900px) {
+      .topbar.show-chat-title .topbar-title { display: none; }
+      .topbar-chat-title { max-width: 60vw; }
+    }
+    .tutor-head {
+      overflow: hidden;
+      transition: max-height 0.25s ease, padding 0.25s ease, opacity 0.2s ease;
+      max-height: 140px;
+    }
+    .tutor-shell.head-fused .tutor-head {
+      max-height: 0;
+      padding-top: 0; padding-bottom: 0;
+      opacity: 0;
+      border-bottom-color: transparent;
+    }
+
     /* ───────── KB-OR-UPLOAD TABS (template/reviewer) ───────── */
     .zone-tabs {
       display: inline-flex;
@@ -1466,6 +1628,7 @@
           <span class="topbar-title">Student Tools Hub</span>
         </div>
         <span class="topbar-badge">AI-powered academic assistant</span>
+        <span class="topbar-chat-title" id="topbarChatTitle"></span>
         <button id="historyBtn" class="history-topbar-btn" title="View generation history">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           History
@@ -1684,7 +1847,7 @@
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
               </svg>
               <p class="font-body text-sm font-medium text-ink/60">Drop resources here or <span class="text-accent underline cursor-pointer">browse</span></p>
-              <p class="font-body text-[11px] text-ink/35 mt-1">PDF, DOCX, TXT or images &middot; Max 30 MB per file &middot; Stored in your browser</p>
+              <p class="font-body text-[11px] text-ink/35 mt-1">PDF, DOCX, XLSX, PPTX, TXT, MD or images &middot; Max 100 MB per file &middot; Stored in your browser</p>
             </div>
           </div>
 
@@ -1818,7 +1981,13 @@
 
         <!-- ============ VIEW: TUTOR ============ -->
         <section id="viewTutor" class="view">
-          <div class="tutor-shell">
+          <div class="tutor-shell" id="tutorShell">
+            <div id="tutorDropOverlay" class="tutor-drop-overlay">
+              <div class="tutor-drop-card">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <p>Drop to attach &amp; save to Knowledge Bay</p>
+              </div>
+            </div>
             <div class="tutor-head">
               <div class="tutor-head-row" style="width:100%">
                 <div class="tutor-head-title-wrap">
@@ -1837,6 +2006,7 @@
                   <button id="btnTutorAttach" class="btn-nav" title="Attach resources">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                     Attach
+                    <span class="attach-count" id="headerAttachCount" hidden></span>
                   </button>
                 </div>
               </div>
@@ -1852,6 +2022,12 @@
             <div class="tutor-messages" id="tutorMessages"></div>
 
             <div class="tutor-composer">
+              <div id="tutorNudge" class="tutor-nudge">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                <span id="tutorNudgeText" style="flex:1"></span>
+                <button id="tutorNudgeAttach" class="tutor-nudge-btn">Attach</button>
+                <button id="tutorNudgeDismiss" class="tutor-nudge-close" title="Dismiss">×</button>
+              </div>
               <div id="quoteBar" class="quote-bar">
                 <div style="flex:1;min-width:0">
                   <span class="quote-bar-label">Replying to Tutor</span>
@@ -1859,8 +2035,26 @@
                 </div>
                 <button class="quote-bar-close" id="btnClearQuote" title="Cancel reply">×</button>
               </div>
+              <div id="tutorChips" class="tutor-chips"></div>
               <div class="tutor-composer-row">
-                <textarea id="tutorInput" class="tutor-input" placeholder="Ask your tutor anything&hellip; (Shift+Enter for newline)" rows="1"></textarea>
+                <div class="attach-wrap">
+                  <button id="btnComposerAttach" class="composer-attach" title="Attach files" aria-haspopup="true" aria-expanded="false">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    <span class="attach-badge" id="composerAttachBadge" hidden></span>
+                  </button>
+                  <div id="attachMenu" class="attach-menu">
+                    <button id="attachFromDevice" type="button">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                      Upload from device
+                    </button>
+                    <button id="attachFromKb" type="button">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                      From Knowledge Bay
+                    </button>
+                  </div>
+                  <input type="file" id="tutorFileInput" multiple class="hidden" />
+                </div>
+                <textarea id="tutorInput" class="tutor-input" placeholder="Ask your tutor anything&hellip;" rows="1"></textarea>
                 <button id="btnTutorSend" class="tutor-send" disabled>
                   Send
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
@@ -2093,7 +2287,7 @@
     }
 
     // ─── Constants ──────────────────────────────────
-    const MAX_FILE_SIZE = 30 * 1024 * 1024; // 30 MB
+    const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
     const ACCEPTED_TYPES = '.jpg,.jpeg,.png,.pdf,.docx,.txt';
     const BATCH_SIZE = 5;
     const BATCH_DELAY_MS = 5000;
@@ -2327,6 +2521,21 @@
       btnNewChat:           $('btnNewChat'),
       tutorChatTitle:       $('tutorChatTitle'),
       tutorAttachedSummary: $('tutorAttachedSummary'),
+      tutorShell:           $('tutorShell'),
+      topbarChatTitle:      $('topbarChatTitle'),
+      headerAttachCount:    $('headerAttachCount'),
+      tutorChips:           $('tutorChips'),
+      tutorFileInput:       $('tutorFileInput'),
+      btnComposerAttach:    $('btnComposerAttach'),
+      composerAttachBadge:  $('composerAttachBadge'),
+      attachMenu:           $('attachMenu'),
+      attachFromDevice:     $('attachFromDevice'),
+      attachFromKb:         $('attachFromKb'),
+      tutorDropOverlay:     $('tutorDropOverlay'),
+      tutorNudge:           $('tutorNudge'),
+      tutorNudgeText:       $('tutorNudgeText'),
+      tutorNudgeAttach:     $('tutorNudgeAttach'),
+      tutorNudgeDismiss:    $('tutorNudgeDismiss'),
       tutorMessages:        $('tutorMessages'),
       tutorInput:           $('tutorInput'),
       btnTutorSend:         $('btnTutorSend'),
@@ -2766,11 +2975,24 @@
       }
     }
 
+    // Formats with no dedicated parser — read as plain text and tell the AI what they came from
+    const PLAIN_TEXT_EXTS = ['md','markdown','csv','tsv','rtf','json','xml','html','htm','yml','yaml','log','js','ts','py','java','c','cpp','cs','go','rb','php','sql','sh','css'];
+    const SUPPORTED_ACCEPT = '.jpg,.jpeg,.png,.webp,.gif,.pdf,.docx,.xlsx,.xls,.pptx,.txt,' + PLAIN_TEXT_EXTS.map(e => '.' + e).join(',');
+
+    function fileExt(name) {
+      const m = /\.([a-z0-9]+)$/i.exec(name || '');
+      return m ? m[1].toLowerCase() : '';
+    }
+
     function getFileType(file) {
+      const ext = fileExt(file.name);
       if (file.type.startsWith('image/')) return 'image';
-      if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) return 'pdf';
-      if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.name.toLowerCase().endsWith('.docx')) return 'docx';
-      if (file.type === 'text/plain' || file.name.toLowerCase().endsWith('.txt')) return 'txt';
+      if (file.type === 'application/pdf' || ext === 'pdf') return 'pdf';
+      if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || ext === 'docx') return 'docx';
+      if (ext === 'xlsx' || ext === 'xls') return 'xlsx';
+      if (ext === 'pptx') return 'pptx';
+      if (file.type === 'text/plain' || ext === 'txt') return 'txt';
+      if (PLAIN_TEXT_EXTS.includes(ext)) return 'text';
       return null;
     }
 
@@ -2790,6 +3012,14 @@
         reader.onerror = () => reject(new Error('FileReader failed'));
         reader.readAsText(file);
       });
+    }
+
+    // Label a KB item for the AI so it knows what format the text came from
+    function describeSource(item) {
+      const ext = item.ext ? '.' + item.ext : '';
+      if (item.type === 'text') return `${item.name} (${ext} file, read as plain text — interpret it as ${ext} content)`;
+      if (item.type === 'url') return item.name;
+      return ext ? `${item.name} (${ext})` : item.name;
     }
 
     function normalizeUrl(url) {
@@ -2859,6 +3089,37 @@
       return parts.join('\n\n').trim();
     }
 
+    // ─── Spreadsheet / slide text extraction ─────────
+    async function extractXlsxText(file) {
+      if (typeof XLSX === 'undefined') throw new Error('Spreadsheet support not available');
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      return wb.SheetNames
+        .map(name => `## Sheet: ${name}\n${XLSX.utils.sheet_to_csv(wb.Sheets[name])}`.trim())
+        .join('\n\n')
+        .trim();
+    }
+
+    async function extractPptxText(file) {
+      if (typeof JSZip === 'undefined') throw new Error('Slide support not available');
+      const zip = await JSZip.loadAsync(await file.arrayBuffer());
+      const slides = Object.keys(zip.files)
+        .filter(p => /^ppt\/slides\/slide\d+\.xml$/.test(p))
+        .sort((a, b) => parseInt(a.match(/\d+/)[0], 10) - parseInt(b.match(/\d+/)[0], 10));
+      const parts = [];
+      for (const path of slides) {
+        const xml = await zip.file(path).async('string');
+        const text = (xml.match(/<a:t>([\s\S]*?)<\/a:t>/g) || [])
+          .map(t => t.replace(/<\/?a:t>/g, ''))
+          .join(' ')
+          .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&')
+          .replace(/\s+/g, ' ')
+          .trim();
+        if (text) parts.push(`## Slide ${parts.length + 1}\n${text}`);
+      }
+      return parts.join('\n\n').trim();
+    }
+
     // ═══════════════════════════════════════════════════════════
     // ─── KNOWLEDGE BAY STORE (localForage) ─────────────────────
     // ═══════════════════════════════════════════════════════════
@@ -2880,7 +3141,7 @@
       },
 
       async add(file) {
-        if (file.size > MAX_FILE_SIZE) throw new Error(`${file.name} exceeds the 30 MB limit`);
+        if (file.size > MAX_FILE_SIZE) throw new Error(`${file.name} exceeds the 100 MB limit`);
         const ft = getFileType(file);
         if (!ft) throw new Error(`${file.name} is not a supported file type`);
 
@@ -2888,6 +3149,7 @@
           id: generateId(),
           name: file.name,
           type: ft,
+          ext: fileExt(file.name),
           mime: file.type,
           size: file.size,
           timestamp: Date.now(),
@@ -2909,7 +3171,13 @@
           const buf = await file.arrayBuffer();
           const result = await mammoth.extractRawText({ arrayBuffer: buf });
           entry.content = result.value;
-        } else if (ft === 'txt') {
+        } else if (ft === 'xlsx') {
+          entry.content = await extractXlsxText(file);
+          if (!entry.content) throw new Error(`${file.name} had no readable cells`);
+        } else if (ft === 'pptx') {
+          entry.content = await extractPptxText(file);
+          if (!entry.content) throw new Error(`${file.name} had no extractable slide text`);
+        } else if (ft === 'txt' || ft === 'text') {
           entry.content = await fileToText(file);
         }
 
@@ -3002,7 +3270,7 @@
           ? `<img src="${kb.imageDataUrl(item)}" alt="${escapeHtml(item.name)}" />`
           : item.type === 'url'
             ? `<div class="url-thumb"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>URL</span></div>`
-            : `<span class="ext-badge">${item.type.toUpperCase()}</span>`;
+            : `<span class="ext-badge">${escapeHtml((item.ext || item.type).toUpperCase())}</span>`;
 
         card.innerHTML = `
           <div class="kb-thumb">${thumb}</div>
@@ -3061,7 +3329,7 @@
 
       dom.kbReaderSubtitle.textContent = `${formatDate(item.timestamp)}`;
       dom.kbReaderMetaBar.innerHTML = `
-        <span class="badge">${item.type}</span>
+        <span class="badge">${escapeHtml(item.ext || item.type)}</span>
         <span>${formatSize(item.size)}</span>
         ${wordCount !== null ? `<span>·</span><span>${wordCount.toLocaleString()} words</span>` : ''}
         ${charCount !== null ? `<span>·</span><span>${charCount.toLocaleString()} chars</span>` : ''}
@@ -3102,6 +3370,7 @@
 
     // Wire KB dropzone
     function wireKbDropzone() {
+      dom.kbFileInput.accept = SUPPORTED_ACCEPT;
       dom.kbDropzone.addEventListener('click', () => dom.kbFileInput.click());
       dom.kbFileInput.addEventListener('click', e => { e.target.value = null; });
       dom.kbFileInput.addEventListener('change', e => {
@@ -3296,6 +3565,8 @@
       // Full-page tutor mode: expand chat to fill viewport
       const isTutor = name === 'tutor';
       document.querySelector('.main-area').classList.toggle('tutor-mode', isTutor);
+      document.body.classList.toggle('tutor-fullscreen', isTutor);
+      if (!isTutor) setHeaderFused(false);
       // Show a Home button inside the tutor head only on mobile (sidebar hidden)
       document.querySelectorAll('.tutor-home-btn').forEach(btn => {
         btn.style.display = (isTutor && window.innerWidth <= 900) ? '' : 'none';
@@ -3433,7 +3704,7 @@
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
             </svg>
             <p class="font-body text-sm font-medium text-ink/50">Drop files here or <span class="text-accent underline cursor-pointer">browse</span></p>
-            <p class="font-body text-[11px] text-ink/30 mt-1">${cfg.hint} &middot; Max 30 MB per file</p>
+            <p class="font-body text-[11px] text-ink/30 mt-1">${cfg.hint} &middot; Max 100 MB per file</p>
           </div>
         </div>
         <div class="file-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 mt-2"></div>`;
@@ -3468,7 +3739,7 @@
 
       for (const file of files) {
         if (file.size > MAX_FILE_SIZE) {
-          showToast(`${file.name} exceeds the 30 MB limit`, 'error');
+          showToast(`${file.name} exceeds the 100 MB limit`, 'error');
           continue;
         }
         const ft = getFileType(file);
@@ -4616,17 +4887,22 @@
 
         // Build attachedContext: URL-scraped content first, then KB items
         const attachedContext = [...extraContext];
+        const attachedImages = [];
         for (const kid of (c.attachedKnowledgeIds || [])) {
           const item = await kb.get(kid);
           if (!item) continue;
-          if (item.type === 'image') continue; // images not forwarded to tutor context
-          attachedContext.push({ name: item.name, content: item.content });
+          if (item.type === 'image') {
+            attachedImages.push({ name: item.name, mime: item.mime || 'image/jpeg', data: item.content });
+            continue;
+          }
+          attachedContext.push({ name: describeSource(item), content: item.content });
         }
 
         const payload = {
           mode: 'tutor',
           systemPrompt: TUTOR_SYSTEM_PROMPT,
           attachedContext,
+          attachedImages,
           messages: c.messages.map(m => ({
             role: m.role,
             text: m.quote ? `[Referencing tutor's earlier message: "${m.quote}"]\n\n${m.text}` : m.text,
@@ -4720,14 +4996,20 @@
           dom.btnTutorSend.disabled = true;
           dom.btnTutorAttach.disabled = true;
           dom.btnRenameChat.disabled = true;
+          dom.btnComposerAttach.disabled = true;
+          composerAttach.renderChips();
+          composerAttach.renderNudge();
           return;
         }
 
         dom.tutorInput.disabled = false;
         dom.btnTutorAttach.disabled = false;
         dom.btnRenameChat.disabled = false;
+        dom.btnComposerAttach.disabled = false;
 
         dom.tutorChatTitle.textContent = c.title;
+        composerAttach.renderChips();
+        composerAttach.renderNudge();
 
         const n = (c.attachedKnowledgeIds || []).length;
         dom.tutorAttachedSummary.innerHTML = n
@@ -4826,6 +5108,7 @@
           // Scroll to bottom normally
           requestAnimationFrame(() => {
             dom.tutorMessages.scrollTop = dom.tutorMessages.scrollHeight;
+            updateHeaderFusion();
           });
         }
 
@@ -4882,8 +5165,7 @@
       }
       for (const item of items) {
         const row = document.createElement('div');
-        const isImage = item.type === 'image';
-        row.className = 'kb-pick-row' + (isImage ? ' disabled' : '') + (tutorAttachSelection.has(item.id) ? ' selected' : '');
+        row.className = 'kb-pick-row' + (tutorAttachSelection.has(item.id) ? ' selected' : '');
         row.dataset.id = item.id;
         row.innerHTML = `
           <div class="kb-pick-check">
@@ -4891,24 +5173,22 @@
           </div>
           <div class="flex-1 min-w-0">
             <div class="text-sm font-medium text-ink/80 truncate">${escapeHtml(item.name)}</div>
-            <div class="text-xs text-ink/40">${item.type.toUpperCase()} &middot; ${formatSize(item.size)}${isImage ? ' &middot; images not supported in Tutor' : ''}</div>
+            <div class="text-xs text-ink/40">${escapeHtml((item.ext || item.type).toUpperCase())} &middot; ${formatSize(item.size)}</div>
           </div>
           <button class="kb-row-peek" data-peek="${item.id}" title="Preview file">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
           </button>
         `;
-        if (!isImage) {
-          row.addEventListener('click', (e) => {
-            if (e.target.closest('.kb-row-peek')) return;
-            if (tutorAttachSelection.has(item.id)) {
-              tutorAttachSelection.delete(item.id);
-              row.classList.remove('selected');
-            } else {
-              tutorAttachSelection.add(item.id);
-              row.classList.add('selected');
-            }
-          });
-        }
+        row.addEventListener('click', (e) => {
+          if (e.target.closest('.kb-row-peek')) return;
+          if (tutorAttachSelection.has(item.id)) {
+            tutorAttachSelection.delete(item.id);
+            row.classList.remove('selected');
+          } else {
+            tutorAttachSelection.add(item.id);
+            row.classList.add('selected');
+          }
+        });
         row.querySelector('.kb-row-peek').addEventListener('click', (e) => {
           e.stopPropagation();
           openKbReader(item.id, 'tutorAttach');
@@ -4921,6 +5201,187 @@
       await tutor.setAttachments(Array.from(tutorAttachSelection));
       closeTutorAttach();
       showToast('Attachments updated');
+    }
+
+    // ─── Composer attachments (paperclip) ───────────
+    const composerAttach = {
+      pending: [],
+
+      openMenu() {
+        dom.attachMenu.classList.add('open');
+        dom.btnComposerAttach.classList.add('open');
+        dom.btnComposerAttach.setAttribute('aria-expanded', 'true');
+      },
+
+      closeMenu() {
+        dom.attachMenu.classList.remove('open');
+        dom.btnComposerAttach.classList.remove('open');
+        dom.btnComposerAttach.setAttribute('aria-expanded', 'false');
+      },
+
+      toggleMenu() {
+        if (dom.attachMenu.classList.contains('open')) this.closeMenu();
+        else this.openMenu();
+      },
+
+      // Uploads land in the Knowledge Bay first, then attach to the open chat
+      async handleFiles(fileList) {
+        const files = Array.from(fileList || []);
+        if (!files.length || !tutor.current()) return;
+
+        for (const file of files) {
+          const key = generateId();
+          this.pending.push({ key, name: file.name, ext: fileExt(file.name) });
+          this.renderChips();
+          try {
+            const entry = await kb.add(file);
+            const chat = tutor.current();
+            if (chat) {
+              const ids = [...(chat.attachedKnowledgeIds || [])];
+              if (!ids.includes(entry.id)) ids.push(entry.id);
+              await tutor.setAttachments(ids);
+            }
+            renderKbGrid();
+            showToast(`${entry.name} attached & saved to Knowledge Bay`);
+          } catch (e) {
+            showToast(e.message || `Couldn't read ${file.name}`, 'error');
+          } finally {
+            this.pending = this.pending.filter(p => p.key !== key);
+            this.renderChips();
+          }
+        }
+      },
+
+      async detach(id) {
+        const chat = tutor.current();
+        if (!chat) return;
+        await tutor.setAttachments((chat.attachedKnowledgeIds || []).filter(x => x !== id));
+        showToast('Removed from this chat — still in your Knowledge Bay');
+      },
+
+      renderChips() {
+        const chat = tutor.current();
+        const ids = chat ? (chat.attachedKnowledgeIds || []) : [];
+        const items = ids.map(id => kb.cache.find(i => i.id === id)).filter(Boolean);
+
+        dom.tutorChips.innerHTML = '';
+        dom.tutorChips.classList.toggle('active', items.length > 0 || this.pending.length > 0);
+
+        for (const item of items) {
+          const chip = document.createElement('div');
+          chip.className = 'tutor-chip';
+          chip.innerHTML = `
+            <span class="tutor-chip-ext">${escapeHtml((item.ext || item.type || '').toUpperCase())}</span>
+            <span class="tutor-chip-name">${escapeHtml(item.name)}</span>
+            <button class="tutor-chip-x" title="Remove from this chat">&times;</button>`;
+          chip.querySelector('.tutor-chip-x').addEventListener('click', () => this.detach(item.id));
+          dom.tutorChips.appendChild(chip);
+        }
+
+        for (const p of this.pending) {
+          const chip = document.createElement('div');
+          chip.className = 'tutor-chip pending';
+          chip.innerHTML = `
+            <span class="tutor-chip-spinner"></span>
+            <span class="tutor-chip-name">${escapeHtml(p.name)}</span>`;
+          dom.tutorChips.appendChild(chip);
+        }
+
+        const count = items.length;
+        dom.composerAttachBadge.hidden = count === 0;
+        dom.composerAttachBadge.textContent = count;
+        dom.headerAttachCount.hidden = count === 0;
+        dom.headerAttachCount.textContent = count;
+      },
+
+      // Nudge students toward material they already saved
+      renderNudge() {
+        const chat = tutor.current();
+        const attached = chat ? (chat.attachedKnowledgeIds || []).length : 0;
+        const available = kb.cache.length;
+        const show = !!chat && attached === 0 && available > 0 && !chat.nudgeDismissed;
+        dom.tutorNudge.classList.toggle('active', show);
+        if (show) {
+          dom.tutorNudgeText.textContent = `You have ${available} item${available > 1 ? 's' : ''} in your Knowledge Bay — attach one so I can work from your material.`;
+        }
+      },
+
+      async dismissNudge() {
+        const chat = tutor.current();
+        if (!chat) return;
+        chat.nudgeDismissed = true;
+        await tutor.save();
+        this.renderNudge();
+      },
+    };
+
+    function wireComposerAttach() {
+      dom.tutorFileInput.accept = SUPPORTED_ACCEPT;
+
+      dom.btnComposerAttach.addEventListener('click', e => {
+        e.stopPropagation();
+        composerAttach.toggleMenu();
+      });
+      dom.attachFromDevice.addEventListener('click', () => {
+        composerAttach.closeMenu();
+        dom.tutorFileInput.click();
+      });
+      dom.attachFromKb.addEventListener('click', () => {
+        composerAttach.closeMenu();
+        openTutorAttach();
+      });
+      document.addEventListener('click', e => {
+        if (!e.target.closest('.attach-wrap')) composerAttach.closeMenu();
+      });
+
+      // Reset on click so re-picking the same file still fires change (iOS Safari)
+      dom.tutorFileInput.addEventListener('click', e => { e.target.value = null; });
+      dom.tutorFileInput.addEventListener('change', e => composerAttach.handleFiles(e.target.files));
+
+      dom.tutorNudgeAttach.addEventListener('click', () => openTutorAttach());
+      dom.tutorNudgeDismiss.addEventListener('click', () => composerAttach.dismissNudge());
+
+      // Drag & drop anywhere over the chat
+      let dragDepth = 0;
+      const hasFiles = e => Array.from(e.dataTransfer?.types || []).includes('Files');
+      dom.tutorShell.addEventListener('dragenter', e => {
+        if (!hasFiles(e) || !tutor.current()) return;
+        e.preventDefault();
+        dragDepth++;
+        dom.tutorDropOverlay.classList.add('active');
+      });
+      dom.tutorShell.addEventListener('dragover', e => {
+        if (!hasFiles(e) || !tutor.current()) return;
+        e.preventDefault();
+      });
+      dom.tutorShell.addEventListener('dragleave', () => {
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (!dragDepth) dom.tutorDropOverlay.classList.remove('active');
+      });
+      dom.tutorShell.addEventListener('drop', e => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        dragDepth = 0;
+        dom.tutorDropOverlay.classList.remove('active');
+        composerAttach.handleFiles(e.dataTransfer.files);
+      });
+    }
+
+    // ─── Fused chat header on scroll ────────────────
+    function setHeaderFused(fused) {
+      const topbar = document.querySelector('.topbar');
+      dom.tutorShell.classList.toggle('head-fused', fused);
+      topbar.classList.toggle('show-chat-title', fused);
+      if (fused) dom.topbarChatTitle.textContent = dom.tutorChatTitle.textContent;
+    }
+
+    function updateHeaderFusion() {
+      if (!dom.viewTutor.classList.contains('active')) return setHeaderFused(false);
+      const top = dom.tutorMessages.scrollTop;
+      const fused = dom.tutorShell.classList.contains('head-fused');
+      if (!fused && top > 40) setHeaderFused(true);
+      else if (fused && top < 12) setHeaderFused(false);
+      else if (fused) dom.topbarChatTitle.textContent = dom.tutorChatTitle.textContent;
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -5294,6 +5755,7 @@
     dom.tutorAttachModal.addEventListener('click', e => { if (e.target === dom.tutorAttachModal) closeTutorAttach(); });
 
     dom.btnClearQuote.addEventListener('click', () => tutor.clearQuote());
+    dom.tutorMessages.addEventListener('scroll', updateHeaderFusion, { passive: true });
 
     // Selection-to-quote tooltip
     const selTip = dom.selectionTooltip;
@@ -5556,6 +6018,7 @@
       await kb.init();
       await tutor.init();
       wireKbDropzone();
+      wireComposerAttach();
 
       // History: purge expired entries and light up the button if any exist
       purgeExpiredHistory();
