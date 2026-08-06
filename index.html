@@ -3250,11 +3250,32 @@
         } else if (ft === 'pdf') {
           entry.content = await extractPdfText(file);
           if (!entry.content) {
-            // Scanned PDF — store raw base64 so Gemini can read it natively
-            entry.content = await fileToBase64(file);
-            entry.type = 'image'; // signals inline_data path when building payloads
+            // Scanned PDF — rasterize pages to compressed JPEG for manageable payload size
+            const MAX_KB_PAGES = 40;
+            if (typeof pdfjsLib === 'undefined') throw new Error('PDF support not available');
+            const buf = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+            const totalPages = pdf.numPages;
+            if (totalPages > MAX_KB_PAGES) {
+              showToast(`${file.name} has ${totalPages} pages — storing first ${MAX_KB_PAGES} for the tutor`, 'error');
+            }
+            const pageCount = Math.min(totalPages, MAX_KB_PAGES);
+            const pageImages = [];
+            for (let p = 1; p <= pageCount; p++) {
+              const page = await pdf.getPage(p);
+              const scale = 1.5;
+              const vp = page.getViewport({ scale });
+              const cvs = document.createElement('canvas');
+              cvs.width = vp.width; cvs.height = vp.height;
+              await page.render({ canvasContext: cvs.getContext('2d'), viewport: vp }).promise;
+              pageImages.push(cvs.toDataURL('image/jpeg', 0.7).split(',')[1]);
+              cvs.width = 0; cvs.height = 0;
+            }
+            entry.content = JSON.stringify(pageImages);
+            entry.type = 'scanned_pdf';
             entry.mime = 'application/pdf';
-            entry.scannedPdf = true;
+            entry.pageCount = pageCount;
+            entry.totalPages = totalPages;
           }
         } else if (ft === 'docx') {
           if (typeof mammoth === 'undefined') throw new Error('DOCX support not available');
@@ -3360,7 +3381,9 @@
           ? `<img src="${kb.imageDataUrl(item)}" alt="${escapeHtml(item.name)}" />`
           : item.type === 'url'
             ? `<div class="url-thumb"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>URL</span></div>`
-            : `<span class="ext-badge">${escapeHtml((item.ext || item.type).toUpperCase())}</span>`;
+            : item.type === 'scanned_pdf'
+              ? `<span class="ext-badge">PDF<br><span style="font-size:7px;opacity:0.6">${item.pageCount || '?'}pg scan</span></span>`
+              : `<span class="ext-badge">${escapeHtml((item.ext || item.type).toUpperCase())}</span>`;
 
         card.innerHTML = `
           <div class="kb-thumb">${thumb}</div>
@@ -3410,10 +3433,11 @@
       dom.kbReaderTitle.value = item.name;
 
       // Meta bar: type badge + size + date + word count for text
-      const wordCount = item.type !== 'image' && item.content
+      const isTextContent = item.type !== 'image' && item.type !== 'scanned_pdf' && item.content;
+      const wordCount = isTextContent
         ? item.content.trim().split(/\s+/).filter(Boolean).length
         : null;
-      const charCount = item.type !== 'image' && item.content
+      const charCount = isTextContent
         ? item.content.length
         : null;
 
@@ -4995,6 +5019,16 @@
           // updatedAt + size catch the "same ID, edited content" case (e.g. a re-uploaded
           // PDF that replaced an existing KB item) that an ID-only fingerprint would miss.
           documentFingerprints.push({ id: kid, updatedAt: item.updatedAt || 0, size: (item.content || '').length });
+          if (item.type === 'scanned_pdf') {
+            // Expand rasterized pages as individual images
+            try {
+              const pages = JSON.parse(item.content);
+              for (let pi = 0; pi < pages.length; pi++) {
+                attachedImages.push({ name: `${item.name} — p${pi + 1}`, mime: 'image/jpeg', data: pages[pi] });
+              }
+            } catch { /* malformed — skip */ }
+            continue;
+          }
           if (item.type === 'image') {
             attachedImages.push({ name: item.name, mime: item.mime || 'image/jpeg', data: item.content });
             continue;
