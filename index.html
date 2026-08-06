@@ -686,13 +686,48 @@
       display: flex; align-items: center; gap: 8px;
       font-size: 12px; color: rgba(26,46,28,0.55);
     }
-    .tutor-messages {
+    .tutor-messages-wrap {
+      position: relative;
       flex: 1;
+      min-height: 0;
+    }
+    .tutor-messages {
+      position: absolute; inset: 0;
       overflow-y: auto;
       padding: 20px 18px;
       display: flex; flex-direction: column; gap: 14px;
       background: #faf7f0;
     }
+    .tutor-scroll-rail {
+      position: absolute; top: 10px; right: 10px; bottom: 10px;
+      width: 26px;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 6px; z-index: 5; pointer-events: none;
+    }
+    .tutor-scroll-rail .rail-btn { pointer-events: auto; }
+    .rail-btn {
+      flex-shrink: 0;
+      width: 26px; height: 26px; border-radius: 50%;
+      background: white; border: 1px solid rgba(212,201,168,0.6);
+      color: #2c5f2d; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .rail-btn:hover { background: #2c5f2d; color: white; border-color: #2c5f2d; }
+    .tutor-bookmarks {
+      flex: 1; min-height: 0;
+      display: flex; flex-direction: column; align-items: center;
+      gap: 6px; padding: 4px 0;
+      overflow-y: auto; pointer-events: auto;
+      scrollbar-width: none;
+    }
+    .tutor-bookmarks::-webkit-scrollbar { display: none; }
+    .bookmark-dot {
+      flex-shrink: 0;
+      width: 8px; height: 8px; border-radius: 50%;
+      background: rgba(44,95,45,0.3);
+      cursor: pointer; transition: background 0.15s, transform 0.15s;
+    }
+    .bookmark-dot:hover { background: #2c5f2d; transform: scale(1.5); }
     .chat-bubble {
       max-width: 82%;
       padding: 12px 16px;
@@ -2019,7 +2054,18 @@
               <button id="chatSearchClear" class="chat-search-clear" title="Clear">×</button>
             </div>
 
-            <div class="tutor-messages" id="tutorMessages"></div>
+            <div class="tutor-messages-wrap">
+              <div class="tutor-messages" id="tutorMessages"></div>
+              <div class="tutor-scroll-rail" id="tutorScrollRail">
+                <button id="btnScrollTop" class="rail-btn" title="Scroll to top">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+                </button>
+                <div id="tutorBookmarks" class="tutor-bookmarks"></div>
+                <button id="btnScrollBottom" class="rail-btn" title="Scroll to bottom">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+              </div>
+            </div>
 
             <div class="tutor-composer">
               <div id="tutorNudge" class="tutor-nudge">
@@ -2288,7 +2334,7 @@
 
     // ─── Constants ──────────────────────────────────
     const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB
-    const ACCEPTED_TYPES = '.jpg,.jpeg,.png,.pdf,.docx,.txt';
+    const ACCEPTED_TYPES = 'image/*,.pdf,.docx,.txt';
     const BATCH_SIZE = 5;
     const BATCH_DELAY_MS = 5000;
     const REQUEST_TIMEOUT_MS = 600000; // 10 min
@@ -2537,6 +2583,10 @@
       tutorNudgeAttach:     $('tutorNudgeAttach'),
       tutorNudgeDismiss:    $('tutorNudgeDismiss'),
       tutorMessages:        $('tutorMessages'),
+      tutorScrollRail:      $('tutorScrollRail'),
+      btnScrollTop:         $('btnScrollTop'),
+      btnScrollBottom:      $('btnScrollBottom'),
+      tutorBookmarks:       $('tutorBookmarks'),
       tutorInput:           $('tutorInput'),
       btnTutorSend:         $('btnTutorSend'),
       btnTutorAttach:       $('btnTutorAttach'),
@@ -3089,7 +3139,43 @@
       return parts.join('\n\n').trim();
     }
 
-    // ─── Spreadsheet / slide text extraction ─────────
+    const MAX_PDF_PAGES_TRANSCRIBE = 30;
+
+    async function rasterizePdfForTranscribe(fileObj) {
+      if (typeof pdfjsLib === 'undefined') throw new Error('PDF support not available');
+      updateProgress(null, `Preparing ${fileObj.name} for transcription…`);
+      const buf = await fileObj.file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+      const totalPages = pdf.numPages;
+      if (totalPages > MAX_PDF_PAGES_TRANSCRIBE) {
+        showToast(`${fileObj.name} has ${totalPages} pages — only the first ${MAX_PDF_PAGES_TRANSCRIBE} will be transcribed`, 'error');
+      }
+      const pageCount = Math.min(totalPages, MAX_PDF_PAGES_TRANSCRIBE);
+      const results = [];
+      for (let i = 1; i <= pageCount; i++) {
+        updateProgress(null, `Rasterizing page ${i}/${pageCount}…`);
+        const page = await pdf.getPage(i);
+        const scale = 2;
+        const viewport = page.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d');
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        let dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const base64 = dataUrl.split(',')[1];
+        results.push({
+          role: fileObj.role, type: 'inline', base64,
+          mime_type: 'image/jpeg',
+          name: `${fileObj.name} — page ${i}`,
+        });
+        canvas.width = 0; canvas.height = 0;
+      }
+      // Return array — caller handles multi-doc expansion
+      results._multiPage = true;
+      return results;
+    }
+
     async function extractXlsxText(file) {
       if (typeof XLSX === 'undefined') throw new Error('Spreadsheet support not available');
       const buf = await file.arrayBuffer();
@@ -3164,7 +3250,11 @@
         } else if (ft === 'pdf') {
           entry.content = await extractPdfText(file);
           if (!entry.content) {
-            throw new Error(`${file.name} had no extractable text (it may be a scanned PDF — try Transcribe instead)`);
+            // Scanned PDF — store raw base64 so Gemini can read it natively
+            entry.content = await fileToBase64(file);
+            entry.type = 'image'; // signals inline_data path when building payloads
+            entry.mime = 'application/pdf';
+            entry.scannedPdf = true;
           }
         } else if (ft === 'docx') {
           if (typeof mammoth === 'undefined') throw new Error('DOCX support not available');
@@ -3914,18 +4004,16 @@
         }
       }
       if (fileObj.type === 'pdf') {
-        // Transcribe needs pixel-level image data (handwriting recognition) → raw base64
-        // All other modes only need the text content → extract first to keep payload small
         if (state.mode === 'transcribe') {
-          const base64 = await fileToBase64(fileObj.file);
-          return { role: fileObj.role, type: 'inline', base64, mime_type: 'application/pdf', name: fileObj.name };
+          // Rasterize each page to JPEG for handwriting OCR
+          return await rasterizePdfForTranscribe(fileObj);
         }
         updateProgress(null, `Extracting text from ${fileObj.name}…`);
         const text = await extractPdfText(fileObj.file);
         if (text) {
           return { role: fileObj.role, type: 'text', content: text, name: fileObj.name };
         }
-        // Scanned PDF — no extractable text, fall back to inline base64
+        // Scanned PDF — send raw base64 so Gemini reads it natively
         console.warn(`${fileObj.name}: no extractable text (scanned PDF), falling back to inline`);
         const base64 = await fileToBase64(fileObj.file);
         return { role: fileObj.role, type: 'inline', base64, mime_type: 'application/pdf', name: fileObj.name };
@@ -4050,7 +4138,12 @@
         for (let i = 0; i < allFiles.length; i++) {
           updateProgress(Math.round((i / allFiles.length) * 35), `Processing ${allFiles[i].name}\u2026`);
           const doc = await processFileObj(allFiles[i]);
-          documents.push(doc);
+          if (doc && doc._multiPage) {
+            // Rasterized PDF — flatten page images into documents
+            for (const page of doc) documents.push(page);
+          } else {
+            documents.push(doc);
+          }
           // Auto-save fresh files to Knowledge Bay for future re-use
           if (!allFiles[i].fromKb) {
             const wasNew = !kb.cache.some(k => k.name === allFiles[i].name);
@@ -4743,6 +4836,10 @@
           attachedKnowledgeIds: [],
           timestamp: Date.now(),
           updated: Date.now(),
+          cacheName: null,
+          cacheExpiresAt: null,
+          cachedKnowledgeIds: [],
+          attachmentsSeen: [],
         };
         this.chats.unshift(c);
         this.currentId = c.id;
@@ -4885,24 +4982,46 @@
           state.tutorScraping = false;
         }
 
-        // Build attachedContext: URL-scraped content first, then KB items
+        // Attached URLs go in as ad-hoc context — small, always sent inline.
+        // Attached KB items (docs/images) go in as "cachable" context — n8n caches
+        // this server-side (Gemini context cache, 3h TTL) so it isn't resent every turn.
         const attachedContext = [...extraContext];
+        const cachableContext = [];
         const attachedImages = [];
+        const documentFingerprints = [];
         for (const kid of (c.attachedKnowledgeIds || [])) {
           const item = await kb.get(kid);
           if (!item) continue;
+          // updatedAt + size catch the "same ID, edited content" case (e.g. a re-uploaded
+          // PDF that replaced an existing KB item) that an ID-only fingerprint would miss.
+          documentFingerprints.push({ id: kid, updatedAt: item.updatedAt || 0, size: (item.content || '').length });
           if (item.type === 'image') {
             attachedImages.push({ name: item.name, mime: item.mime || 'image/jpeg', data: item.content });
             continue;
           }
-          attachedContext.push({ name: describeSource(item), content: item.content });
+          cachableContext.push({ name: describeSource(item), content: item.content });
         }
+        documentFingerprints.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+        const knowledgeIds = [...(c.attachedKnowledgeIds || [])].sort();
+        const cacheValid = !!(
+          c.cacheName && c.cacheExpiresAt && Date.now() < c.cacheExpiresAt &&
+          JSON.stringify(c.cachedKnowledgeIds || []) === JSON.stringify(knowledgeIds)
+        );
 
         const payload = {
           mode: 'tutor',
           systemPrompt: TUTOR_SYSTEM_PROMPT,
           attachedContext,
-          attachedImages,
+          cachableContext: cacheValid ? [] : cachableContext,
+          attachedImages: cacheValid ? [] : attachedImages,
+          cacheName: cacheValid ? c.cacheName : null,
+          cacheExpiresAt: cacheValid ? c.cacheExpiresAt : null,
+          // Lightweight fingerprint of the attached KB doc set (id/updatedAt/size) — lets
+          // the backend's session store detect an added, removed, or edited document even
+          // on turns where we skip resending the actual (heavy) cachableContext.
+          knowledgeIds,
+          documentFingerprints,
           messages: c.messages.map(m => ({
             role: m.role,
             text: m.quote ? `[Referencing tutor's earlier message: "${m.quote}"]\n\n${m.text}` : m.text,
@@ -4919,6 +5038,20 @@
           const data = await sendToWebhook(payload);
           const reply = (data && (data.text || data.result)) || '';
           c.messages.push({ role: 'model', text: reply || '_(No response text returned.)_' });
+          if (data && data.cacheName) {
+            c.cacheName = data.cacheName;
+            c.cacheExpiresAt = data.cacheExpiresAt || (Date.now() + 3 * 60 * 60 * 1000);
+            c.cachedKnowledgeIds = knowledgeIds;
+          } else if (!cacheValid) {
+            // Cache wasn't (re)created this turn — clear any stale handle so we fall
+            // back to sending the KB material inline again next time.
+            c.cacheName = null;
+            c.cacheExpiresAt = null;
+            c.cachedKnowledgeIds = [];
+          }
+          // These attachments have now been delivered as part of the conversation —
+          // stop showing them as "attached" chips in the composer.
+          c.attachmentsSeen = knowledgeIds;
           c.updated = Date.now();
           await this.save();
         } catch (err) {
@@ -4992,6 +5125,7 @@
               <h4>No chat open</h4>
               <p>Start a new chat from the sidebar and we can dig in.</p>
             </div>`;
+          dom.tutorBookmarks.innerHTML = '';
           dom.tutorInput.disabled = true;
           dom.btnTutorSend.disabled = true;
           dom.btnTutorAttach.disabled = true;
@@ -5024,8 +5158,9 @@
               <h4>Hey — what are we tackling today?</h4>
               <p>Drop me a question, or attach some notes from your Knowledge Bay first so I can ground my answers in your material.</p>
             </div>`;
+          dom.tutorBookmarks.innerHTML = '';
         } else {
-          for (const msg of c.messages) {
+          c.messages.forEach((msg, idx) => {
             if (msg.role === 'model') {
               const wrapper = document.createElement('div');
               wrapper.className = 'msg-wrapper';
@@ -5070,9 +5205,11 @@
               const bubble = document.createElement('div');
               bubble.className = `chat-bubble user${msg.quote ? ' with-quote' : ''}`;
               bubble.textContent = msg.text || '';
+              bubble.dataset.msgIndex = String(idx);
               dom.tutorMessages.appendChild(bubble);
             }
-          }
+          });
+          this.renderBookmarks(c);
           if (state.tutorScraping) {
             const reading = document.createElement('div');
             reading.className = 'chat-bubble reading-link';
@@ -5113,6 +5250,21 @@
         }
 
         this.updateSendButton();
+      },
+
+      renderBookmarks(c) {
+        dom.tutorBookmarks.innerHTML = '';
+        c.messages.forEach((msg, idx) => {
+          if (msg.role !== 'user') return;
+          const dot = document.createElement('div');
+          dot.className = 'bookmark-dot';
+          dot.title = (msg.text || '').slice(0, 80);
+          dot.addEventListener('click', () => {
+            const target = dom.tutorMessages.querySelector(`.chat-bubble.user[data-msg-index="${idx}"]`);
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          });
+          dom.tutorBookmarks.appendChild(dot);
+        });
       },
     };
 
@@ -5261,7 +5413,11 @@
 
       renderChips() {
         const chat = tutor.current();
-        const ids = chat ? (chat.attachedKnowledgeIds || []) : [];
+        const allIds = chat ? (chat.attachedKnowledgeIds || []) : [];
+        // Once an attachment has been sent in a message, it's already part of the
+        // chat's history/context — no need to keep showing it as a composer chip.
+        const seen = new Set(chat ? (chat.attachmentsSeen || []) : []);
+        const ids = allIds.filter(id => !seen.has(id));
         const items = ids.map(id => kb.cache.find(i => i.id === id)).filter(Boolean);
 
         dom.tutorChips.innerHTML = '';
@@ -5287,7 +5443,8 @@
           dom.tutorChips.appendChild(chip);
         }
 
-        const count = items.length;
+        // Badge reflects the total attached to this chat (not just unseen chips).
+        const count = allIds.length;
         dom.composerAttachBadge.hidden = count === 0;
         dom.composerAttachBadge.textContent = count;
         dom.headerAttachCount.hidden = count === 0;
@@ -5749,6 +5906,12 @@
     dom.btnNewChat.addEventListener('click', () => { tutor.newChat(); });
     dom.btnTutorAttach.addEventListener('click', openTutorAttach);
     dom.btnRenameChat.addEventListener('click', () => tutor.renameChat());
+    dom.btnScrollTop.addEventListener('click', () => {
+      dom.tutorMessages.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    dom.btnScrollBottom.addEventListener('click', () => {
+      dom.tutorMessages.scrollTo({ top: dom.tutorMessages.scrollHeight, behavior: 'smooth' });
+    });
     dom.tutorAttachClose.addEventListener('click', closeTutorAttach);
     dom.tutorAttachCancel.addEventListener('click', closeTutorAttach);
     dom.tutorAttachConfirm.addEventListener('click', confirmTutorAttach);
@@ -6042,9 +6205,9 @@
 
       // Dev reminder
       console.info(
-        '%c[STH v2.0]%c n8n webhook needs a new switch branch for `mode === "tutor"`.\n' +
-        'Payload shape: { mode:"tutor", systemPrompt:string, attachedContext:[{name,content}], messages:[{role,text}], chatId, chatTitle }\n' +
-        'Build a Gemini request where `systemPrompt` (+ each attachedContext entry) becomes the system/first message, then map `messages` into Gemini `contents` with role mapping: user→"user", model→"model".',
+        '%c[STH v2.0]%c Tutor payload shape: { mode:"tutor", systemPrompt, attachedContext:[{name,content}] (ad-hoc/URL, always sent), ' +
+        'cachableContext:[{name,content}] + attachedImages (KB attachments — only sent when (re)caching), cacheName, cacheExpiresAt, messages:[{role,text}], chatId, chatTitle }\n' +
+        'n8n creates/reuses a Gemini explicit context cache (3h TTL) from cachableContext+attachedImages so KB docs aren\'t retransmitted every turn — see "Prep — Tutor" node.',
         'color:#2c5f2d;font-weight:bold',
         'color:inherit'
       );
