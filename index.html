@@ -3139,18 +3139,13 @@
       return parts.join('\n\n').trim();
     }
 
-    const MAX_PDF_PAGES_TRANSCRIBE = 30;
-
     async function rasterizePdfForTranscribe(fileObj) {
       if (typeof pdfjsLib === 'undefined') throw new Error('PDF support not available');
       updateProgress(null, `Preparing ${fileObj.name} for transcription…`);
       const buf = await fileObj.file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-      const totalPages = pdf.numPages;
-      if (totalPages > MAX_PDF_PAGES_TRANSCRIBE) {
-        showToast(`${fileObj.name} has ${totalPages} pages — only the first ${MAX_PDF_PAGES_TRANSCRIBE} will be transcribed`, 'error');
-      }
-      const pageCount = Math.min(totalPages, MAX_PDF_PAGES_TRANSCRIBE);
+      const pageCount = pdf.numPages;
+      if (pageCount > 50) showToast(`${fileObj.name} has ${pageCount} pages — this may take a while…`);
       const results = [];
       for (let i = 1; i <= pageCount; i++) {
         updateProgress(null, `Rasterizing page ${i}/${pageCount}…`);
@@ -3250,32 +3245,27 @@
         } else if (ft === 'pdf') {
           entry.content = await extractPdfText(file);
           if (!entry.content) {
-            // Scanned PDF — rasterize pages to compressed JPEG for manageable payload size
-            const MAX_KB_PAGES = 40;
+            // Scanned PDF — rasterize ALL pages to compressed JPEGs for Gemini
             if (typeof pdfjsLib === 'undefined') throw new Error('PDF support not available');
             const buf = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-            const totalPages = pdf.numPages;
-            if (totalPages > MAX_KB_PAGES) {
-              showToast(`${file.name} has ${totalPages} pages — storing first ${MAX_KB_PAGES} for the tutor`, 'error');
-            }
-            const pageCount = Math.min(totalPages, MAX_KB_PAGES);
+            const pageCount = pdf.numPages;
+            showToast(`Processing ${pageCount}-page scanned PDF — this may take a moment…`);
             const pageImages = [];
             for (let p = 1; p <= pageCount; p++) {
+              if (p % 20 === 0) showToast(`Rasterizing page ${p}/${pageCount}…`);
               const page = await pdf.getPage(p);
-              const scale = 1.5;
-              const vp = page.getViewport({ scale });
+              const vp = page.getViewport({ scale: 1.0 });
               const cvs = document.createElement('canvas');
               cvs.width = vp.width; cvs.height = vp.height;
               await page.render({ canvasContext: cvs.getContext('2d'), viewport: vp }).promise;
-              pageImages.push(cvs.toDataURL('image/jpeg', 0.7).split(',')[1]);
+              pageImages.push(cvs.toDataURL('image/jpeg', 0.5).split(',')[1]);
               cvs.width = 0; cvs.height = 0;
             }
             entry.content = JSON.stringify(pageImages);
             entry.type = 'scanned_pdf';
             entry.mime = 'application/pdf';
             entry.pageCount = pageCount;
-            entry.totalPages = totalPages;
           }
         } else if (ft === 'docx') {
           if (typeof mammoth === 'undefined') throw new Error('DOCX support not available');
@@ -5020,11 +5010,15 @@
           // PDF that replaced an existing KB item) that an ID-only fingerprint would miss.
           documentFingerprints.push({ id: kid, updatedAt: item.updatedAt || 0, size: (item.content || '').length });
           if (item.type === 'scanned_pdf') {
-            // Expand rasterized pages as individual images
             try {
               const pages = JSON.parse(item.content);
-              for (let pi = 0; pi < pages.length; pi++) {
-                attachedImages.push({ name: `${item.name} — p${pi + 1}`, mime: 'image/jpeg', data: pages[pi] });
+              // Send pages as cachable context images — batched to keep payload structured
+              const BATCH = 10;
+              for (let b = 0; b < pages.length; b += BATCH) {
+                const end = Math.min(b + BATCH, pages.length);
+                for (let pi = b; pi < end; pi++) {
+                  attachedImages.push({ name: `${item.name} p${pi + 1}`, mime: 'image/jpeg', data: pages[pi] });
+                }
               }
             } catch { /* malformed — skip */ }
             continue;
