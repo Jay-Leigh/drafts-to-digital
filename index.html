@@ -3067,6 +3067,15 @@
       });
     }
 
+    // Content-addressable fingerprint for a scanned PDF's bytes — same
+    // document, same hash, regardless of filename/rename/which device it
+    // was uploaded from. Used to dedupe Gemini Files API uploads.
+    async function sha256Hex(blob) {
+      const buf = await blob.arrayBuffer();
+      const digest = await crypto.subtle.digest('SHA-256', buf);
+      return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
     // Label a KB item for the AI so it knows what format the text came from
     function describeSource(item) {
       const ext = item.ext ? '.' + item.ext : '';
@@ -3248,27 +3257,33 @@
         } else if (ft === 'pdf') {
           entry.content = await extractPdfText(file);
           if (!entry.content) {
-            // Scanned PDF — rasterize ALL pages to compressed JPEGs for Gemini
+            // Gemini's Files API caps PDF understanding at 50 MB — fail clearly now
+            // rather than let a doomed upload surface as a mystery error later.
+            const GEMINI_PDF_LIMIT = 50 * 1024 * 1024;
+            if (file.size > GEMINI_PDF_LIMIT) {
+              throw new Error(`${file.name} is a ${formatSize(file.size)} scanned PDF, over the 50 MB limit the tutor can read. Try splitting it into smaller files.`);
+            }
+            // Scanned PDF — no embedded text. Keep the original PDF bytes (not a
+            // rasterized page dump) so Tutor can hand the real file to Gemini's
+            // Files API server-side instead of exploding it into hundreds of
+            // inline images. Transcribe mode rasterizes separately, on demand,
+            // via rasterizePdfForTranscribe() — this entry doesn't feed that path.
             if (typeof pdfjsLib === 'undefined') throw new Error('PDF support not available');
             const buf = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
-            const pageCount = pdf.numPages;
-            showToast(`Processing ${pageCount}-page scanned PDF — this may take a moment…`);
-            const pageImages = [];
-            for (let p = 1; p <= pageCount; p++) {
-              if (p % 20 === 0) showToast(`Rasterizing page ${p}/${pageCount}…`);
-              const page = await pdf.getPage(p);
-              const vp = page.getViewport({ scale: 1.0 });
-              const cvs = document.createElement('canvas');
-              cvs.width = vp.width; cvs.height = vp.height;
-              await page.render({ canvasContext: cvs.getContext('2d'), viewport: vp }).promise;
-              pageImages.push(cvs.toDataURL('image/jpeg', 0.5).split(',')[1]);
-              cvs.width = 0; cvs.height = 0;
-            }
-            entry.content = JSON.stringify(pageImages);
             entry.type = 'scanned_pdf';
             entry.mime = 'application/pdf';
-            entry.pageCount = pageCount;
+            entry.pageCount = pdf.numPages;
+            entry.schemaVersion = 2;
+            entry.originalFile = file;
+            entry.originalSize = file.size;
+            entry.originalMime = file.type || 'application/pdf';
+            entry.contentHash = await sha256Hex(file);
+            // Uploaded to the user's own Google Drive lazily (see
+            // ensureScannedPdfsUploadedToDrive) once Drive sync is connected,
+            // so the tutor can reach it from another device without re-upload.
+            entry.driveFileId = null;
+            entry.content = '';
           }
         } else if (ft === 'docx') {
           if (typeof mammoth === 'undefined') throw new Error('DOCX support not available');
@@ -4006,6 +4021,24 @@
         if (fileObj.type === 'image') {
           return { role: fileObj.role, type: 'inline', base64: fileObj.kbContent, mime_type: fileObj.mime || 'image/jpeg', name: fileObj.name };
         }
+        if (fileObj.type === 'scanned_pdf') {
+          const entry = await kb.get(fileObj.kbId);
+          if (state.mode === 'transcribe') {
+            // Handwriting OCR needs page images either way — reuse the same
+            // rasterization path as a fresh upload, fed from the stored bytes.
+            if (entry && entry.originalFile instanceof Blob) {
+              return await rasterizePdfForTranscribe({ ...fileObj, file: entry.originalFile });
+            }
+            return { role: fileObj.role, type: 'text', content: `[System Note: "${fileObj.name}" isn't available on this device for transcription — re-upload it to Knowledge Bay.]`, name: fileObj.name };
+          }
+          if (entry && entry.originalFile instanceof Blob) {
+            return { role: fileObj.role, type: 'scanned_pdf_upload', originalFile: entry.originalFile, contentHash: entry.contentHash, pageCount: entry.pageCount, name: fileObj.name };
+          }
+          if (entry && entry.driveFileId && state.driveSyncToken) {
+            return { role: fileObj.role, type: 'scanned_pdf_upload', driveFileId: entry.driveFileId, driveAccessToken: state.driveSyncToken, contentHash: entry.contentHash, pageCount: entry.pageCount, name: fileObj.name };
+          }
+          return { role: fileObj.role, type: 'text', content: `[System Note: "${fileObj.name}" is a scanned PDF that isn't available on this device — re-upload it to Knowledge Bay, or wait for Drive sync to finish.]`, name: fileObj.name };
+        }
         return { role: fileObj.role, type: 'text', content: fileObj.kbContent, name: fileObj.name };
       }
 
@@ -4103,10 +4136,27 @@
     }
 
     // ─── Webhook Request ────────────────────────────
-    async function sendToWebhook(payload) {
+    // binaryFiles (optional): [{ fieldName, blob, filename }] -- original file bytes
+    // (e.g. a scanned PDF) that must NOT be base64-inflated into the JSON body.
+    // When present, the request goes as multipart/form-data with the JSON payload
+    // under a `payload` field and each file under its own fieldName; n8n's webhook
+    // node parses multipart natively into $json.body / $binary.
+    async function sendToWebhook(payload, binaryFiles) {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
       let lastErr = null;
+
+      let body, headers;
+      if (binaryFiles && binaryFiles.length > 0) {
+        const form = new FormData();
+        form.append('payload', JSON.stringify(payload));
+        for (const f of binaryFiles) form.append(f.fieldName, f.blob, f.filename);
+        body = form;
+        headers = {}; // let the browser set the multipart boundary
+      } else {
+        body = JSON.stringify(payload);
+        headers = { 'Content-Type': 'application/json' };
+      }
 
       for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
         try {
@@ -4117,8 +4167,8 @@
           }
           const res = await fetch(CONFIG.n8nWebhookUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
+            headers,
+            body,
             signal: controller.signal,
           });
           clearTimeout(timeout);
@@ -4146,6 +4196,11 @@
 
       try {
         const documents = [];
+        // Scanned PDFs from Knowledge Bay (Template/Reviewer only — Transcribe
+        // rasterizes them above via processFileObj instead) travel as original
+        // file bytes, not inlined into the JSON documents array. See sendToWebhook.
+        const scannedPdfDocs = [];
+        const binaryFiles = [];
         const allFiles = [];
         for (const [role, files] of Object.entries(state.zones)) {
           for (const f of files) allFiles.push({ ...f, role });
@@ -4158,6 +4213,16 @@
           if (doc && doc._multiPage) {
             // Rasterized PDF — flatten page images into documents
             for (const page of doc) documents.push(page);
+          } else if (doc && doc.type === 'scanned_pdf_upload') {
+            const meta = { name: doc.name, role: doc.role, pageCount: doc.pageCount || null, contentHash: doc.contentHash || null };
+            if (doc.originalFile instanceof Blob) {
+              meta.fieldName = `scanned_${binaryFiles.length}`;
+              binaryFiles.push({ fieldName: meta.fieldName, blob: doc.originalFile, filename: doc.name });
+            } else if (doc.driveFileId) {
+              meta.driveFileId = doc.driveFileId;
+              meta.driveAccessToken = doc.driveAccessToken;
+            }
+            scannedPdfDocs.push(meta);
           } else {
             documents.push(doc);
           }
@@ -4227,9 +4292,10 @@
           const data = await sendToWebhook({
             mode: state.mode,
             documents,
+            scannedPdfDocs,
             userNotes: state.userNotes,
             url,
-          });
+          }, binaryFiles);
           resultText = data.text || data.result || '';
         }
 
@@ -4610,6 +4676,44 @@
       }
     }
 
+    // Uploads a scanned PDF's original bytes to the user's own Drive appData
+    // folder (separate from the single KB-metadata sync file above, which is
+    // plain JSON and can't hold binary data) so it's reachable from any
+    // device the user has Drive sync connected on, not just the one that
+    // scanned it in. Returns the new file's Drive ID.
+    async function driveUploadRawFile(token, blob, filename) {
+      const form = new FormData();
+      form.append('metadata', new Blob(
+        [JSON.stringify({ name: filename, parents: ['appDataFolder'] })],
+        { type: 'application/json' }
+      ));
+      form.append('file', blob);
+      const res = await fetch(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+        { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }
+      );
+      if (!res.ok) throw new Error(`Drive upload: ${res.status}`);
+      const file = await res.json();
+      return file.id;
+    }
+
+    // Sweeps Knowledge Bay for scanned PDFs that exist locally (originalFile)
+    // but haven't been pushed to Drive yet — new items, or items created
+    // before Drive sync was connected. Runs before every Drive push so
+    // cross-device availability stays current without user action.
+    async function ensureScannedPdfsUploadedToDrive() {
+      if (!state.driveSyncToken) return;
+      for (const item of kb.cache) {
+        if (item.type !== 'scanned_pdf' || item.driveFileId || !(item.originalFile instanceof Blob)) continue;
+        try {
+          item.driveFileId = await driveUploadRawFile(state.driveSyncToken, item.originalFile, item.name);
+        } catch (err) {
+          console.warn('[Sync] Scanned PDF Drive upload failed (will retry next sync):', err);
+        }
+      }
+      await kb.store.setItem('knowledge_bay', kb.cache);
+    }
+
     async function driveFetchUserInfo(token) {
       const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: { Authorization: `Bearer ${token}` }
@@ -4617,6 +4721,19 @@
       if (!res.ok) return null;
       const { name, email, picture } = await res.json();
       return { name, email, picture };
+    }
+
+    // Drive sync is a plain-JSON blob store — a scanned PDF's original File/Blob
+    // can't survive JSON.stringify (it serializes to "{}", which would then look
+    // like a truthy-but-broken originalFile on restore). Strip it before writing;
+    // a synced-in scanned_pdf item is treated the same as a legacy pre-Files-API
+    // one (see the Tutor attach path), prompting a re-upload on that device.
+    function kbItemsForDriveSync(items) {
+      return items.map(item => {
+        if (item.type !== 'scanned_pdf' || !item.originalFile) return item;
+        const { originalFile, ...rest } = item;
+        return rest;
+      });
     }
 
     // ── Merge logic ──────────────────────────────────
@@ -4628,7 +4745,26 @@
         if (!existing) { map.set(item.id, item); continue; }
         const localTs  = item.updatedAt  || item.timestamp  || 0;
         const remoteTs = existing.updatedAt || existing.timestamp || 0;
-        if (localTs >= remoteTs) map.set(item.id, item);
+        const winner = localTs >= remoteTs ? item : existing;
+        const loser  = localTs >= remoteTs ? existing : item;
+        if (winner.type === 'scanned_pdf' || loser.type === 'scanned_pdf') {
+          // Drive sync never carries the local Blob (see kbItemsForDriveSync),
+          // so a whole-item timestamp win can otherwise drop it or an
+          // already-uploaded driveFileId — carry forward whichever side has
+          // them instead of losing access to the document.
+          map.set(item.id, {
+            ...winner,
+            originalFile: (winner.originalFile instanceof Blob) ? winner.originalFile : loser.originalFile,
+            driveFileId: winner.driveFileId || loser.driveFileId,
+            contentHash: winner.contentHash || loser.contentHash,
+            originalSize: winner.originalSize ?? loser.originalSize,
+            originalMime: winner.originalMime ?? loser.originalMime,
+            pageCount: winner.pageCount ?? loser.pageCount,
+            schemaVersion: winner.schemaVersion ?? loser.schemaVersion,
+          });
+        } else {
+          map.set(item.id, winner);
+        }
       }
       return [...map.values()];
     }
@@ -4683,9 +4819,11 @@
         tutor.renderSidebarList();
         if (tutor.currentId) tutor.renderChat?.();
 
-        // 5 — Write merged data back to Drive
+        // 5 — Push any not-yet-uploaded scanned PDFs to Drive, then write
+        // merged metadata back
+        await ensureScannedPdfsUploadedToDrive();
         const newFileId = await driveWriteSyncFile(token, fileId, {
-          kbItems: mergedKb, tutorChats: mergedChats, syncedAt: Date.now()
+          kbItems: kbItemsForDriveSync(kb.cache), tutorChats: mergedChats, syncedAt: Date.now()
         });
         if (!fileId) localStorage.setItem(SYNC_FILE_KEY, newFileId);
 
@@ -4705,8 +4843,9 @@
       state.driveSyncing = true;
       updateSyncUI('syncing');
       try {
+        await ensureScannedPdfsUploadedToDrive();
         let fileId = localStorage.getItem(SYNC_FILE_KEY);
-        const data = { kbItems: kb.cache, tutorChats: tutor.chats, syncedAt: Date.now() };
+        const data = { kbItems: kbItemsForDriveSync(kb.cache), tutorChats: tutor.chats, syncedAt: Date.now() };
         const newId = await driveWriteSyncFile(state.driveSyncToken, fileId, data);
         if (!fileId) localStorage.setItem(SYNC_FILE_KEY, newId);
         updateSyncUI('synced');
@@ -5006,24 +5145,56 @@
         const cachableContext = [];
         const attachedImages = [];
         const documentFingerprints = [];
+        // Scanned PDFs travel as original file bytes (multipart), never rasterized —
+        // n8n uploads them to Gemini's Files API server-side. See scannedPdfDocs below.
+        const scannedPdfDocs = [];
+        const binaryFiles = [];
         for (const kid of (c.attachedKnowledgeIds || [])) {
           const item = await kb.get(kid);
           if (!item) continue;
           // updatedAt + size catch the "same ID, edited content" case (e.g. a re-uploaded
           // PDF that replaced an existing KB item) that an ID-only fingerprint would miss.
-          documentFingerprints.push({ id: kid, updatedAt: item.updatedAt || 0, size: (item.content || '').length });
+          const fpSize = item.type === 'scanned_pdf' ? (item.originalSize || 0) : (item.content || '').length;
+          documentFingerprints.push({ id: kid, updatedAt: item.updatedAt || 0, size: fpSize });
           if (item.type === 'scanned_pdf') {
-            try {
-              const pages = JSON.parse(item.content);
-              // Send pages as cachable context images — batched to keep payload structured
-              const BATCH = 10;
-              for (let b = 0; b < pages.length; b += BATCH) {
-                const end = Math.min(b + BATCH, pages.length);
-                for (let pi = b; pi < end; pi++) {
-                  attachedImages.push({ name: `${item.name} p${pi + 1}`, mime: 'image/jpeg', data: pages[pi] });
-                }
+            if (!item.contentHash) {
+              // Legacy KB entry saved before original-bytes support — no source
+              // file to upload — nothing to hand Gemini. Tell the user rather
+              // than silently dropping the attachment or reviving the old
+              // hundreds-of-images path.
+              attachedContext.push({
+                name: item.name,
+                content: `[System Note: "${item.name}" was saved as a scanned PDF before this app kept the original file. Remove it from Knowledge Bay and re-upload it so the tutor can read it.]`,
+              });
+              continue;
+            }
+            // n8n tracks which Gemini file (if any) is already uploaded for a
+            // given content hash in the chat's session — independent of the
+            // (Gemini cachedContents) cacheValid flag above, which no longer
+            // applies here. Only resend bytes when this chat hasn't
+            // successfully uploaded this exact document before; otherwise
+            // just reference it by hash so n8n can reuse its Gemini file.
+            const alreadyUploaded = (c.uploadedScannedPdfFingerprints || []).includes(item.contentHash);
+            const docMeta = { name: item.name, pageCount: item.pageCount || null, contentHash: item.contentHash };
+            if (!alreadyUploaded) {
+              if (item.originalFile instanceof Blob) {
+                docMeta.fieldName = `scanned_${binaryFiles.length}`;
+                binaryFiles.push({ fieldName: docMeta.fieldName, blob: item.originalFile, filename: item.name });
+              } else if (item.driveFileId && state.driveSyncToken) {
+                // Not stored locally on this device (synced in from another
+                // one) — n8n fetches the bytes from the user's own Drive
+                // using this short-lived token instead.
+                docMeta.driveFileId = item.driveFileId;
+                docMeta.driveAccessToken = state.driveSyncToken;
+              } else {
+                attachedContext.push({
+                  name: item.name,
+                  content: `[System Note: "${item.name}" isn't available on this device yet — it may still be syncing to Drive, or Drive sync isn't connected here. Ask the user to try again shortly, or re-upload it.]`,
+                });
+                continue;
               }
-            } catch { /* malformed — skip */ }
+            }
+            scannedPdfDocs.push(docMeta);
             continue;
           }
           if (item.type === 'image') {
@@ -5046,6 +5217,9 @@
           attachedContext,
           cachableContext: cacheValid ? [] : cachableContext,
           attachedImages: cacheValid ? [] : attachedImages,
+          // Metadata only — the actual PDF bytes ride alongside as multipart fields
+          // named by scannedPdfDocs[].fieldName (see sendToWebhook/binaryFiles).
+          scannedPdfDocs,
           cacheName: cacheValid ? c.cacheName : null,
           cacheExpiresAt: cacheValid ? c.cacheExpiresAt : null,
           // Lightweight fingerprint of the attached KB doc set (id/updatedAt/size) — lets
@@ -5066,7 +5240,7 @@
           this.renderChat();
           this.updateSendButton();
 
-          const data = await sendToWebhook(payload);
+          const data = await sendToWebhook(payload, binaryFiles);
           const reply = (data && (data.text || data.result)) || '';
           c.messages.push({ role: 'model', text: reply || '_(No response text returned.)_' });
           if (data && data.cacheName) {
@@ -5079,6 +5253,17 @@
             c.cacheName = null;
             c.cacheExpiresAt = null;
             c.cachedKnowledgeIds = [];
+          }
+          // Record which scanned-PDF fingerprints n8n now has a Gemini file for, so
+          // we don't resend the bytes next turn; un-record any it couldn't resolve
+          // (e.g. its Gemini file/session expired) so we resend those once more.
+          if (scannedPdfDocs.length > 0) {
+            const uploaded = new Set(c.uploadedScannedPdfFingerprints || []);
+            for (const doc of scannedPdfDocs) {
+              if (doc.fieldName || doc.driveFileId) uploaded.add(doc.contentHash);
+            }
+            for (const hash of ((data && data.reuploadScannedPdfs) || [])) uploaded.delete(hash);
+            c.uploadedScannedPdfFingerprints = [...uploaded];
           }
           // These attachments have now been delivered as part of the conversation —
           // stop showing them as "attached" chips in the composer.

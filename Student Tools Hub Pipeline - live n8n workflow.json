@@ -3,13 +3,13 @@
   "nodes": [
     {
       "parameters": {},
-      "id": "a773e5e2-f08f-44f9-a8bb-dfae4cbe355a",
+      "id": "a71af96e-02fa-4e00-97fd-3a844a24aefb",
       "name": "Error Trigger",
       "type": "n8n-nodes-base.errorTrigger",
       "typeVersion": 1,
       "position": [
-        -528,
-        2432
+        -240,
+        3232
       ]
     },
     {
@@ -181,32 +181,34 @@
         },
         "options": {}
       },
-      "id": "e035509f-a8f8-4bed-b7cd-d8919f1f95b9",
+      "id": "3bdbe0fa-4b58-4871-9503-1b9012435fda",
       "name": "Route by Mode",
       "type": "n8n-nodes-base.switch",
       "typeVersion": 3,
       "position": [
-        -304,
-        1552
+        -16,
+        2352
       ]
     },
     {
       "parameters": {
-        "jsCode": "// ─── Build Transcription Payload ───\nconst body = $('Student Hub Endpoint').first().json.body;\nconst documents = body.documents || [];\n\nconst parts = [];\n\n// Add each document\nfor (const doc of documents) {\n  if (doc.type === 'inline') {\n    parts.push({\n      inline_data: {\n        mime_type: doc.mime_type,\n        data: doc.base64\n      }\n    });\n  } else if (doc.type === 'text') {\n    parts.push({ text: `[Content from ${doc.name}]:\\n${doc.content}` });\n  }\n}\n\n// Add the transcription prompt\nparts.push({\n  text: `You are a professional transcription assistant. You have been given ${documents.length} document(s) containing handwritten notes, essays, or mind maps.\n\nYour task:\n1. CAREFULLY read the handwriting in each document, in the exact order they were provided.\n2. UNDERSTAND the logical flow and context across all pages — they form a single continuous document.\n3. TRANSCRIBE the handwriting into clean, well-structured digital text.\n4. PRESERVE the author's original intent, ideas, paragraph structure, and any headings or bullet points.\n5. If the handwriting contains a mind map, convert it into a logical outline or structured text.\n6. Separate content from different pages with a blank line, but maintain narrative continuity.\n7. Fix obvious spelling errors in the handwriting, but do NOT add, remove, or rephrase the author's ideas.\n8. DO identify if the author had struck through lines or massive crossing out — this means the user has removed that content and does not want it transcribed.\n9. Do NOT add any commentary, preamble, or summary — output ONLY the transcribed text.\n\nBegin transcription now:`\n});\n\nconst geminiPayload = {\n  contents: [{ parts }],\n  generationConfig: {\n    temperature: 0.2,\n    topP: 0.8,\n    topK: 40,\n    maxOutputTokens: 8192\n  },\n  safetySettings: [\n    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }\n  ]\n};\n\nreturn { json: { geminiPayload } };"
+        "jsCode": "const body = $('Normalize Multipart Body').first().json.body;\nconst documents = body.documents || [];\n\nconst parts = [];\n\nlet hasPdf = false;\nfor (const doc of documents) {\n  if (doc.type === 'inline') {\n    if (doc.mime_type === 'application/pdf' || (doc.name && doc.name.toLowerCase().endsWith('.pdf'))) hasPdf = true;\n    parts.push({ inline_data: { mime_type: doc.mime_type, data: doc.base64 } });\n  } else if (doc.type === 'text') {\n    parts.push({ text: `[Content from ${doc.name}]:\\n${doc.content}` });\n  }\n}\n\nconst handwrittenPrompt = `You are a professional transcription assistant. You have been given ${documents.length} document(s) containing handwritten notes, essays, or mind maps.\n\nYour task:\n1. CAREFULLY read the handwriting in each document, in the exact order they were provided.\n2. UNDERSTAND the logical flow and context across all pages — they form a single continuous document.\n3. TRANSCRIBE the handwriting into clean, well-structured digital text.\n4. PRESERVE the author's original intent, ideas, paragraph structure, and any headings or bullet points.\n5. If the handwriting contains a mind map, convert it into a logical outline or structured text.\n6. Separate content from different pages with a blank line, but maintain narrative continuity.\n7. Fix obvious spelling errors in the handwriting, but do NOT add, remove, or rephrase the author's ideas.\n8. DO identify if the author had struck through lines or massive crossing out — this means the user has removed that content and does not want it transcribed.\n9. Do NOT add any commentary, preamble, or summary — output ONLY the transcribed text.\n\nBegin transcription now:`;\n\nconst documentPrompt = `You are a study-notes extraction assistant. The student has uploaded ${documents.length} page(s) from their study material for personal academic use.\n\nYour task:\n1. READ each page carefully in order.\n2. EXTRACT the key content: headings, definitions, concepts, lists, tables, case studies, and discussion questions.\n3. RESTRUCTURE the content into clean, well-organised study notes using your own wording.\n4. USE clear headings (# / ## / ###) and bullet points for structure.\n5. PRESERVE all factual information, names, dates, legal references, and technical terms exactly.\n6. For tables, reproduce them in markdown table format.\n7. For case studies or scenarios, summarise the scenario and list the discussion questions.\n8. Do NOT copy sentences verbatim — paraphrase into clear study-note form while keeping all meaning.\n9. Do NOT add commentary or analysis — output ONLY the restructured study notes.\n\nBegin extraction now:`;\n\nparts.push({ text: hasPdf ? documentPrompt : handwrittenPrompt });\n\nconst geminiPayload = {\n  contents: [{ parts }],\n  generationConfig: {\n    temperature: 0.2,\n    topP: 0.8,\n    topK: 40,\n    maxOutputTokens: 8192\n  },\n  safetySettings: [\n    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }\n  ]\n};\n\nreturn { json: { geminiPayload } };"
       },
-      "id": "0c551c15-1d03-4145-a5b1-40a934c0c9a9",
+      "id": "9d867e28-37b1-469f-86a1-c7af9a408c22",
       "name": "Build Transcription Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -80,
-        832
+        208,
+        1632
       ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $json.geminiPayload }}",
@@ -217,39 +219,37 @@
             }
           },
           "timeout": 300000
-        },
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth"
+        }
       },
-      "id": "0fb577ae-f97e-444b-b32c-198fcc8d2fa7",
+      "id": "01138dee-8237-4f67-81aa-44714780c9d6",
       "name": "Call Gemini (Transcription)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        144,
-        832
+        432,
+        1632
       ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 5000,
       "credentials": {
         "httpHeaderAuth": {
-          "id": "REPLACE_ME",
+          "id": "uenokmEVAFXfzkBr",
           "name": "Gemini API Key"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nlet text = '';\n\ntry {\n  if (response.body && response.body.candidates && response.body.candidates.length > 0) {\n    const candidate = response.body.candidates[0];\n    if (candidate.content && candidate.content.parts) {\n      text = candidate.content.parts.filter(p => p.text).map(p => p.text).join('\\n');\n    }\n  }\n  if (!text && response.candidates && response.candidates.length > 0) {\n    text = response.candidates[0].content.parts.filter(p => p.text).map(p => p.text).join('\\n');\n  }\n  if (!text) throw new Error('No text extracted from Gemini response');\n} catch (err) {\n  throw new Error(`Gemini extraction failed: ${err.message}. Raw keys: ${JSON.stringify(Object.keys(response))}`);\n}\n\nreturn { json: { text: text.trim() } };"
+        "jsCode": "const response = $input.first().json;\nlet text = '';\n\ntry {\n  const candidates = (response.body && response.body.candidates) || response.candidates || [];\n  if (candidates.length > 0) {\n    const candidate = candidates[0];\n    const reason = candidate.finishReason || '';\n    if (reason === 'RECITATION') return { json: { text: '[Transcription blocked] The AI detected this may be published/copyrighted content and cannot reproduce it. Try uploading handwritten notes instead.' } };\n    if (reason === 'SAFETY') return { json: { text: '[Blocked] The AI safety filters prevented processing this content.' } };\n    if (candidate.content && candidate.content.parts) {\n      text = candidate.content.parts.filter(p => p.text).map(p => p.text).join('\\n');\n    }\n  }\n  if (!text) throw new Error('No text extracted from Gemini response');\n} catch (err) {\n  throw new Error(`Gemini extraction failed: ${err.message}. Raw keys: ${JSON.stringify(Object.keys(response))}`);\n}\n\nreturn { json: { text: text.trim() } };"
       },
-      "id": "afbfa6fd-b1a9-4b4c-9476-f637c2d94418",
+      "id": "0de66ff3-84cf-4dc3-a0c9-82a4ef2ea15e",
       "name": "Extract Transcription Text",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        368,
-        832
+        656,
+        1632
       ]
     },
     {
@@ -276,18 +276,18 @@
         },
         "options": {}
       },
-      "id": "b863d390-a1cb-47f6-bc45-b8b4ec4fefce",
+      "id": "ae504a2f-1e70-4ba7-9766-441c0f910ecd",
       "name": "Template Has URL?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        -80,
-        1104
+        208,
+        1904
       ]
     },
     {
       "parameters": {
-        "url": "={{ $('Student Hub Endpoint').first().json.body.url }}",
+        "url": "={{ $('Normalize Multipart Body').first().json.body.url }}",
         "options": {
           "response": {
             "response": {
@@ -297,36 +297,38 @@
           "timeout": 15000
         }
       },
-      "id": "81c5a1da-3c50-432c-9d21-e510b3efb3db",
+      "id": "51a8150b-3d4b-41cd-bd46-b9d24a3032d1",
       "name": "Scrape Template URL",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        144,
-        1024
+        432,
+        1824
       ],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// ─── Build Template Generator Payload ───\nconst body = $('Student Hub Endpoint').first().json.body;\nconst documents = body.documents || [];\nconst userNotes = body.userNotes || '';\n\n// Try to get scraped URL content\nlet scrapedContent = '';\ntry {\n  const raw = $('Scrape Template URL').first().json;\n  if (typeof raw === 'string') scrapedContent = raw;\n  else if (raw.data) scrapedContent = String(raw.data);\n  else if (raw.body) scrapedContent = String(raw.body);\n} catch(e) { /* No scraped content */ }\n\n// Strip HTML tags from scraped content\nif (scrapedContent) {\n  scrapedContent = scrapedContent.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim();\n  if (scrapedContent.length > 50000) scrapedContent = scrapedContent.substring(0, 50000) + '\\n[Content truncated]';\n}\n\nconst ROLE_LABELS = {\n  instructions: 'ASSIGNMENT INSTRUCTIONS',\n  rubric: 'GRADING RUBRIC',\n  sources: 'SOURCE MATERIALS'\n};\n\nconst parts = [];\n\n// Add inline documents (images, PDFs)\nfor (const doc of documents) {\n  parts.push({ text: `[${ROLE_LABELS[doc.role] || doc.role.toUpperCase()}: ${doc.name}]` });\n  if (doc.type === 'inline') {\n    parts.push({ inline_data: { mime_type: doc.mime_type, data: doc.base64 } });\n  } else if (doc.type === 'text') {\n    parts.push({ text: doc.content });\n  }\n}\n\n// Add scraped URL content\nif (scrapedContent) {\n  parts.push({ text: `[ONLINE RESOURCE from ${body.url}]:\\n${scrapedContent}` });\n}\n\n// Add student notes\nif (userNotes) {\n  parts.push({ text: `[STUDENT'S QUESTIONS/NOTES]:\\n${userNotes}` });\n}\n\n// Add the template generator prompt\nparts.push({\n  text: `You are an expert university lecturer and academic guide. The user has provided documents that may include an assignment brief, a grading rubric, and source materials (study guides/articles).\n\nYour task:\n1. DECONSTRUCT the assignment into a clear, logical essay outline or structured template.\n2. ALLOCATE a target word count for each section based on the overall limit.\n3. PROVIDE specific clues and references for each section. Explicitly mention which provided source document (and what concepts) the student should use for that specific paragraph.\n4. DO NOT write the essay for them. Act as a scaffolding tool to help them understand exactly what is required.\n5. Format your response in clean Markdown with clear headings and bullet points.`\n});\n\nconst geminiPayload = {\n  contents: [{ parts }],\n  generationConfig: {\n    temperature: 0.3,\n    topP: 0.85,\n    topK: 40,\n    maxOutputTokens: 8192\n  },\n  safetySettings: [\n    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }\n  ]\n};\n\nreturn { json: { geminiPayload } };"
+        "jsCode": "// ─── Build Template Generator Payload ───\nconst body = $('Normalize Multipart Body').first().json.body;\nconst documents = body.documents || [];\nconst userNotes = body.userNotes || '';\n\n// Try to get scraped URL content\nlet scrapedContent = '';\ntry {\n  const raw = $('Scrape Template URL').first().json;\n  if (typeof raw === 'string') scrapedContent = raw;\n  else if (raw.data) scrapedContent = String(raw.data);\n  else if (raw.body) scrapedContent = String(raw.body);\n} catch(e) { /* No scraped content */ }\n\n// Strip HTML tags from scraped content\nif (scrapedContent) {\n  scrapedContent = scrapedContent.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim();\n  if (scrapedContent.length > 50000) scrapedContent = scrapedContent.substring(0, 50000) + '\\n[Content truncated]';\n}\n\nconst ROLE_LABELS = {\n  instructions: 'ASSIGNMENT INSTRUCTIONS',\n  rubric: 'GRADING RUBRIC',\n  sources: 'SOURCE MATERIALS'\n};\n\nconst parts = [];\n\n// Add inline documents (images, PDFs)\nfor (const doc of documents) {\n  parts.push({ text: `[${ROLE_LABELS[doc.role] || doc.role.toUpperCase()}: ${doc.name}]` });\n  if (doc.type === 'inline') {\n    parts.push({ inline_data: { mime_type: doc.mime_type, data: doc.base64 } });\n  } else if (doc.type === 'text') {\n    parts.push({ text: doc.content });\n  }\n}\n\n\n// Scanned PDFs — uploaded to Gemini's Files API upstream (see\n// \"Upload Scanned PDFs (Template)\"); append their file_data parts.\nfor (const part of ($json.scannedPdfParts || [])) {\n  parts.push(part);\n}\n// Add scraped URL content\nif (scrapedContent) {\n  parts.push({ text: `[ONLINE RESOURCE from ${body.url}]:\\n${scrapedContent}` });\n}\n\n// Add student notes\nif (userNotes) {\n  parts.push({ text: `[STUDENT'S QUESTIONS/NOTES]:\\n${userNotes}` });\n}\n\n// Add the template generator prompt\nparts.push({\n  text: `You are an expert university lecturer and academic guide. The user has provided documents that may include an assignment brief, a grading rubric, and source materials (study guides/articles).\n\nYour task:\n1. DECONSTRUCT the assignment into a clear, logical essay outline or structured template.\n2. ALLOCATE a target word count for each section based on the overall limit.\n3. PROVIDE specific clues and references for each section. Explicitly mention which provided source document (and what concepts) the student should use for that specific paragraph.\n4. DO NOT write the essay for them. Act as a scaffolding tool to help them understand exactly what is required.\n5. Format your response in clean Markdown with clear headings and bullet points.`\n});\n\nconst geminiPayload = {\n  contents: [{ parts }],\n  generationConfig: {\n    temperature: 0.3,\n    topP: 0.85,\n    topK: 40,\n    maxOutputTokens: 8192\n  },\n  safetySettings: [\n    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }\n  ]\n};\n\nreturn { json: { geminiPayload } };"
       },
-      "id": "4fec591d-ed7b-4ff4-92b4-3a9dc6b76bc2",
+      "id": "1f038be6-7190-4e7e-a02a-3d1903147684",
       "name": "Build Template Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        368,
-        1104
+        656,
+        1904
       ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.geminiPayload) }}",
+        "jsonBody": "={{ $json.geminiPayload }}",
         "options": {
           "response": {
             "response": {
@@ -334,39 +336,37 @@
             }
           },
           "timeout": 300000
-        },
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth"
+        }
       },
-      "id": "75697cf6-c4b6-4d7a-8118-6ef5e0edcf7f",
+      "id": "a9161be3-a51f-4fb4-877b-029dc88fc5b9",
       "name": "Call Gemini (Template)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        592,
-        1104
+        880,
+        1904
       ],
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 5000,
       "credentials": {
         "httpHeaderAuth": {
-          "id": "REPLACE_ME",
+          "id": "uenokmEVAFXfzkBr",
           "name": "Gemini API Key"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nlet text = '';\n\ntry {\n  if (response.body && response.body.candidates && response.body.candidates.length > 0) {\n    const candidate = response.body.candidates[0];\n    if (candidate.content && candidate.content.parts) {\n      text = candidate.content.parts.filter(p => p.text).map(p => p.text).join('\\n');\n    }\n  }\n  if (!text && response.candidates && response.candidates.length > 0) {\n    text = response.candidates[0].content.parts.filter(p => p.text).map(p => p.text).join('\\n');\n  }\n  if (!text) throw new Error('No text extracted from Gemini response');\n} catch (err) {\n  throw new Error(`Gemini extraction failed: ${err.message}. Raw keys: ${JSON.stringify(Object.keys(response))}`);\n}\n\nreturn { json: { text: text.trim() } };"
+        "jsCode": "const response = $input.first().json;\nlet text = '';\n\ntry {\n  const candidates = (response.body && response.body.candidates) || response.candidates || [];\n  if (candidates.length > 0) {\n    const candidate = candidates[0];\n    const reason = candidate.finishReason || '';\n    if (reason === 'RECITATION') return { json: { text: '[Transcription blocked] The AI detected this may be published/copyrighted content and cannot reproduce it. Try uploading handwritten notes instead.' } };\n    if (reason === 'SAFETY') return { json: { text: '[Blocked] The AI safety filters prevented processing this content.' } };\n    if (candidate.content && candidate.content.parts) {\n      text = candidate.content.parts.filter(p => p.text).map(p => p.text).join('\\n');\n    }\n  }\n  if (!text) throw new Error('No text extracted from Gemini response');\n} catch (err) {\n  throw new Error(`Gemini extraction failed: ${err.message}. Raw keys: ${JSON.stringify(Object.keys(response))}`);\n}\n\nreturn { json: { text: text.trim() } };"
       },
-      "id": "bef49cd1-3b96-4d2c-a206-37c1fe284493",
+      "id": "b21c0518-5831-40f0-919f-f9bf4e4fbd6a",
       "name": "Extract Template Text",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        816,
-        1104
+        1104,
+        1904
       ]
     },
     {
@@ -393,18 +393,18 @@
         },
         "options": {}
       },
-      "id": "20dbd742-7022-41bc-bdb2-390b27a70250",
+      "id": "e78b10db-87cd-48dd-aeec-446a5df49877",
       "name": "Reviewer Has URL?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
-        -80,
-        1392
+        208,
+        2192
       ]
     },
     {
       "parameters": {
-        "url": "={{ $('Student Hub Endpoint').first().json.body.url }}",
+        "url": "={{ $('Normalize Multipart Body').first().json.body.url }}",
         "options": {
           "response": {
             "response": {
@@ -414,33 +414,35 @@
           "timeout": 15000
         }
       },
-      "id": "c1ae00d6-a7b3-4de0-875b-1b72b7aff542",
+      "id": "f7ebafe4-a981-47e0-bce1-67a0206bd1f6",
       "name": "Scrape Reviewer URL",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        144,
-        1312
+        432,
+        2112
       ],
       "onError": "continueRegularOutput"
     },
     {
       "parameters": {
-        "jsCode": "// ─── Build Essay Reviewer Payload ───\nconst body = $('Student Hub Endpoint').first().json.body;\nconst documents = body.documents || [];\nconst userNotes = body.userNotes || '';\n\n// Try to get scraped URL content\nlet scrapedContent = '';\ntry {\n  const raw = $('Scrape Reviewer URL').first().json;\n  if (typeof raw === 'string') scrapedContent = raw;\n  else if (raw.data) scrapedContent = String(raw.data);\n  else if (raw.body) scrapedContent = String(raw.body);\n} catch(e) { /* No scraped content */ }\n\n// Strip HTML tags from scraped content\nif (scrapedContent) {\n  scrapedContent = scrapedContent.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim();\n  if (scrapedContent.length > 50000) scrapedContent = scrapedContent.substring(0, 50000) + '\\n[Content truncated]';\n}\n\nconst ROLE_LABELS = {\n  essay: 'STUDENT ESSAY/DRAFT',\n  instructions: 'ASSIGNMENT INSTRUCTIONS',\n  rubric: 'GRADING RUBRIC',\n  sources: 'SOURCE MATERIALS'\n};\n\nconst parts = [];\n\n// Add documents with role labels\nfor (const doc of documents) {\n  parts.push({ text: `[${ROLE_LABELS[doc.role] || doc.role.toUpperCase()}: ${doc.name}]` });\n  if (doc.type === 'inline') {\n    parts.push({ inline_data: { mime_type: doc.mime_type, data: doc.base64 } });\n  } else if (doc.type === 'text') {\n    parts.push({ text: doc.content });\n  }\n}\n\n// Add scraped URL content\nif (scrapedContent) {\n  parts.push({ text: `[ONLINE RESOURCE from ${body.url}]:\\n${scrapedContent}` });\n}\n\n// Add student notes\nif (userNotes) {\n  parts.push({ text: `[STUDENT'S QUESTIONS/NOTES]:\\n${userNotes}` });\n}\n\n// Add the reviewer prompt\nparts.push({\n  text: `You are a strict but empathetic university lecturer. The user has provided their draft essay, alongside their assignment instructions, rubric, and source materials.\n\nYour task:\n1. CRITIQUE the draft against the provided rubric and instructions.\n2. IDENTIFY strengths in their argument or synthesis.\n3. PINPOINT areas for improvement: Word count issues, missing core concepts, lack of synthesis, grammar or poor formatting.\n4. QUOTE specific lines from their draft that need work, and explain *why* based on the rubric.\n5. DO NOT rewrite the essay for them. Give them actionable, constructive pointers so they can fix it themselves.\n6. Format your response in clean Markdown with sections like 'The Good', 'Areas for Improvement', and 'Rubric Check'.`\n});\n\nconst geminiPayload = {\n  contents: [{ parts }],\n  generationConfig: {\n    temperature: 0.3,\n    topP: 0.85,\n    topK: 40,\n    maxOutputTokens: 8192\n  },\n  safetySettings: [\n    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }\n  ]\n};\n\nreturn { json: { geminiPayload } };"
+        "jsCode": "// ─── Build Essay Reviewer Payload ───\nconst body = $('Normalize Multipart Body').first().json.body;\nconst documents = body.documents || [];\nconst userNotes = body.userNotes || '';\n\n// Try to get scraped URL content\nlet scrapedContent = '';\ntry {\n  const raw = $('Scrape Reviewer URL').first().json;\n  if (typeof raw === 'string') scrapedContent = raw;\n  else if (raw.data) scrapedContent = String(raw.data);\n  else if (raw.body) scrapedContent = String(raw.body);\n} catch(e) { /* No scraped content */ }\n\n// Strip HTML tags from scraped content\nif (scrapedContent) {\n  scrapedContent = scrapedContent.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim();\n  if (scrapedContent.length > 50000) scrapedContent = scrapedContent.substring(0, 50000) + '\\n[Content truncated]';\n}\n\nconst ROLE_LABELS = {\n  essay: 'STUDENT ESSAY/DRAFT',\n  instructions: 'ASSIGNMENT INSTRUCTIONS',\n  rubric: 'GRADING RUBRIC',\n  sources: 'SOURCE MATERIALS'\n};\n\nconst parts = [];\n\n// Add documents with role labels\nfor (const doc of documents) {\n  parts.push({ text: `[${ROLE_LABELS[doc.role] || doc.role.toUpperCase()}: ${doc.name}]` });\n  if (doc.type === 'inline') {\n    parts.push({ inline_data: { mime_type: doc.mime_type, data: doc.base64 } });\n  } else if (doc.type === 'text') {\n    parts.push({ text: doc.content });\n  }\n}\n\n\n// Scanned PDFs — uploaded to Gemini's Files API upstream (see\n// \"Upload Scanned PDFs (Reviewer)\"); append their file_data parts.\nfor (const part of ($json.scannedPdfParts || [])) {\n  parts.push(part);\n}\n// Add scraped URL content\nif (scrapedContent) {\n  parts.push({ text: `[ONLINE RESOURCE from ${body.url}]:\\n${scrapedContent}` });\n}\n\n// Add student notes\nif (userNotes) {\n  parts.push({ text: `[STUDENT'S QUESTIONS/NOTES]:\\n${userNotes}` });\n}\n\n// Add the reviewer prompt\nparts.push({\n  text: `You are a strict but empathetic university lecturer. The user has provided their draft essay, alongside their assignment instructions, rubric, and source materials.\n\nYour task:\n1. CRITIQUE the draft against the provided rubric and instructions.\n2. IDENTIFY strengths in their argument or synthesis.\n3. PINPOINT areas for improvement: Word count issues, missing core concepts, lack of synthesis, grammar or poor formatting.\n4. QUOTE specific lines from their draft that need work, and explain *why* based on the rubric.\n5. DO NOT rewrite the essay for them. Give them actionable, constructive pointers so they can fix it themselves.\n6. Format your response in clean Markdown with sections like 'The Good', 'Areas for Improvement', and 'Rubric Check'.`\n});\n\nconst geminiPayload = {\n  contents: [{ parts }],\n  generationConfig: {\n    temperature: 0.3,\n    topP: 0.85,\n    topK: 40,\n    maxOutputTokens: 8192\n  },\n  safetySettings: [\n    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }\n  ]\n};\n\nreturn { json: { geminiPayload } };"
       },
-      "id": "cecf91a6-24c2-4c86-be43-3c7429d7d587",
+      "id": "cf43a739-6796-4e74-a78c-f77a578b83b2",
       "name": "Build Reviewer Payload",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        368,
-        1392
+        656,
+        2192
       ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $json.geminiPayload }}",
@@ -451,52 +453,50 @@
             }
           },
           "timeout": 300000
-        },
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth"
+        }
       },
-      "id": "3efd0ceb-7eab-4ae6-a8a3-66e0db0bc586",
+      "id": "7ea210b4-2799-44ce-b640-4314124bc066",
       "name": "Call Gemini (Reviewer)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        592,
-        1392
+        880,
+        2192
       ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "REPLACE_ME",
-          "name": "Gemini API Key"
-        }
-      },
       "retryOnFail": true,
       "maxTries": 3,
-      "waitBetweenTries": 5000
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uenokmEVAFXfzkBr",
+          "name": "Gemini API Key"
+        }
+      }
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nlet text = '';\n\ntry {\n  if (response.body && response.body.candidates && response.body.candidates.length > 0) {\n    const candidate = response.body.candidates[0];\n    if (candidate.content && candidate.content.parts) {\n      text = candidate.content.parts.filter(p => p.text).map(p => p.text).join('\\n');\n    }\n  }\n  if (!text && response.candidates && response.candidates.length > 0) {\n    text = response.candidates[0].content.parts.filter(p => p.text).map(p => p.text).join('\\n');\n  }\n  if (!text) throw new Error('No text extracted from Gemini response');\n} catch (err) {\n  throw new Error(`Gemini extraction failed: ${err.message}. Raw keys: ${JSON.stringify(Object.keys(response))}`);\n}\n\nreturn { json: { text: text.trim() } };"
+        "jsCode": "const response = $input.first().json;\nlet text = '';\n\ntry {\n  const candidates = (response.body && response.body.candidates) || response.candidates || [];\n  if (candidates.length > 0) {\n    const candidate = candidates[0];\n    const reason = candidate.finishReason || '';\n    if (reason === 'RECITATION') return { json: { text: '[Transcription blocked] The AI detected this may be published/copyrighted content and cannot reproduce it. Try uploading handwritten notes instead.' } };\n    if (reason === 'SAFETY') return { json: { text: '[Blocked] The AI safety filters prevented processing this content.' } };\n    if (candidate.content && candidate.content.parts) {\n      text = candidate.content.parts.filter(p => p.text).map(p => p.text).join('\\n');\n    }\n  }\n  if (!text) throw new Error('No text extracted from Gemini response');\n} catch (err) {\n  throw new Error(`Gemini extraction failed: ${err.message}. Raw keys: ${JSON.stringify(Object.keys(response))}`);\n}\n\nreturn { json: { text: text.trim() } };"
       },
-      "id": "8220dbba-da19-4f39-a533-a29bd5f95606",
+      "id": "3be90ee3-79fa-4336-b630-b8424666f52c",
       "name": "Extract Reviewer Text",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        816,
-        1392
+        1104,
+        2192
       ]
     },
     {
       "parameters": {
-        "jsCode": "// Handle error reports from the frontend\nconst body = $('Student Hub Endpoint').first().json.body;\n\nreturn {\n  json: {\n    to: body.recipient,\n    subject: `[Student Tools Hub Error] ${new Date().toISOString()}`,\n    htmlBody: `\n      <h2>Student Tools Hub — Error Report</h2>\n      <p><strong>Timestamp:</strong> ${body.timestamp}</p>\n      <p><strong>User Agent:</strong> ${body.userAgent}</p>\n      <p><strong>User Message:</strong> ${body.error.userMessage}</p>\n      <hr/>\n      <h3>Technical Detail</h3>\n      <pre style=\"background:#f4f4f4;padding:12px;border-radius:6px;font-size:13px;overflow-x:auto;\">${body.error.technicalDetail}</pre>\n    `\n  }\n};"
+        "jsCode": "// Handle error reports from the frontend\nconst body = $('Normalize Multipart Body').first().json.body;\n\nreturn {\n  json: {\n    to: body.recipient,\n    subject: `[Student Tools Hub Error] ${new Date().toISOString()}`,\n    htmlBody: `\n      <h2>Student Tools Hub — Error Report</h2>\n      <p><strong>Timestamp:</strong> ${body.timestamp}</p>\n      <p><strong>User Agent:</strong> ${body.userAgent}</p>\n      <p><strong>User Message:</strong> ${body.error.userMessage}</p>\n      <hr/>\n      <h3>Technical Detail</h3>\n      <pre style=\"background:#f4f4f4;padding:12px;border-radius:6px;font-size:13px;overflow-x:auto;\">${body.error.technicalDetail}</pre>\n    `\n  }\n};"
       },
-      "id": "e65784f7-3915-4cbb-ae6c-a16544c97478",
+      "id": "fb3d9288-81fb-4227-a4f7-dce4afcdf9c5",
       "name": "Handle Error Report1",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -80,
-        1632
+        208,
+        2432
       ]
     },
     {
@@ -506,13 +506,13 @@
         "message": "={{ $json.htmlBody }}",
         "options": {}
       },
-      "id": "85ddf3ba-cfb0-4092-be3a-943c02923510",
+      "id": "1e362c4e-f5bf-46d2-9ef3-f4d22ec53e4d",
       "name": "Send Error Email1",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
       "position": [
-        144,
-        1632
+        432,
+        2432
       ],
       "webhookId": "5bfa1643-d9a0-466f-8042-b069b8855b25",
       "credentials": {
@@ -526,26 +526,26 @@
       "parameters": {
         "jsCode": "return { json: { status: 'error_reported' } };"
       },
-      "id": "62aaf9e9-b729-4f9a-831d-5d67521bb6a8",
+      "id": "d4912668-8329-4abc-b2fa-1e6e5dffe53d",
       "name": "Error Email Response1",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        368,
-        1632
+        656,
+        2432
       ]
     },
     {
       "parameters": {
         "jsCode": "const error = $input.first().json;\n\nreturn {\n  json: {\n    to: 'jay-leigh.v@conversionscience.co.za',\n    subject: `[STH Workflow Error] ${error.workflow?.name || 'Unknown'} — ${new Date().toISOString()}`,\n    htmlBody: `\n      <h2>n8n Workflow Error — Student Tools Hub</h2>\n      <p><strong>Workflow:</strong> ${error.workflow?.name || 'N/A'}</p>\n      <p><strong>Node:</strong> ${error.execution?.lastNodeExecuted || 'N/A'}</p>\n      <p><strong>Error:</strong> ${error.execution?.error?.message || 'Unknown error'}</p>\n      <hr/>\n      <h3>Full Error</h3>\n      <pre style=\"background:#f4f4f4;padding:12px;border-radius:6px;font-size:13px;overflow-x:auto;\">${JSON.stringify(error, null, 2)}</pre>\n    `\n  }\n};"
       },
-      "id": "c658c67e-5cd4-45a7-8d78-b58a71c2bc38",
+      "id": "98a874e5-51fa-4de1-880e-521248e4c021",
       "name": "Format Workflow Error1",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -304,
-        2432
+        -16,
+        3232
       ]
     },
     {
@@ -555,13 +555,13 @@
         "message": "={{ $json.htmlBody }}",
         "options": {}
       },
-      "id": "6b386bb2-f31d-41bd-b831-7d58bb41aff6",
+      "id": "197c9216-cf0f-444f-b80b-b0ef5d9d4892",
       "name": "Send Workflow Error Email1",
       "type": "n8n-nodes-base.gmail",
       "typeVersion": 2.1,
       "position": [
-        -80,
-        2432
+        208,
+        3232
       ],
       "webhookId": "8fa5923a-cb7a-405b-8837-6b5459fbb38f",
       "credentials": {
@@ -573,27 +573,23 @@
     },
     {
       "parameters": {
-        "jsCode": "const { body, session, documentHash } = $input.first().json;\n\nconst MODEL = 'gemini-2.5-flash';\nconst CACHE_TTL_SECONDS = 10800; // 3 hours\n\n// Ad-hoc context (URL scrapes) is small and always sent inline, cached or not.\nconst adhocParts = [];\nif (body.attachedContext && body.attachedContext.length > 0) {\n  const ctxText = body.attachedContext\n    .map(c => `### ${c.name}\\n${c.content}`)\n    .join('\\n\\n');\n  adhocParts.push({ text: 'Reference material — treat this as the source of truth:\\n\\n' + ctxText });\n}\n\n// Cacheable context (attached KB docs + images) is the expensive, static part —\n// this is what we try to cache server-side instead of retransmitting every turn.\nconst cacheableParts = [];\nif (body.cachableContext && body.cachableContext.length > 0) {\n  const ctxText = body.cachableContext\n    .map(c => `### ${c.name}\\n${c.content}`)\n    .join('\\n\\n');\n  cacheableParts.push({ text: 'Reference material — treat this as the source of truth:\\n\\n' + ctxText });\n}\nfor (const img of (body.attachedImages || [])) {\n  if (!img.data) continue;\n  cacheableParts.push({ text: `Attached image: ${img.name}` });\n  cacheableParts.push({ inline_data: { mime_type: img.mime || 'image/jpeg', data: img.data } });\n}\n\nlet cacheName = null;\nlet cacheExpiresAt = null;\nlet usedCache = false;\nlet cacheError = null;\n\n// Session store (loaded upstream in \"Load Session\") is the authority on cache\n// validity — not the client — so a cache survives across devices/tabs, and an\n// edited/swapped document invalidates it automatically via documentHash.\nif (session && session.gemini && session.gemini.cacheId &&\n    session.gemini.expiresAt && Date.now() < session.gemini.expiresAt &&\n    session.gemini.documentHash === documentHash) {\n  cacheName = session.gemini.cacheId;\n  cacheExpiresAt = session.gemini.expiresAt;\n  usedCache = true;\n  console.log(`[Cache] Cache Hit: ${cacheName} — TTL Remaining: ${Math.max(0, Math.round((cacheExpiresAt - Date.now()) / 1000))}s`);\n} else if (cacheableParts.length > 0) {\n  if (session && session.gemini && session.gemini.cacheId) {\n    console.log('[Cache] Cache Invalidated — document hash changed or cache expired');\n  } else {\n    console.log('[Cache] Cache Miss — no cached content on record');\n  }\n  // No valid cache on record, but there's reference material worth caching — create one.\n  try {\n    const geminiCred = await this.getCredentials('httpHeaderAuth'); // credential: \"Gemini API Key\"\n    const cacheRes = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'https://generativelanguage.googleapis.com/v1beta/cachedContents',\n      headers: { [geminiCred.name]: geminiCred.value },\n      body: {\n        model: `models/${MODEL}`,\n        systemInstruction: { parts: [{ text: body.systemPrompt }] },\n        contents: [{ role: 'user', parts: cacheableParts }],\n        ttl: `${CACHE_TTL_SECONDS}s`\n      },\n      json: true\n    });\n    if (cacheRes && cacheRes.name) {\n      cacheName = cacheRes.name;\n      cacheExpiresAt = Date.now() + CACHE_TTL_SECONDS * 1000;\n      usedCache = true;\n      console.log(`[Cache] Cache Created: ${cacheName} — TTL Remaining: ${CACHE_TTL_SECONDS}s`);\n    }\n  } catch (err) {\n    // Reference material too small to cache, or the API rejected it — fall back to\n    // sending it inline this turn, same as the old behaviour. Not fatal.\n    cacheError = err.message || String(err);\n    console.log(`[Cache] Redis/Gemini cache creation failed — falling back to inline context: ${cacheError}`);\n  }\n}\n\nconst contents = [];\n\nif (adhocParts.length > 0) {\n  contents.push({ role: 'user', parts: adhocParts });\n  contents.push({ role: 'model', parts: [{ text: 'Got it — noted.' }] });\n}\n\nif (!usedCache && cacheableParts.length > 0) {\n  contents.push({ role: 'user', parts: cacheableParts });\n  contents.push({\n    role: 'model',\n    parts: [{ text: 'Got it, I have your reference material loaded. What do you need help with?' }]\n  });\n}\n\n// Map conversation messages (role is already 'user'/'model' — Gemini-compatible)\nfor (const m of (body.messages || [])) {\n  contents.push({ role: m.role, parts: [{ text: m.text }] });\n}\n\nconst geminiBody = {\n  contents,\n  generationConfig: {\n    temperature: 0.7,\n    maxOutputTokens: 49152\n  }\n};\n\nif (usedCache) {\n  geminiBody.cachedContent = cacheName;\n} else {\n  geminiBody.system_instruction = { parts: [{ text: body.systemPrompt }] };\n}\n\nreturn [{\n  json: {\n    geminiBody,\n    sessionId: body.chatId,\n    documentHash,\n    cacheName,\n    cacheExpiresAt,\n    usedCache,\n    cacheError\n  }\n}];\n"
+        "jsCode": "const input = $input.first().json;\nconst body = input.body;\nconst session = input.session;\nconst documentHash = input.documentHash;\n\n// Ad-hoc context (scrapes)\nconst adhocParts = [];\n\nconst docs = body.attachedContext || [];\n\nif (docs.length > 0) {\n\n    // If there's only one document, it's obviously the primary one.\n    if (docs.length === 1) {\n\n        const doc = docs[0];\n\n        adhocParts.push({\n            text:\n`PRIMARY DOCUMENT\n\nFilename: ${doc.name}\n\nThe user's questions should be answered using this document.\n\n${doc.content}`\n        });\n\n    } else {\n\n        // Multiple documents attached.\n        // Present the first as the current document and clearly separate the rest.\n        const [primary, ...others] = docs;\n\n        adhocParts.push({\n            text:\n`PRIMARY DOCUMENT\n\nFilename: ${primary.name}\n\nThe user's current questions most likely refer to this document unless they explicitly ask to compare documents.\n\n${primary.content}`\n        });\n\n        if (others.length) {\n\n            const otherText = others\n                .map(doc =>\n`### ${doc.name}\n\n${doc.content}`)\n                .join(\"\\n\\n--------------------------------------------------\\n\\n\");\n\n            adhocParts.push({\n                text:\n`ADDITIONAL REFERENCE DOCUMENTS\n\nThese documents may provide supporting context if needed.\n\n${otherText}`\n            });\n\n        }\n\n    }\n\n}\n\n// Cacheable context (KB docs + images)\nconst cacheableParts = [];\nif (body.cachableContext && body.cachableContext.length > 0) {\n  const ctxText = body.cachableContext\n    .map(c => `### ${c.name}\\n${c.content}`)\n    .join('\\n\\n');\n  cacheableParts.push({ text: 'Reference material — treat this as the source of truth:\\n\\n' + ctxText });\n}\nfor (const img of (body.attachedImages || [])) {\n  if (!img.data) continue;\n  cacheableParts.push({ text: `Attached image: ${img.name}` });\n  cacheableParts.push({ inline_data: { mime_type: img.mime || 'image/jpeg', data: img.data } });\n}\n\n// Scanned PDFs — handed to Gemini via Files API; n8n owns upload/reuse\n// (see \"Upload Scanned PDFs\"). Cheap to resend every turn: it's just a\n// file_uri reference, not the document bytes.\nfor (const part of (input.geminiFileParts || [])) {\n  cacheableParts.push(part);\n}\n\nconst contents = [];\n\n/*\n * 1. Reference material FIRST\n * This is the authoritative source.\n */\nif (adhocParts.length || cacheableParts.length) {\n\n    contents.push({\n        role: \"user\",\n        parts: [\n            {\n                text:\n`REFERENCE MATERIAL\n\nThe following material is the authoritative source for this conversation.\n\nIf any previous assistant response contradicts this material,\nthe previous response is WRONG.\n\nAlways answer using the reference material below.`\n            },\n            ...adhocParts,\n            ...cacheableParts\n        ]\n    });\n\n}\n\n/*\n * 2. Previous conversation\n */\nconst MAX_HISTORY = 30;\n\nconst previousConversation =\n    (session?.conversation || [])\n        .slice(-MAX_HISTORY);\n\nfor (const m of previousConversation) {\n\n    contents.push({\n        role: m.role,\n        parts: [\n            {\n                text: m.text\n            }\n        ]\n    });\n\n}\n\n/*\n * 3. Latest user messages\n */\nconst latestMessage = body.messages?.at(-1);\n\nif (latestMessage) {\n\n    contents.push({\n        role: latestMessage.role,\n        parts: [\n            {\n                text: latestMessage.text\n            }\n        ]\n    });\n\n}\n\nconst geminiBody = {\n  contents,\n  system_instruction: {\n    parts: [\n      {\n        text:\n`${body.systemPrompt}\n\nGrounding rules:\n\n• The attached documents are the authoritative source.\n\n• If previous assistant responses contradict the attached documents, correct yourself immediately.\n\n• Never repeat an incorrect previous answer merely for consistency.\n\n• Prefer the attached documents over conversation history.\n\n• If multiple documents exist, answer primarily from the PRIMARY DOCUMENT unless the user explicitly asks to compare them.\n\n• If information is absent from the documents, clearly say so instead of guessing.\n`\n      }\n    ]\n  },\n  generationConfig: {\n    temperature: 0.7,\n    maxOutputTokens: 49152\n  }\n};\n\nreturn [{\n  json: {\n    geminiBody,\n    sessionId: body.chatId,\n    documentHash\n  }\n}];"
       },
-      "id": "e2062ad0-690d-4996-9959-7c316c8ef2fa",
+      "id": "d35d5df7-9dd1-4b49-84bc-e37be24bbbf1",
       "name": "Prep — Tutor",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -80,
-        1824
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "REPLACE_ME",
-          "name": "Gemini API Key"
-        }
-      }
+        880,
+        2816
+      ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "contentType": "raw",
         "rawContentType": "application/json",
@@ -605,36 +601,34 @@
             }
           },
           "timeout": 300000
-        },
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth"
+        }
       },
-      "id": "87fc9cb2-711f-4406-81e3-52e36e461d3c",
+      "id": "907101dd-42d6-460b-b33d-6bdaf076b0c0",
       "name": "Gemini — Tutor",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        144,
-        1824
+        1104,
+        2816
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "REPLACE_ME",
+          "id": "uenokmEVAFXfzkBr",
           "name": "Gemini API Key"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const response = $input.first().json;\nlet text = '';\n\ntry {\n  if (response.body && response.body.candidates && response.body.candidates.length > 0) {\n    const candidate = response.body.candidates[0];\n    if (candidate.content && candidate.content.parts) {\n      text = candidate.content.parts.filter(p => p.text).map(p => p.text).join('\\n');\n    }\n  }\n  if (!text && response.candidates && response.candidates.length > 0) {\n    text = response.candidates[0].content.parts.filter(p => p.text).map(p => p.text).join('\\n');\n  }\n  if (!text) throw new Error('No text extracted from Gemini response');\n} catch (err) {\n  throw new Error(`Tutor Gemini extraction failed: ${err.message}. Raw keys: ${JSON.stringify(Object.keys(response))}`);\n}\n\nconst prep = $('Prep — Tutor').item.json;\n\nreturn { json: {\n  result: text.trim(),\n  cacheName: prep.cacheName || null,\n  cacheExpiresAt: prep.cacheExpiresAt || null\n} };"
+        "jsCode": "const response = $('Gemini — Tutor').first().json;\nlet text = '';\n\ntry {\n  const candidates = (response.body && response.body.candidates) || response.candidates || [];\n  if (candidates.length > 0) {\n    const candidate = candidates[0];\n    const reason = candidate.finishReason || '';\n    if (reason === 'RECITATION') return { json: { result: '[Transcription blocked] The AI detected this may be published/copyrighted content and cannot reproduce it. Try uploading handwritten notes instead.' } };\n    if (reason === 'SAFETY') return { json: { result: '[Blocked] The AI safety filters prevented processing this content.' } };\n    if (candidate.content && candidate.content.parts) {\n      text = candidate.content.parts.filter(p => p.text).map(p => p.text).join('\\n');\n    }\n  }\n  if (!text) throw new Error('No text extracted from Gemini response');\n} catch (err) {\n  throw new Error(`Tutor Gemini extraction failed: ${err.message}. Raw keys: ${JSON.stringify(Object.keys(response))}`);\n}\n\nconst prep = $('Prep — Tutor').first().json;\n\nreturn { json: {\n  result: text.trim(),\n  cacheName: prep.cacheName || null,\n  cacheExpiresAt: prep.cacheExpiresAt || null\n} };"
       },
-      "id": "8d6bed27-7940-4c16-a91f-dd42ba2e351d",
+      "id": "63db02af-e6f2-4ed5-8afb-d30f80e4904e",
       "name": "Extract Tutor Text",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        368,
-        1824
+        1328,
+        2816
       ]
     },
     {
@@ -646,13 +640,13 @@
           "rawBody": false
         }
       },
-      "id": "32855ffe-d9b4-4b05-b14e-7f7fdb4192c5",
+      "id": "ac8dd573-d849-4fd9-a822-3fe446491a6f",
       "name": "Student Hub Endpoint",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2,
       "position": [
-        -528,
-        1632
+        -240,
+        2432
       ],
       "webhookId": "student-tools"
     },
@@ -674,13 +668,13 @@
           "timeout": 20000
         }
       },
-      "id": "f96eb95b-b448-45c3-b35a-d23377077dc0",
+      "id": "065014ef-a7ae-4b43-a609-5e774512e569",
       "name": "Scrape — Fetch URL",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -80,
-        2208
+        208,
+        3008
       ],
       "onError": "continueRegularOutput"
     },
@@ -688,19 +682,21 @@
       "parameters": {
         "jsCode": "const input = $input.first().json;\n\nconst status = input.statusCode || (input.body && input.body.error ? 500 : null);\nif (input.error || (status && status >= 400)) {\n  let message = 'We couldn\\'t read this website. It might be protected by a paywall or login screen.';\n  if (status === 403) message = 'We couldn\\'t read this website — it blocked our request (403 Forbidden).';\n  else if (status === 404) message = 'Page not found (404). Double-check the URL.';\n  else if (status === 401) message = 'This page requires a login. Please copy the text manually.';\n  else if (status === 429) message = 'The site is rate-limiting requests. Try again in a minute.';\n  return [{ json: { error: true, message } }];\n}\n\nlet html = '';\nif (input.body && typeof input.body === 'string') html = input.body;\nelse if (typeof input.data === 'string') html = input.data;\n\nif (!html || html.trim().length < 50) {\n  return [{ json: { error: true, message: 'We couldn\\'t read this website. It may have returned no content.' } }];\n}\n\n// ── YouTube-specific: grab uploadDate before stripping <script> tags ──\nlet ytUploadDate = '';\nconst m = html.match(/\"uploadDate\"\\s*:\\s*\"([^\"]+)\"/);\nif (m) ytUploadDate = m[1];\nconst m2 = html.match(/\"datePublished\"\\s*:\\s*\"([^\"]+)\"/);\nif (!ytUploadDate && m2) ytUploadDate = m2[1];\n\nhtml = html.replace(/<script\\b[^<]*(?:(?!<\\/script>)<[^<]*)*<\\/script>/gi, '');\nhtml = html.replace(/<style\\b[^<]*(?:(?!<\\/style>)<[^<]*)*<\\/style>/gi, '');\nhtml = html.replace(/<nav\\b[^<]*(?:(?!<\\/nav>)<[^<]*)*<\\/nav>/gi, '');\nhtml = html.replace(/<header\\b[^<]*(?:(?!<\\/header>)<[^<]*)*<\\/header>/gi, '');\nhtml = html.replace(/<footer\\b[^<]*(?:(?!<\\/footer>)<[^<]*)*<\\/footer>/gi, '');\nhtml = html.replace(/<aside\\b[^<]*(?:(?!<\\/aside>)<[^<]*)*<\\/aside>/gi, '');\nhtml = html.replace(/<!--[\\s\\S]*?-->/g, '');\n\nhtml = html.replace(/<h1[^>]*>([\\s\\S]*?)<\\/h1>/gi, '\\n# $1\\n');\nhtml = html.replace(/<h2[^>]*>([\\s\\S]*?)<\\/h2>/gi, '\\n## $1\\n');\nhtml = html.replace(/<h3[^>]*>([\\s\\S]*?)<\\/h3>/gi, '\\n### $1\\n');\nhtml = html.replace(/<h4[^>]*>([\\s\\S]*?)<\\/h4>/gi, '\\n#### $1\\n');\nhtml = html.replace(/<h5[^>]*>([\\s\\S]*?)<\\/h5>/gi, '\\n##### $1\\n');\nhtml = html.replace(/<li[^>]*>([\\s\\S]*?)<\\/li>/gi, '\\n- $1');\nhtml = html.replace(/<\\/[uo]l>/gi, '\\n');\nhtml = html.replace(/<br\\s*\\/?>/gi, '\\n');\nhtml = html.replace(/<\\/p>/gi, '\\n\\n');\nhtml = html.replace(/<\\/div>/gi, '\\n');\nhtml = html.replace(/<\\/tr>/gi, '\\n');\nhtml = html.replace(/<td[^>]*>/gi, ' | ');\nhtml = html.replace(/<th[^>]*>/gi, ' | ');\nhtml = html.replace(/<\\/table>/gi, '\\n');\nhtml = html.replace(/<hr[^>]*>/gi, '\\n---\\n');\nhtml = html.replace(/<blockquote[^>]*>/gi, '\\n> ');\nhtml = html.replace(/<\\/blockquote>/gi, '\\n');\nhtml = html.replace(/<code[^>]*>([\\s\\S]*?)<\\/code>/gi, '`$1`');\nhtml = html.replace(/<pre[^>]*>([\\s\\S]*?)<\\/pre>/gi, '\\n```\\n$1\\n```\\n');\nhtml = html.replace(/<strong[^>]*>([\\s\\S]*?)<\\/strong>/gi, '**$1**');\nhtml = html.replace(/<b[^>]*>([\\s\\S]*?)<\\/b>/gi, '**$1**');\nhtml = html.replace(/<em[^>]*>([\\s\\S]*?)<\\/em>/gi, '*$1*');\nhtml = html.replace(/<i[^>]*>([\\s\\S]*?)<\\/i>/gi, '*$1*');\nhtml = html.replace(/<a[^>]*href=[\"']([^\"']*)[\"'][^>]*>([\\s\\S]*?)<\\/a>/gi, '$2');\nhtml = html.replace(/<[^>]+>/g, '');\n\nhtml = html.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '\"').replace(/&#39;/g, \"'\").replace(/&mdash;/g, '\\u2014').replace(/&ndash;/g, '\\u2013').replace(/&hellip;/g, '\\u2026').replace(/&#(\\d+);/g, (m, n) => String.fromCharCode(n));\n\nhtml = html.replace(/[ \\t]{2,}/g, ' ').replace(/\\n{3,}/g, '\\n\\n').trim();\n\nif (html.length > 40000) html = html.slice(0, 40000) + '\\n\\n_[Content truncated at 40,000 characters]_';\n\nif (html.length < 50) return [{ json: { error: true, message: 'We couldn\\'t extract readable text from this page. Try copying the text manually.' } }];\n\nreturn [{ json: { text: html, ytUploadDate } }];"
       },
-      "id": "b5518472-50b0-4905-9889-c28de66c84ff",
+      "id": "2e691e53-09f2-4217-8ff7-7ea0c6b90a06",
       "name": "Clean HTML — Scrape",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        144,
-        2208
+        432,
+        3008
       ]
     },
     {
       "parameters": {
         "method": "POST",
         "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -726,27 +722,25 @@
             }
           },
           "timeout": 60000
-        },
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth"
+        }
       },
-      "id": "bfc44225-53ae-4588-afdd-cd2a320f5378",
+      "id": "36c6d534-dc1c-449e-828d-b3b646b79f70",
       "name": "Reference",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        144,
-        2016
+        432,
+        2624
       ],
       "retryOnFail": true,
       "maxTries": 2,
-      "onError": "continueRegularOutput",
       "credentials": {
         "httpHeaderAuth": {
-          "id": "REPLACE_ME",
+          "id": "uenokmEVAFXfzkBr",
           "name": "Gemini API Key"
         }
-      }
+      },
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -755,10 +749,10 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -80,
-        2016
+        208,
+        2624
       ],
-      "id": "601ba4a5-2798-4887-8193-42317b63c5af",
+      "id": "89940ed1-e7a6-43a1-ae39-32efaa5e9eae",
       "name": "Build Reference Payload"
     },
     {
@@ -768,48 +762,296 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        368,
-        2016
+        656,
+        2624
       ],
-      "id": "a4d7f74e-5a75-45ee-afab-2e73bcca64b1",
+      "id": "2b69e540-9e31-4491-a7d4-786e01c903c7",
       "name": "Extract Reference Citation"
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "const body = $input.first().json.body;\n\n// --- Session Store (dumb Redis layer via Upstash REST) ---\n// Only get/set/delete belong here — no search or embedding logic. That keeps this\n// layer swappable later (Redis -> Postgres -> whatever) without touching anything\n// downstream (retrieval, evidence, tutor).\nconst cred = await this.getCredentials('httpHeaderAuth'); // credential: \"Upstash Redis REST\"\nconst UPSTASH_URL = 'https://sweeping-jennet-172408.upstash.io';\n\nlet redisFailed = false;\nconst redisCommand = async (cmd) => {\n  try {\n    const res = await this.helpers.httpRequest({\n      method: 'POST',\n      url: UPSTASH_URL,\n      headers: { [cred.name]: cred.value },\n      body: cmd,\n      json: true\n    });\n    return res && res.result;\n  } catch (err) {\n    redisFailed = true;\n    console.log(`[Session] Redis Failure (load): ${err.message || err}`);\n    return null; // Session store unavailable this turn — caller falls back gracefully.\n  }\n};\n\nconst getSession = async (sessionId) => {\n  const raw = await redisCommand(['GET', `session:${sessionId}`]);\n  return raw ? JSON.parse(raw) : null;\n};\n\n// Fingerprint of the attached doc set (id + updatedAt + size) — catches an added,\n// removed, OR edited document (same ID, replaced content), not just a changed ID set.\nfunction hashDocs(fingerprints) {\n  const str = (fingerprints || []).slice()\n    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))\n    .map(f => `${f.id}:${f.updatedAt}:${f.size}`)\n    .join('|');\n  let h = 5381;\n  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;\n  return (h >>> 0).toString(16);\n}\n\nconst sessionId = body.chatId;\nconst documentHash = hashDocs(body.documentFingerprints);\nconst session = sessionId ? await getSession(sessionId) : null;\n\nif (session) {\n  const ttlRemaining = Math.max(0, Math.round(((session.expiresAt || 0) - Date.now()) / 1000));\n  console.log(`[Session] Session Loaded: ${sessionId} — TTL Remaining: ${ttlRemaining}s`);\n} else if (!redisFailed) {\n  console.log(`[Session] No existing session found for: ${sessionId}`);\n}\n\n// Tutor still works even if Redis is down — session/cache just won't persist this turn.\nreturn [{ json: { body, session, documentHash, redisFailed } }];\n"
+        "jsCode": "const body = $input.first().json.body;\n\nfunction hashDocs(fingerprints) {\n  const str = (fingerprints || [])\n    .slice()\n    .sort((a, b) => a.id.localeCompare(b.id))\n    .map(f => `${f.id}:${f.updatedAt}:${f.size}`)\n    .join('|');\n\n  let h = 5381;\n  for (let i = 0; i < str.length; i++) {\n    h = ((h << 5) + h + str.charCodeAt(i)) | 0;\n  }\n\n  return (h >>> 0).toString(16);\n}\n\nreturn [{\n  json: {\n    body,\n    sessionId: body.chatId,\n    documentHash: hashDocs(body.documentFingerprints)\n  }\n}];"
       },
-      "id": "4f5872b0-0384-4ea4-9ea4-5a3fe79251fc",
+      "id": "deacbd52-f524-4094-88e6-8a9a58ba95e7",
       "name": "Load Session",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -192,
-        1824
+        208,
+        2816
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sweeping-jennet-172408.upstash.io",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n[\n  \"GET\",\n  `session:${$json.sessionId}`\n]\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        432,
+        2816
       ],
+      "id": "90ac59e7-3e76-4f57-98e1-ef76d077230f",
+      "name": "Redis GET",
       "credentials": {
         "httpHeaderAuth": {
-          "id": "REPLACE_ME",
+          "id": "VnWFZXj8xOxogUEA",
           "name": "Upstash Redis REST"
         }
       }
     },
     {
       "parameters": {
-        "mode": "runOnceForAllItems",
-        "jsCode": "// --- Session Store write-back (dumb Redis layer via Upstash REST) ---\n// Lives in its own node (separate from \"Prep — Tutor\") for two reasons:\n// 1. Single responsibility — Prep only decides/creates the Gemini cache, this node\n//    only persists session state, so neither node grows to do everything.\n// 2. Credential constraint — Prep is bound to the \"Gemini API Key\" Header Auth\n//    credential; this node is bound to \"Upstash Redis REST\". A node can only hold\n//    one credential per type, so Redis reads/writes and the Gemini call can't share\n//    a single Code node anyway.\nconst cred = await this.getCredentials('httpHeaderAuth'); // credential: \"Upstash Redis REST\"\nconst UPSTASH_URL = 'https://sweeping-jennet-172408.upstash.io'; // same endpoint as \"Load Session\"\nconst CACHE_TTL_SECONDS = 10800; // 3 hours\nconst SCHEMA_VERSION = 1;\n\nconst redisCommand = async (cmd) => {\n  try {\n    await this.helpers.httpRequest({\n      method: 'POST',\n      url: UPSTASH_URL,\n      headers: { [cred.name]: cred.value },\n      body: cmd,\n      json: true\n    });\n    return true;\n  } catch (err) {\n    console.log(`[Session] Redis Failure (save): ${err.message || err}`);\n    return false; // Session store unavailable — next turn just rebuilds the cache. Not fatal.\n  }\n};\n\nconst prep = $('Prep — Tutor').item.json;\nconst loaded = $('Load Session').item.json;\n\nif (prep.sessionId) {\n  const now = Date.now();\n  const prevSession = loaded.session;\n  const nextSession = {\n    schemaVersion: SCHEMA_VERSION,\n    id: prep.sessionId,\n    createdAt: (prevSession && prevSession.createdAt) || now,\n    expiresAt: now + CACHE_TTL_SECONDS * 1000,\n    conversation: (prevSession && prevSession.conversation) || null,\n    gemini: prep.usedCache\n      ? { cacheId: prep.cacheName, expiresAt: prep.cacheExpiresAt, documentHash: prep.documentHash }\n      : (prevSession && prevSession.gemini) || null,\n    // Reserved for later phases — kept in the schema now so it never needs restructuring.\n    documents: (prevSession && prevSession.documents) || null,\n    evidence: (prevSession && prevSession.evidence) || null,\n    retrievalHistory: (prevSession && prevSession.retrievalHistory) || null,\n    preferences: (prevSession && prevSession.preferences) || null,\n  };\n  const saved = await redisCommand(['SET', `session:${prep.sessionId}`, JSON.stringify(nextSession), 'EX', String(CACHE_TTL_SECONDS)]);\n  if (saved) {\n    console.log(`[Session] ${prevSession ? 'Session Saved' : 'Session Created'}: ${prep.sessionId} — TTL Remaining: ${CACHE_TTL_SECONDS}s`);\n  }\n}\n\n// Pass the Gemini response through untouched — Extract Tutor Text still reads it. Tutor\n// still returns a valid reply even when Redis is unavailable — persistence is best-effort.\nreturn [$input.first()];\n"
+        "jsCode": "const load = $('Load Session').first().json;\nconst redisResponse = $input.first().json;\n\nlet session = {\n  conversation: []\n};\n\ntry {\n  if (redisResponse.result) {\n    session = typeof redisResponse.result === 'string'\n      ? JSON.parse(redisResponse.result)\n      : redisResponse.result;\n  }\n} catch (e) {\n  session = { conversation: [] };\n}\n\nconst currentHash = load.documentHash;\n\nif (\n    session.documentHash &&\n    session.documentHash !== currentHash\n) {\n\n    session = {\n        conversation: [],\n        documentHash: currentHash\n    };\n\n}\n\nreturn [{\n  json: {\n    body: load.body,\n    sessionId: load.sessionId,\n    documentHash: load.documentHash,\n    session\n  }\n}];"
       },
-      "id": "3ca1788d-ece9-4d77-ad61-ab419634e887",
-      "name": "Save Session",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        256,
-        1824
+        656,
+        2816
+      ],
+      "id": "5e41fd9c-e9e6-4cf6-80c1-2e7efa61255c",
+      "name": "Parse Session"
+    },
+    {
+      "parameters": {
+        "jsCode": "const prep = $('Prep — Tutor').first().json;\nconst parsed = $('Upload Scanned PDFs').first().json;\n\nconst previous = parsed.session || {};\n\nconst assistant =\n    $('Extract Tutor Text').first().json.result;\n\nconst latestUser =\n    parsed.body.messages.at(-1);\n\nconst conversation = [\n    ...(previous.conversation || [])\n];\n\nif (latestUser) {\n    conversation.push({\n        role: latestUser.role,\n        text: latestUser.text\n    });\n}\n\nconversation.push({\n    role: \"model\",\n    text: assistant\n});\n\nconst now = Date.now();\n\nconst currentDocs = parsed.body.attachedContext || [];\n\nconst session = {\n    schemaVersion: 1,\n\n    id: prep.sessionId,\n\n    createdAt: previous.createdAt ?? now,\n\n    expiresAt: now + 10800 * 1000,\n\n    documentHash: prep.documentHash,\n\n    documents: currentDocs.map(d => ({\n        name: d.name,\n        hash: prep.documentHash\n    })),\n\n    conversation,\n\n    geminiFiles: parsed.updatedGeminiFiles || previous.geminiFiles || {},\n};\n\nreturn [{\n    json: {\n        sessionKey: `session:${prep.sessionId}`,\n        sessionValue: JSON.stringify(session),\n        reuploadScannedPdfs: parsed.reuploadScannedPdfs || []\n    }\n}];"
+      },
+      "id": "d741b6ba-287d-480e-9583-c000575be669",
+      "name": "Save Session Builder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1552,
+        2816
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sweeping-jennet-172408.upstash.io",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n[\n  \"SET\",\n  $json.sessionKey,\n  $json.sessionValue,\n  \"EX\",\n  \"10800\"\n]\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1776,
+        2816
+      ],
+      "id": "e57d7203-ea18-4dd4-8048-68ca9c86099b",
+      "name": "Redis SET",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VnWFZXj8xOxogUEA",
+          "name": "Upstash Redis REST"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const tutor = $('Extract Tutor Text').first().json;\nconst saved = $('Save Session Builder').first().json;\n\nreturn [{\n  json: {\n    result: tutor.result,\n    reuploadScannedPdfs: saved.reuploadScannedPdfs || []\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1984,
+        2816
+      ],
+      "id": "710e7b0b-88bc-4c2e-ae25-69cc8a521e87",
+      "name": "Build Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nlet body = item.json.body || {};\n\nif (typeof body.payload === 'string') {\n  let parsed;\n  try {\n    parsed = JSON.parse(body.payload);\n  } catch (e) {\n    throw new Error('Malformed multipart \"payload\" field: ' + e.message);\n  }\n  body = { ...body, ...parsed };\n  delete body.payload;\n}\n\nreturn [{ json: { ...item.json, body } }];\n"
+      },
+      "id": "b4a1f2e0-normalize-multipart-body-0001",
+      "name": "Normalize Multipart Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -128,
+        2432
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const GEMINI_FILE_TTL_MS = 47 * 60 * 60 * 1000; // stay under Gemini's 48h file lifetime\nconst parsed = $input.first().json;\nconst body = parsed.body || {};\nconst scannedPdfDocs = body.scannedPdfDocs || [];\nconst session = parsed.session || {};\nconst sessionRegistry = { ...(session.geminiFiles || {}) };\nconst persistentRegistry = parsed.persistentGeminiFiles || {};\nconst now = Date.now();\n\nconst geminiFileParts = [];\nconst reuploadScannedPdfs = [];\nconst newPersistentEntries = {}; // hash -> record, written by \"Save Persistent Gemini Files\"\n\nif (scannedPdfDocs.length > 0) {\n  const geminiCred = await this.getCredentials('httpHeaderAuth'); // credential: \"Gemini API Key\"\n\n  for (const doc of scannedPdfDocs) {\n    const hash = doc.contentHash;\n    const sessionHit = hash ? sessionRegistry[hash] : null;\n    const persistentHit = hash ? persistentRegistry[hash] : null;\n    const cached =\n      (sessionHit && sessionHit.expiresAt > now) ? sessionHit :\n      (persistentHit && persistentHit.expiresAt > now) ? persistentHit :\n      null;\n\n    if (cached) {\n      geminiFileParts.push({ text: `Attached PDF: ${doc.name}${doc.pageCount ? ` (${doc.pageCount} pages)` : ''}` });\n      geminiFileParts.push({ file_data: { mime_type: cached.mimeType, file_uri: cached.uri } });\n      // Backfill the session copy so later turns in this chat skip the\n      // persistent-registry round trip too.\n      if (hash && !sessionRegistry[hash]) sessionRegistry[hash] = cached;\n      continue;\n    }\n\n    let buffer = null;\n    if (doc.fieldName) {\n      try {\n        buffer = await this.helpers.getBinaryDataBuffer(0, doc.fieldName);\n      } catch (e) {\n        buffer = null;\n      }\n    } else if (doc.driveFileId && doc.driveAccessToken) {\n      try {\n        buffer = await this.helpers.httpRequest({\n          method: 'GET',\n          url: `https://www.googleapis.com/drive/v3/files/${doc.driveFileId}?alt=media`,\n          headers: { Authorization: `Bearer ${doc.driveAccessToken}` },\n          encoding: 'arraybuffer',\n          json: false,\n        });\n        if (buffer && !Buffer.isBuffer(buffer)) buffer = Buffer.from(buffer);\n      } catch (e) {\n        buffer = null;\n      }\n    }\n\n    if (!buffer) {\n      // Client thought this was already cached (or dropped it) but we have no\n      // valid Gemini file on record — ask for it again next turn instead of\n      // failing this one outright.\n      if (hash) reuploadScannedPdfs.push(hash);\n      geminiFileParts.push({ text: `[System note: \"${doc.name}\" could not be read this turn — it may need to be re-attached. If the user asks about it and it's missing, tell them to try attaching it again.]` });\n      continue;\n    }\n\n    if (buffer.length > 50 * 1024 * 1024) {\n      throw new Error(`FILE_TOO_LARGE: \"${doc.name}\" is ${(buffer.length / 1024 / 1024).toFixed(1)}MB, over Gemini's 50MB PDF limit`);\n    }\n\n    // 1) Initiate a resumable upload\n    const initRes = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'https://generativelanguage.googleapis.com/upload/v1beta/files',\n      headers: {\n        [geminiCred.name]: geminiCred.value,\n        'X-Goog-Upload-Protocol': 'resumable',\n        'X-Goog-Upload-Command': 'start',\n        'X-Goog-Upload-Header-Content-Length': String(buffer.length),\n        'X-Goog-Upload-Header-Content-Type': 'application/pdf',\n        'Content-Type': 'application/json',\n      },\n      body: { file: { display_name: doc.name } },\n      json: true,\n      returnFullResponse: true,\n    });\n\n    const uploadUrl = (initRes.headers && (initRes.headers['x-goog-upload-url'] || initRes.headers['X-Goog-Upload-URL'])) || null;\n    if (!uploadUrl) throw new Error(`GEMINI_FILE_UPLOAD: no upload URL returned for \"${doc.name}\"`);\n\n    // 2) Upload the bytes and finalize\n    const uploadRes = await this.helpers.httpRequest({\n      method: 'POST',\n      url: uploadUrl,\n      headers: {\n        'Content-Length': String(buffer.length),\n        'X-Goog-Upload-Offset': '0',\n        'X-Goog-Upload-Command': 'upload, finalize',\n      },\n      body: buffer,\n      json: true,\n    });\n\n    const uploaded = uploadRes.file || uploadRes;\n    if (!uploaded || !uploaded.uri) throw new Error(`GEMINI_FILE_UPLOAD: no file URI returned for \"${doc.name}\"`);\n\n    // 3) Poll until ACTIVE — require it explicitly rather than assuming a\n    // fixed iteration count is enough (a 200+ page PDF can take a while).\n    // PROCESSING keeps polling until the deadline; FAILED or any other\n    // unexpected state fails fast instead of silently using a half-ready file.\n    let state = uploaded.state;\n    let fileName = uploaded.name;\n    let uri = uploaded.uri;\n    let mimeType = uploaded.mimeType || 'application/pdf';\n    const pollDeadline = Date.now() + 60000; // 60s wall-clock, not a fixed try count\n    while (state !== 'ACTIVE') {\n      if (state === 'FAILED') throw new Error(`GEMINI_FILE_PROCESSING_FAILED: Gemini failed to process \"${doc.name}\"`);\n      if (state !== 'PROCESSING') throw new Error(`GEMINI_FILE_PROCESSING_FAILED: unexpected state \"${state}\" for \"${doc.name}\"`);\n      if (Date.now() > pollDeadline) throw new Error(`GEMINI_FILE_PROCESSING_TIMEOUT: \"${doc.name}\" did not become ACTIVE within 60s`);\n      await new Promise(r => setTimeout(r, 1000));\n      const check = await this.helpers.httpRequest({\n        method: 'GET',\n        url: `https://generativelanguage.googleapis.com/v1beta/${fileName}`,\n        headers: { [geminiCred.name]: geminiCred.value },\n        json: true,\n      });\n      state = check.state;\n      uri = check.uri || uri;\n      mimeType = check.mimeType || mimeType;\n    }\n\n    if (hash) {\n      const record = { uri, mimeType, expiresAt: now + GEMINI_FILE_TTL_MS };\n      sessionRegistry[hash] = record;\n      newPersistentEntries[hash] = record;\n    }\n    geminiFileParts.push({ text: `Attached PDF: ${doc.name}${doc.pageCount ? ` (${doc.pageCount} pages)` : ''}` });\n    geminiFileParts.push({ file_data: { mime_type: mimeType, file_uri: uri } });\n  }\n}\n\nreturn [{\n  json: {\n    ...parsed,\n    geminiFileParts,\n    reuploadScannedPdfs,\n    updatedGeminiFiles: sessionRegistry,\n    newPersistentEntries,\n  }\n}];\n"
+      },
+      "id": "c7d2a3f1-upload-scanned-pdfs-0001",
+      "name": "Upload Scanned PDFs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        2984
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "REPLACE_ME",
+          "id": "uenokmEVAFXfzkBr",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('Normalize Multipart Body').first().json.body || {};\nconst scannedPdfDocs = body.scannedPdfDocs || [];\nconst scannedPdfParts = [];\nconst persistentRegistry = $input.first().json.persistentGeminiFiles || {};\nconst now = Date.now();\nconst newPersistentEntries = {};\n\nif (scannedPdfDocs.length > 0) {\n  const geminiCred = await this.getCredentials('httpHeaderAuth'); // credential: \"Gemini API Key\"\n\n  for (const doc of scannedPdfDocs) {\n    const hash = doc.contentHash;\n    const cachedRecord = hash ? persistentRegistry[hash] : null;\n    if (cachedRecord && cachedRecord.expiresAt > now) {\n      scannedPdfParts.push({ text: `Attached PDF: ${doc.name}${doc.pageCount ? ` (${doc.pageCount} pages)` : ''}` });\n      scannedPdfParts.push({ file_data: { mime_type: cachedRecord.mimeType, file_uri: cachedRecord.uri } });\n      continue;\n    }\n\n    let buffer = null;\n    if (doc.fieldName) {\n      try {\n        buffer = await this.helpers.getBinaryDataBuffer(0, doc.fieldName);\n      } catch (e) {\n        buffer = null;\n      }\n    } else if (doc.driveFileId && doc.driveAccessToken) {\n      try {\n        buffer = await this.helpers.httpRequest({\n          method: 'GET',\n          url: `https://www.googleapis.com/drive/v3/files/${doc.driveFileId}?alt=media`,\n          headers: { Authorization: `Bearer ${doc.driveAccessToken}` },\n          encoding: 'arraybuffer',\n          json: false,\n        });\n        if (buffer && !Buffer.isBuffer(buffer)) buffer = Buffer.from(buffer);\n      } catch (e) {\n        buffer = null;\n      }\n    }\n\n    if (!buffer) {\n      scannedPdfParts.push({ text: `[System note: \"${doc.name}\" could not be read — please try attaching it again.]` });\n      continue;\n    }\n\n    if (buffer.length > 50 * 1024 * 1024) {\n      throw new Error(`FILE_TOO_LARGE: \"${doc.name}\" is ${(buffer.length / 1024 / 1024).toFixed(1)}MB, over Gemini's 50MB PDF limit`);\n    }\n\n    // 1) Initiate a resumable upload\n    const initRes = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'https://generativelanguage.googleapis.com/upload/v1beta/files',\n      headers: {\n        [geminiCred.name]: geminiCred.value,\n        'X-Goog-Upload-Protocol': 'resumable',\n        'X-Goog-Upload-Command': 'start',\n        'X-Goog-Upload-Header-Content-Length': String(buffer.length),\n        'X-Goog-Upload-Header-Content-Type': 'application/pdf',\n        'Content-Type': 'application/json',\n      },\n      body: { file: { display_name: doc.name } },\n      json: true,\n      returnFullResponse: true,\n    });\n\n    const uploadUrl = (initRes.headers && (initRes.headers['x-goog-upload-url'] || initRes.headers['X-Goog-Upload-URL'])) || null;\n    if (!uploadUrl) throw new Error(`GEMINI_FILE_UPLOAD: no upload URL returned for \"${doc.name}\"`);\n\n    // 2) Upload the bytes and finalize\n    const uploadRes = await this.helpers.httpRequest({\n      method: 'POST',\n      url: uploadUrl,\n      headers: {\n        'Content-Length': String(buffer.length),\n        'X-Goog-Upload-Offset': '0',\n        'X-Goog-Upload-Command': 'upload, finalize',\n      },\n      body: buffer,\n      json: true,\n    });\n\n    const uploaded = uploadRes.file || uploadRes;\n    if (!uploaded || !uploaded.uri) throw new Error(`GEMINI_FILE_UPLOAD: no file URI returned for \"${doc.name}\"`);\n\n    // 3) Poll until ACTIVE — require it explicitly rather than assuming a\n    // fixed iteration count is enough (a 200+ page PDF can take a while).\n    // PROCESSING keeps polling until the deadline; FAILED or any other\n    // unexpected state fails fast instead of silently using a half-ready file.\n    let state = uploaded.state;\n    let fileName = uploaded.name;\n    let uri = uploaded.uri;\n    let mimeType = uploaded.mimeType || 'application/pdf';\n    const pollDeadline = Date.now() + 60000; // 60s wall-clock, not a fixed try count\n    while (state !== 'ACTIVE') {\n      if (state === 'FAILED') throw new Error(`GEMINI_FILE_PROCESSING_FAILED: Gemini failed to process \"${doc.name}\"`);\n      if (state !== 'PROCESSING') throw new Error(`GEMINI_FILE_PROCESSING_FAILED: unexpected state \"${state}\" for \"${doc.name}\"`);\n      if (Date.now() > pollDeadline) throw new Error(`GEMINI_FILE_PROCESSING_TIMEOUT: \"${doc.name}\" did not become ACTIVE within 60s`);\n      await new Promise(r => setTimeout(r, 1000));\n      const check = await this.helpers.httpRequest({\n        method: 'GET',\n        url: `https://generativelanguage.googleapis.com/v1beta/${fileName}`,\n        headers: { [geminiCred.name]: geminiCred.value },\n        json: true,\n      });\n      state = check.state;\n      uri = check.uri || uri;\n      mimeType = check.mimeType || mimeType;\n    }\n\n    if (hash) newPersistentEntries[hash] = { uri, mimeType, expiresAt: now + 47 * 60 * 60 * 1000 };\n    scannedPdfParts.push({ text: `Attached PDF: ${doc.name}${doc.pageCount ? ` (${doc.pageCount} pages)` : ''}` });\n    scannedPdfParts.push({ file_data: { mime_type: mimeType, file_uri: uri } });\n  }\n}\n\nreturn [{ json: { scannedPdfParts, newPersistentEntries } }];\n"
+      },
+      "id": "d3e4f5a6-upload-scanned-pdfs-template-01",
+      "name": "Upload Scanned PDFs (Template)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        2352
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uenokmEVAFXfzkBr",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('Normalize Multipart Body').first().json.body || {};\nconst scannedPdfDocs = body.scannedPdfDocs || [];\nconst scannedPdfParts = [];\nconst persistentRegistry = $input.first().json.persistentGeminiFiles || {};\nconst now = Date.now();\nconst newPersistentEntries = {};\n\nif (scannedPdfDocs.length > 0) {\n  const geminiCred = await this.getCredentials('httpHeaderAuth'); // credential: \"Gemini API Key\"\n\n  for (const doc of scannedPdfDocs) {\n    const hash = doc.contentHash;\n    const cachedRecord = hash ? persistentRegistry[hash] : null;\n    if (cachedRecord && cachedRecord.expiresAt > now) {\n      scannedPdfParts.push({ text: `Attached PDF: ${doc.name}${doc.pageCount ? ` (${doc.pageCount} pages)` : ''}` });\n      scannedPdfParts.push({ file_data: { mime_type: cachedRecord.mimeType, file_uri: cachedRecord.uri } });\n      continue;\n    }\n\n    let buffer = null;\n    if (doc.fieldName) {\n      try {\n        buffer = await this.helpers.getBinaryDataBuffer(0, doc.fieldName);\n      } catch (e) {\n        buffer = null;\n      }\n    } else if (doc.driveFileId && doc.driveAccessToken) {\n      try {\n        buffer = await this.helpers.httpRequest({\n          method: 'GET',\n          url: `https://www.googleapis.com/drive/v3/files/${doc.driveFileId}?alt=media`,\n          headers: { Authorization: `Bearer ${doc.driveAccessToken}` },\n          encoding: 'arraybuffer',\n          json: false,\n        });\n        if (buffer && !Buffer.isBuffer(buffer)) buffer = Buffer.from(buffer);\n      } catch (e) {\n        buffer = null;\n      }\n    }\n\n    if (!buffer) {\n      scannedPdfParts.push({ text: `[System note: \"${doc.name}\" could not be read — please try attaching it again.]` });\n      continue;\n    }\n\n    if (buffer.length > 50 * 1024 * 1024) {\n      throw new Error(`FILE_TOO_LARGE: \"${doc.name}\" is ${(buffer.length / 1024 / 1024).toFixed(1)}MB, over Gemini's 50MB PDF limit`);\n    }\n\n    // 1) Initiate a resumable upload\n    const initRes = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'https://generativelanguage.googleapis.com/upload/v1beta/files',\n      headers: {\n        [geminiCred.name]: geminiCred.value,\n        'X-Goog-Upload-Protocol': 'resumable',\n        'X-Goog-Upload-Command': 'start',\n        'X-Goog-Upload-Header-Content-Length': String(buffer.length),\n        'X-Goog-Upload-Header-Content-Type': 'application/pdf',\n        'Content-Type': 'application/json',\n      },\n      body: { file: { display_name: doc.name } },\n      json: true,\n      returnFullResponse: true,\n    });\n\n    const uploadUrl = (initRes.headers && (initRes.headers['x-goog-upload-url'] || initRes.headers['X-Goog-Upload-URL'])) || null;\n    if (!uploadUrl) throw new Error(`GEMINI_FILE_UPLOAD: no upload URL returned for \"${doc.name}\"`);\n\n    // 2) Upload the bytes and finalize\n    const uploadRes = await this.helpers.httpRequest({\n      method: 'POST',\n      url: uploadUrl,\n      headers: {\n        'Content-Length': String(buffer.length),\n        'X-Goog-Upload-Offset': '0',\n        'X-Goog-Upload-Command': 'upload, finalize',\n      },\n      body: buffer,\n      json: true,\n    });\n\n    const uploaded = uploadRes.file || uploadRes;\n    if (!uploaded || !uploaded.uri) throw new Error(`GEMINI_FILE_UPLOAD: no file URI returned for \"${doc.name}\"`);\n\n    // 3) Poll until ACTIVE — require it explicitly rather than assuming a\n    // fixed iteration count is enough (a 200+ page PDF can take a while).\n    // PROCESSING keeps polling until the deadline; FAILED or any other\n    // unexpected state fails fast instead of silently using a half-ready file.\n    let state = uploaded.state;\n    let fileName = uploaded.name;\n    let uri = uploaded.uri;\n    let mimeType = uploaded.mimeType || 'application/pdf';\n    const pollDeadline = Date.now() + 60000; // 60s wall-clock, not a fixed try count\n    while (state !== 'ACTIVE') {\n      if (state === 'FAILED') throw new Error(`GEMINI_FILE_PROCESSING_FAILED: Gemini failed to process \"${doc.name}\"`);\n      if (state !== 'PROCESSING') throw new Error(`GEMINI_FILE_PROCESSING_FAILED: unexpected state \"${state}\" for \"${doc.name}\"`);\n      if (Date.now() > pollDeadline) throw new Error(`GEMINI_FILE_PROCESSING_TIMEOUT: \"${doc.name}\" did not become ACTIVE within 60s`);\n      await new Promise(r => setTimeout(r, 1000));\n      const check = await this.helpers.httpRequest({\n        method: 'GET',\n        url: `https://generativelanguage.googleapis.com/v1beta/${fileName}`,\n        headers: { [geminiCred.name]: geminiCred.value },\n        json: true,\n      });\n      state = check.state;\n      uri = check.uri || uri;\n      mimeType = check.mimeType || mimeType;\n    }\n\n    if (hash) newPersistentEntries[hash] = { uri, mimeType, expiresAt: now + 47 * 60 * 60 * 1000 };\n    scannedPdfParts.push({ text: `Attached PDF: ${doc.name}${doc.pageCount ? ` (${doc.pageCount} pages)` : ''}` });\n    scannedPdfParts.push({ file_data: { mime_type: mimeType, file_uri: uri } });\n  }\n}\n\nreturn [{ json: { scannedPdfParts, newPersistentEntries } }];\n"
+      },
+      "id": "e4f5a6b7-upload-scanned-pdfs-reviewer-01",
+      "name": "Upload Scanned PDFs (Reviewer)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        2544
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uenokmEVAFXfzkBr",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const parsed = $input.first().json;\nconst body = parsed.body || {};\nconst scannedPdfDocs = body.scannedPdfDocs || [];\nconst persistentGeminiFiles = {};\n\nif (scannedPdfDocs.length > 0) {\n  const cred = await this.getCredentials('httpHeaderAuth'); // credential: \"Upstash Redis REST\"\n  const UPSTASH_URL = 'https://sweeping-jennet-172408.upstash.io';\n\n  for (const doc of scannedPdfDocs) {\n    if (!doc.contentHash) continue;\n    try {\n      const res = await this.helpers.httpRequest({\n        method: 'POST',\n        url: UPSTASH_URL,\n        headers: { [cred.name]: cred.value },\n        body: ['GET', `gemini-file:${doc.contentHash}`],\n        json: true,\n      });\n      if (res && res.result) {\n        persistentGeminiFiles[doc.contentHash] = JSON.parse(res.result);\n      }\n    } catch (e) {\n      // Persistent lookup is an optimization, not a requirement — session\n      // cache or a fresh upload still works if Redis is unavailable.\n    }\n  }\n}\n\nreturn [{ json: { ...parsed, persistentGeminiFiles } }];\n"
+      },
+      "id": "f1a2b3c4-lookup-persistent-gemini-tutor-01",
+      "name": "Lookup Persistent Gemini Files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        2984
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VnWFZXj8xOxogUEA",
+          "name": "Upstash Redis REST"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const upstream = $input.first().json;\nconst entries = upstream.newPersistentEntries || {};\nconst hashes = Object.keys(entries);\n\nif (hashes.length > 0) {\n  const cred = await this.getCredentials('httpHeaderAuth'); // credential: \"Upstash Redis REST\"\n  const UPSTASH_URL = 'https://sweeping-jennet-172408.upstash.io';\n\n  for (const hash of hashes) {\n    try {\n      await this.helpers.httpRequest({\n        method: 'POST',\n        url: UPSTASH_URL,\n        headers: { [cred.name]: cred.value },\n        body: ['SET', `gemini-file:${hash}`, JSON.stringify(entries[hash]), 'EX', '169200'],\n        json: true,\n      });\n    } catch (e) {\n      // Best-effort — a later request just re-uploads if this didn't persist.\n    }\n  }\n}\n\nreturn [$input.first()];\n"
+      },
+      "id": "a2b3c4d5-save-persistent-gemini-tutor-01",
+      "name": "Save Persistent Gemini Files",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        750,
+        2984
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VnWFZXj8xOxogUEA",
+          "name": "Upstash Redis REST"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('Normalize Multipart Body').first().json.body || {};\nconst scannedPdfDocs = body.scannedPdfDocs || [];\nconst persistentGeminiFiles = {};\n\nif (scannedPdfDocs.length > 0) {\n  const cred = await this.getCredentials('httpHeaderAuth'); // credential: \"Upstash Redis REST\"\n  const UPSTASH_URL = 'https://sweeping-jennet-172408.upstash.io';\n\n  for (const doc of scannedPdfDocs) {\n    if (!doc.contentHash) continue;\n    try {\n      const res = await this.helpers.httpRequest({\n        method: 'POST',\n        url: UPSTASH_URL,\n        headers: { [cred.name]: cred.value },\n        body: ['GET', `gemini-file:${doc.contentHash}`],\n        json: true,\n      });\n      if (res && res.result) {\n        persistentGeminiFiles[doc.contentHash] = JSON.parse(res.result);\n      }\n    } catch (e) {\n      // Persistent lookup is an optimization, not a requirement — session\n      // cache or a fresh upload still works if Redis is unavailable.\n    }\n  }\n}\n\nreturn [{ json: { persistentGeminiFiles } }];\n"
+      },
+      "id": "b1c2d3e4-lookup-persistent-gemini-template-01",
+      "name": "Lookup Persistent Gemini Files (Template)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        180,
+        2280
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VnWFZXj8xOxogUEA",
+          "name": "Upstash Redis REST"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const upstream = $input.first().json;\nconst entries = upstream.newPersistentEntries || {};\nconst hashes = Object.keys(entries);\n\nif (hashes.length > 0) {\n  const cred = await this.getCredentials('httpHeaderAuth'); // credential: \"Upstash Redis REST\"\n  const UPSTASH_URL = 'https://sweeping-jennet-172408.upstash.io';\n\n  for (const hash of hashes) {\n    try {\n      await this.helpers.httpRequest({\n        method: 'POST',\n        url: UPSTASH_URL,\n        headers: { [cred.name]: cred.value },\n        body: ['SET', `gemini-file:${hash}`, JSON.stringify(entries[hash]), 'EX', '169200'],\n        json: true,\n      });\n    } catch (e) {\n      // Best-effort — a later request just re-uploads if this didn't persist.\n    }\n  }\n}\n\nreturn [$input.first()];\n"
+      },
+      "id": "c1d2e3f4-save-persistent-gemini-template-01",
+      "name": "Save Persistent Gemini Files (Template)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        380,
+        2280
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VnWFZXj8xOxogUEA",
+          "name": "Upstash Redis REST"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('Normalize Multipart Body').first().json.body || {};\nconst scannedPdfDocs = body.scannedPdfDocs || [];\nconst persistentGeminiFiles = {};\n\nif (scannedPdfDocs.length > 0) {\n  const cred = await this.getCredentials('httpHeaderAuth'); // credential: \"Upstash Redis REST\"\n  const UPSTASH_URL = 'https://sweeping-jennet-172408.upstash.io';\n\n  for (const doc of scannedPdfDocs) {\n    if (!doc.contentHash) continue;\n    try {\n      const res = await this.helpers.httpRequest({\n        method: 'POST',\n        url: UPSTASH_URL,\n        headers: { [cred.name]: cred.value },\n        body: ['GET', `gemini-file:${doc.contentHash}`],\n        json: true,\n      });\n      if (res && res.result) {\n        persistentGeminiFiles[doc.contentHash] = JSON.parse(res.result);\n      }\n    } catch (e) {\n      // Persistent lookup is an optimization, not a requirement — session\n      // cache or a fresh upload still works if Redis is unavailable.\n    }\n  }\n}\n\nreturn [{ json: { persistentGeminiFiles } }];\n"
+      },
+      "id": "d1e2f3a4-lookup-persistent-gemini-reviewer-01",
+      "name": "Lookup Persistent Gemini Files (Reviewer)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        180,
+        2472
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VnWFZXj8xOxogUEA",
+          "name": "Upstash Redis REST"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const upstream = $input.first().json;\nconst entries = upstream.newPersistentEntries || {};\nconst hashes = Object.keys(entries);\n\nif (hashes.length > 0) {\n  const cred = await this.getCredentials('httpHeaderAuth'); // credential: \"Upstash Redis REST\"\n  const UPSTASH_URL = 'https://sweeping-jennet-172408.upstash.io';\n\n  for (const hash of hashes) {\n    try {\n      await this.helpers.httpRequest({\n        method: 'POST',\n        url: UPSTASH_URL,\n        headers: { [cred.name]: cred.value },\n        body: ['SET', `gemini-file:${hash}`, JSON.stringify(entries[hash]), 'EX', '169200'],\n        json: true,\n      });\n    } catch (e) {\n      // Best-effort — a later request just re-uploads if this didn't persist.\n    }\n  }\n}\n\nreturn [$input.first()];\n"
+      },
+      "id": "e1f2a3b4-save-persistent-gemini-reviewer-01",
+      "name": "Save Persistent Gemini Files (Reviewer)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        380,
+        2472
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VnWFZXj8xOxogUEA",
           "name": "Upstash Redis REST"
         }
       }
@@ -914,7 +1156,7 @@
         ],
         [
           {
-            "node": "Build Template Payload",
+            "node": "Lookup Persistent Gemini Files (Template)",
             "type": "main",
             "index": 0
           }
@@ -925,7 +1167,7 @@
       "main": [
         [
           {
-            "node": "Build Template Payload",
+            "node": "Lookup Persistent Gemini Files (Template)",
             "type": "main",
             "index": 0
           }
@@ -965,7 +1207,7 @@
         ],
         [
           {
-            "node": "Build Reviewer Payload",
+            "node": "Lookup Persistent Gemini Files (Reviewer)",
             "type": "main",
             "index": 0
           }
@@ -976,7 +1218,7 @@
       "main": [
         [
           {
-            "node": "Build Reviewer Payload",
+            "node": "Lookup Persistent Gemini Files (Reviewer)",
             "type": "main",
             "index": 0
           }
@@ -1053,7 +1295,7 @@
       "main": [
         [
           {
-            "node": "Save Session",
+            "node": "Extract Tutor Text",
             "type": "main",
             "index": 0
           }
@@ -1064,7 +1306,7 @@
       "main": [
         [
           {
-            "node": "Route by Mode",
+            "node": "Normalize Multipart Body",
             "type": "main",
             "index": 0
           }
@@ -1108,6 +1350,127 @@
       "main": [
         [
           {
+            "node": "Redis GET",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis GET": {
+      "main": [
+        [
+          {
+            "node": "Parse Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Session": {
+      "main": [
+        [
+          {
+            "node": "Lookup Persistent Gemini Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Session Builder": {
+      "main": [
+        [
+          {
+            "node": "Redis SET",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis SET": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Tutor Text": {
+      "main": [
+        [
+          {
+            "node": "Save Session Builder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Multipart Body": {
+      "main": [
+        [
+          {
+            "node": "Route by Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Scanned PDFs": {
+      "main": [
+        [
+          {
+            "node": "Save Persistent Gemini Files",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Scanned PDFs (Template)": {
+      "main": [
+        [
+          {
+            "node": "Save Persistent Gemini Files (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Scanned PDFs (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Save Persistent Gemini Files (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Persistent Gemini Files": {
+      "main": [
+        [
+          {
+            "node": "Upload Scanned PDFs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Persistent Gemini Files": {
+      "main": [
+        [
+          {
             "node": "Prep — Tutor",
             "type": "main",
             "index": 0
@@ -1115,11 +1478,44 @@
         ]
       ]
     },
-    "Save Session": {
+    "Lookup Persistent Gemini Files (Template)": {
       "main": [
         [
           {
-            "node": "Extract Tutor Text",
+            "node": "Upload Scanned PDFs (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Persistent Gemini Files (Template)": {
+      "main": [
+        [
+          {
+            "node": "Build Template Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lookup Persistent Gemini Files (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Upload Scanned PDFs (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Persistent Gemini Files (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Build Reviewer Payload",
             "type": "main",
             "index": 0
           }
@@ -1133,7 +1529,7 @@
     "binaryMode": "separate",
     "availableInMCP": false
   },
-  "versionId": "ce4ed807-b014-4baa-b68c-6d6e4614136a",
+  "versionId": "d02e40b5-f047-497e-a0eb-864ec5ba6e83",
   "meta": {
     "templateCredsSetupCompleted": true,
     "instanceId": "4190c168cbd50dfbfe156f5f76c01bdc79d29b27692b6eaffe874511c6dddbe7"
