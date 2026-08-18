@@ -2389,7 +2389,9 @@
 
     // Tutor persona — "chill upperclassman"
     const TUTOR_SYSTEM_PROMPT =
-`You are a chill upperclassman tutor — the friend who already aced this course and is happy to walk someone through it. Warm, grounded, a little playful. Use clear analogies, break ideas into small chunks, and check in with short prompts like "does that click?" or "want me to zoom in on anything?". Avoid stiff academic tone and avoid cheerleader-style hype. Celebrate progress gently. When the student has attached reference material, treat it as the source of truth — quote small bits rather than invent facts. If context is missing, ask before guessing. Keep replies focused and tight.`;
+`You are a chill upperclassman tutor — the friend who already aced this course and is happy to walk someone through it. Warm, grounded, a little playful. Use clear analogies, break ideas into small chunks, and check in with short prompts like "does that click?" or "want me to zoom in on anything?". Avoid stiff academic tone and avoid cheerleader-style hype. Celebrate progress gently. When the student has attached reference material, treat it as the source of truth — quote small bits rather than invent facts. If context is missing, ask before guessing. Keep replies focused and tight.
+
+OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is approximately 190,000 characters — that is a hard limit, not a target. Stay comfortably well below it. Give concise, focused answers and use only as much space as the student's question actually needs.`;
 
     // ─── Encrypted Configuration (AES-256-GCM) ─────
     // The webhook URL, Google Client ID, and dev email are encrypted.
@@ -3030,7 +3032,7 @@
 
     // Formats with no dedicated parser — read as plain text and tell the AI what they came from
     const PLAIN_TEXT_EXTS = ['md','markdown','csv','tsv','rtf','json','xml','html','htm','yml','yaml','log','js','ts','py','java','c','cpp','cs','go','rb','php','sql','sh','css'];
-    const SUPPORTED_ACCEPT = '.jpg,.jpeg,.png,.webp,.gif,.pdf,.docx,.xlsx,.xls,.pptx,.txt,' + PLAIN_TEXT_EXTS.map(e => '.' + e).join(',');
+    const SUPPORTED_ACCEPT = '.jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx,.xlsx,.xls,.pptx,.txt,' + PLAIN_TEXT_EXTS.map(e => '.' + e).join(',');
 
     function fileExt(name) {
       const m = /\.([a-z0-9]+)$/i.exec(name || '');
@@ -3042,6 +3044,7 @@
       if (file.type.startsWith('image/')) return 'image';
       if (file.type === 'application/pdf' || ext === 'pdf') return 'pdf';
       if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || ext === 'docx') return 'docx';
+      if (file.type === 'application/msword' || ext === 'doc') return 'doc';
       if (ext === 'xlsx' || ext === 'xls') return 'xlsx';
       if (ext === 'pptx') return 'pptx';
       if (file.type === 'text/plain' || ext === 'txt') return 'txt';
@@ -3290,6 +3293,21 @@
           const buf = await file.arrayBuffer();
           const result = await mammoth.extractRawText({ arrayBuffer: buf });
           entry.content = result.value;
+        } else if (ft === 'doc') {
+          // Legacy .doc — no client-side parser for the old binary Word
+          // format. Store the original bytes; n8n converts to PDF via the
+          // user's own Google Drive on first use with the tutor/template/
+          // reviewer, then reuses the converted result exactly like a
+          // scanned PDF (same contentHash-keyed Gemini file registry).
+          entry.type = 'doc';
+          entry.mime = 'application/msword';
+          entry.schemaVersion = 2;
+          entry.originalFile = file;
+          entry.originalSize = file.size;
+          entry.originalMime = file.type || 'application/msword';
+          entry.contentHash = await sha256Hex(file);
+          entry.driveFileId = null;
+          entry.content = '';
         } else if (ft === 'xlsx') {
           entry.content = await extractXlsxText(file);
           if (!entry.content) throw new Error(`${file.name} had no readable cells`);
@@ -4039,6 +4057,19 @@
           }
           return { role: fileObj.role, type: 'text', content: `[System Note: "${fileObj.name}" is a scanned PDF that isn't available on this device — re-upload it to Knowledge Bay, or wait for Drive sync to finish.]`, name: fileObj.name };
         }
+        if (fileObj.type === 'doc') {
+          const entry = await kb.get(fileObj.kbId);
+          if (!state.driveSyncToken) {
+            return { role: fileObj.role, type: 'text', content: `[System Note: "${fileObj.name}" is a .doc file, which needs Google Drive connected to convert it. Ask the user to connect Drive sync, or save it as .docx or PDF and re-upload.]`, name: fileObj.name };
+          }
+          if (entry && entry.originalFile instanceof Blob) {
+            return { role: fileObj.role, type: 'scanned_pdf_upload', originalFile: entry.originalFile, contentHash: entry.contentHash, pageCount: entry.pageCount, needsDocConversion: true, driveAccessToken: state.driveSyncToken, name: fileObj.name };
+          }
+          if (entry && entry.driveFileId) {
+            return { role: fileObj.role, type: 'scanned_pdf_upload', driveFileId: entry.driveFileId, driveAccessToken: state.driveSyncToken, contentHash: entry.contentHash, pageCount: entry.pageCount, needsDocConversion: true, name: fileObj.name };
+          }
+          return { role: fileObj.role, type: 'text', content: `[System Note: "${fileObj.name}" is a .doc file that isn't available on this device — re-upload it to Knowledge Bay, or wait for Drive sync to finish.]`, name: fileObj.name };
+        }
         return { role: fileObj.role, type: 'text', content: fileObj.kbContent, name: fileObj.name };
       }
 
@@ -4073,6 +4104,15 @@
         const buf = await fileObj.file.arrayBuffer();
         const result = await mammoth.extractRawText({ arrayBuffer: buf });
         return { role: fileObj.role, type: 'text', content: result.value, name: fileObj.name };
+      }
+      if (fileObj.type === 'doc') {
+        // Legacy .doc — no client-side parser. n8n converts it to PDF via the
+        // user's own Google Drive, then hands it to Gemini like a scanned PDF.
+        if (!state.driveSyncToken) {
+          throw new Error(`${fileObj.name} is a .doc file — connect Google Drive sync to convert it, or save it as .docx or PDF and re-upload.`);
+        }
+        const contentHash = await sha256Hex(fileObj.file);
+        return { role: fileObj.role, type: 'scanned_pdf_upload', originalFile: fileObj.file, contentHash, needsDocConversion: true, driveAccessToken: state.driveSyncToken, name: fileObj.name };
       }
       if (fileObj.type === 'txt') {
         const content = await fileToText(fileObj.file);
@@ -4215,9 +4255,11 @@
             for (const page of doc) documents.push(page);
           } else if (doc && doc.type === 'scanned_pdf_upload') {
             const meta = { name: doc.name, role: doc.role, pageCount: doc.pageCount || null, contentHash: doc.contentHash || null };
+            if (doc.needsDocConversion) meta.needsDocConversion = true;
             if (doc.originalFile instanceof Blob) {
               meta.fieldName = `scanned_${binaryFiles.length}`;
               binaryFiles.push({ fieldName: meta.fieldName, blob: doc.originalFile, filename: doc.name });
+              if (doc.needsDocConversion) meta.driveAccessToken = doc.driveAccessToken;
             } else if (doc.driveFileId) {
               meta.driveFileId = doc.driveFileId;
               meta.driveAccessToken = doc.driveAccessToken;
@@ -4704,7 +4746,7 @@
     async function ensureScannedPdfsUploadedToDrive() {
       if (!state.driveSyncToken) return;
       for (const item of kb.cache) {
-        if (item.type !== 'scanned_pdf' || item.driveFileId || !(item.originalFile instanceof Blob)) continue;
+        if ((item.type !== 'scanned_pdf' && item.type !== 'doc') || item.driveFileId || !(item.originalFile instanceof Blob)) continue;
         try {
           item.driveFileId = await driveUploadRawFile(state.driveSyncToken, item.originalFile, item.name);
         } catch (err) {
@@ -4730,7 +4772,7 @@
     // one (see the Tutor attach path), prompting a re-upload on that device.
     function kbItemsForDriveSync(items) {
       return items.map(item => {
-        if (item.type !== 'scanned_pdf' || !item.originalFile) return item;
+        if ((item.type !== 'scanned_pdf' && item.type !== 'doc') || !item.originalFile) return item;
         const { originalFile, ...rest } = item;
         return rest;
       });
@@ -4747,7 +4789,8 @@
         const remoteTs = existing.updatedAt || existing.timestamp || 0;
         const winner = localTs >= remoteTs ? item : existing;
         const loser  = localTs >= remoteTs ? existing : item;
-        if (winner.type === 'scanned_pdf' || loser.type === 'scanned_pdf') {
+        const isBlobBacked = t => t === 'scanned_pdf' || t === 'doc';
+        if (isBlobBacked(winner.type) || isBlobBacked(loser.type)) {
           // Drive sync never carries the local Blob (see kbItemsForDriveSync),
           // so a whole-item timestamp win can otherwise drop it or an
           // already-uploaded driveFileId — carry forward whichever side has
@@ -5154,9 +5197,9 @@
           if (!item) continue;
           // updatedAt + size catch the "same ID, edited content" case (e.g. a re-uploaded
           // PDF that replaced an existing KB item) that an ID-only fingerprint would miss.
-          const fpSize = item.type === 'scanned_pdf' ? (item.originalSize || 0) : (item.content || '').length;
+          const fpSize = (item.type === 'scanned_pdf' || item.type === 'doc') ? (item.originalSize || 0) : (item.content || '').length;
           documentFingerprints.push({ id: kid, updatedAt: item.updatedAt || 0, size: fpSize });
-          if (item.type === 'scanned_pdf') {
+          if (item.type === 'scanned_pdf' || item.type === 'doc') {
             if (!item.contentHash) {
               // Legacy KB entry saved before original-bytes support — no source
               // file to upload — nothing to hand Gemini. Tell the user rather
@@ -5164,7 +5207,7 @@
               // hundreds-of-images path.
               attachedContext.push({
                 name: item.name,
-                content: `[System Note: "${item.name}" was saved as a scanned PDF before this app kept the original file. Remove it from Knowledge Bay and re-upload it so the tutor can read it.]`,
+                content: `[System Note: "${item.name}" was saved before this app kept the original file. Remove it from Knowledge Bay and re-upload it so the tutor can read it.]`,
               });
               continue;
             }
@@ -5176,10 +5219,22 @@
             // just reference it by hash so n8n can reuse its Gemini file.
             const alreadyUploaded = (c.uploadedScannedPdfFingerprints || []).includes(item.contentHash);
             const docMeta = { name: item.name, pageCount: item.pageCount || null, contentHash: item.contentHash };
+            const needsConversion = item.type === 'doc';
+            if (needsConversion) docMeta.needsDocConversion = true;
+            if (needsConversion && !state.driveSyncToken) {
+              // .doc conversion happens via the user's own Google Drive —
+              // no Drive connection, no conversion path.
+              attachedContext.push({
+                name: item.name,
+                content: `[System Note: "${item.name}" is a .doc file, which needs Google Drive connected to convert it for the tutor. Ask the user to connect Drive sync, or save it as .docx or PDF and re-upload.]`,
+              });
+              continue;
+            }
             if (!alreadyUploaded) {
               if (item.originalFile instanceof Blob) {
                 docMeta.fieldName = `scanned_${binaryFiles.length}`;
                 binaryFiles.push({ fieldName: docMeta.fieldName, blob: item.originalFile, filename: item.name });
+                if (needsConversion) docMeta.driveAccessToken = state.driveSyncToken;
               } else if (item.driveFileId && state.driveSyncToken) {
                 // Not stored locally on this device (synced in from another
                 // one) — n8n fetches the bytes from the user's own Drive
