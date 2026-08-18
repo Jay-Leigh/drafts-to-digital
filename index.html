@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
@@ -68,7 +68,7 @@
       top: 0;
       height: 100vh;
       z-index: 50;
-      transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+      transition: transform 220ms cubic-bezier(0.22,1,0.36,1);
     }
     .sidebar-header {
       padding: 20px 20px 16px;
@@ -166,7 +166,7 @@
       position: fixed; inset: 0;
       background: rgba(26,46,28,0.45); backdrop-filter: blur(2px);
       z-index: 49;
-      opacity: 0; transition: opacity 0.3s ease;
+      opacity: 0; transition: opacity 180ms ease;
     }
     .sidebar-backdrop.open { display: block; opacity: 1; }
 
@@ -679,6 +679,10 @@
       border-radius: 0 !important;
       border-top: 1px solid rgba(212,201,168,0.4) !important;
     }
+    .main-area.tutor-mode .tutor-landing.active {
+      flex: 1;
+      min-height: 0;
+    }
     .tutor-head {
       padding: 14px 18px;
       border-bottom: 1px solid rgba(212,201,168,0.4);
@@ -730,7 +734,10 @@
       background: rgba(44,95,45,0.3);
       cursor: pointer; transition: background 0.15s, transform 0.15s;
     }
-    .bookmark-dot:hover { background: #2c5f2d; transform: scale(1.5); }
+    .bookmark-dot.bookmark-user { background: rgba(44,95,45,0.75); }
+    .bookmark-dot.bookmark-tutor { background: rgba(44,95,45,0.28); }
+    .bookmark-dot.bookmark-user:hover,
+    .bookmark-dot.bookmark-tutor:hover { background: #2c5f2d; transform: scale(1.5); }
     .chat-bubble {
       max-width: 82%;
       padding: 12px 16px;
@@ -1258,6 +1265,293 @@
       border-bottom-color: transparent;
     }
 
+    /* ───────── LUXURY TRANSITIONS ───────── */
+    .view.view-enter {
+      animation: viewEnter 180ms cubic-bezier(0.22,1,0.36,1) both;
+    }
+    .view.view-exit {
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: opacity 140ms ease, transform 140ms ease;
+    }
+    @keyframes viewEnter {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .nav-link {
+      transition: background 0.2s cubic-bezier(0.22,1,0.36,1), color 0.2s cubic-bezier(0.22,1,0.36,1), border-color 0.2s cubic-bezier(0.22,1,0.36,1);
+    }
+    .modal-overlay {
+      transition: opacity 0.2s cubic-bezier(0.22,1,0.36,1), visibility 0.2s;
+    }
+    .modal-overlay .modal-box {
+      transition: transform 0.25s cubic-bezier(0.22,1,0.36,1), opacity 0.2s;
+      transform: translateY(12px); opacity: 0;
+    }
+    .modal-overlay.open .modal-box {
+      transform: translateY(0); opacity: 1;
+    }
+    .mode-card {
+      transition: transform 0.22s cubic-bezier(0.22,1,0.36,1), box-shadow 0.22s cubic-bezier(0.22,1,0.36,1), border-color 0.22s cubic-bezier(0.22,1,0.36,1);
+    }
+
+    /* ───────── TUTOR LANDING PAGE ───────── */
+    .tutor-landing {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 24px 32px;
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      background: #faf7f0;
+    }
+    .tutor-landing.active {
+      display: flex;
+    }
+    .tutor-landing h2 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 32px;
+      color: #1a2e1c;
+      margin-bottom: 20px;
+    }
+    .tutor-landing-search {
+      width: 100%;
+      max-width: 560px;
+      position: relative;
+      margin-bottom: 28px;
+    }
+    .tutor-landing-search input {
+      width: 100%;
+      padding: 16px 48px 16px 20px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 16px;
+      border: 2px solid rgba(212,201,168,0.6);
+      border-radius: 14px;
+      background: white;
+      color: #1a2e1c;
+      outline: none;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .tutor-landing-search input:focus {
+      border-color: #2c5f2d;
+      box-shadow: 0 0 0 3px rgba(44,95,45,0.1);
+    }
+    .tutor-landing-search input::placeholder { color: rgba(26,46,28,0.35); }
+    .tutor-landing-search-icon {
+      position: absolute;
+      right: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: rgba(26,46,28,0.35);
+      pointer-events: none;
+    }
+    .tutor-landing-results {
+      width: 100%;
+      max-width: 560px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .tutor-landing-results-heading {
+      font-family: 'Outfit', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: rgba(26,46,28,0.4);
+      margin-bottom: 4px;
+    }
+    .tutor-landing-card {
+      background: white;
+      border: 1px solid rgba(212,201,168,0.5);
+      border-radius: 12px;
+      padding: 14px 18px;
+      cursor: pointer;
+      transition: border-color 0.2s cubic-bezier(0.22,1,0.36,1), box-shadow 0.2s cubic-bezier(0.22,1,0.36,1), transform 0.15s cubic-bezier(0.22,1,0.36,1);
+    }
+    .tutor-landing-card:hover {
+      border-color: rgba(44,95,45,0.4);
+      box-shadow: 0 4px 14px rgba(44,95,45,0.06);
+      transform: translateY(-1px);
+    }
+    .tutor-landing-card:focus-visible {
+      outline: 2px solid #2c5f2d;
+      outline-offset: 2px;
+    }
+    .tutor-landing-card-title {
+      font-weight: 600;
+      font-size: 14px;
+      color: #1a2e1c;
+      margin-bottom: 4px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .tutor-landing-card-snippet {
+      font-size: 13px;
+      color: rgba(26,46,28,0.55);
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .tutor-landing-card-snippet mark {
+      background: rgba(44,95,45,0.15);
+      color: #1a2e1c;
+      border-radius: 2px;
+      padding: 0 2px;
+    }
+    .tutor-landing-card-date {
+      font-size: 11px;
+      color: rgba(26,46,28,0.35);
+      margin-top: 6px;
+    }
+    .tutor-landing-empty {
+      text-align: center;
+      color: rgba(26,46,28,0.4);
+      font-size: 14px;
+      padding: 24px 0;
+    }
+    .tutor-landing-newchat {
+      margin-top: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 10px 20px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 14px;
+      font-weight: 500;
+      color: white;
+      background: #2c5f2d;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .tutor-landing-newchat:hover { background: #1e4620; }
+    @media (max-width: 600px) {
+      .tutor-landing { padding: 28px 16px 24px; }
+      .tutor-landing h2 { font-size: 26px; }
+    }
+
+    /* ───────── MESSAGE NAVIGATOR TOOLTIP ───────── */
+    .bookmark-dot {
+      position: relative;
+    }
+    .bookmark-tooltip {
+      position: absolute;
+      right: calc(100% + 10px);
+      top: 50%;
+      transform: translateY(-50%);
+      background: #1a2e1c;
+      color: white;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 12px;
+      line-height: 1.4;
+      white-space: nowrap;
+      max-width: 220px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+      z-index: 10;
+    }
+    .bookmark-tooltip::after {
+      content: '';
+      position: absolute;
+      right: -5px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: 5px solid transparent;
+      border-left-color: #1a2e1c;
+      border-right: 0;
+    }
+    .bookmark-dot:hover .bookmark-tooltip,
+    .bookmark-dot:focus .bookmark-tooltip {
+      opacity: 1;
+    }
+    .bookmark-tooltip-role {
+      font-weight: 600;
+      color: rgba(255,255,255,0.7);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .bookmark-dot.highlight-pulse {
+      background: #2c5f2d;
+      transform: scale(2);
+    }
+
+    /* Mobile: tap to show tooltip persistently */
+    @media (hover: none) {
+      .bookmark-dot.tooltip-visible .bookmark-tooltip {
+        opacity: 1;
+        pointer-events: auto;
+        cursor: pointer;
+      }
+    }
+
+    /* ───────── REDUCED MOTION ───────── */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: 1ms !important;
+        transition-duration: 1ms !important;
+      }
+    }
+
+    /* ───────── ANTI-ZOOM / MOBILE INPUT ───────── */
+    @media (max-width: 900px) {
+      input, textarea, select {
+        font-size: 16px !important;
+      }
+    }
+    .tutor-messages-wrap,
+    .tutor-landing {
+      overscroll-behavior: contain;
+    }
+    .tutor-messages {
+      touch-action: pan-y;
+      overscroll-behavior-x: none;
+    }
+
+    /* ───────── SAFE AREA INSETS ───────── */
+    @supports (padding-bottom: env(safe-area-inset-bottom)) {
+      .tutor-composer {
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      .sidebar {
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+    }
+
+    /* ───────── RESPONSIVE TUTOR ENHANCEMENTS ───────── */
+    @media (max-width: 430px) {
+      .tutor-head { padding: 10px 14px; }
+      .tutor-head h3 { font-size: 15px; }
+      .tutor-messages { padding: 14px 12px; }
+      .tutor-composer-row { gap: 6px; }
+      .tutor-input { padding: 10px 12px; }
+      .chat-bubble { max-width: 88%; font-size: 13.5px; }
+    }
+    @media (min-width: 1280px) {
+      .tutor-messages { padding: 24px 28px; }
+    }
+
+    /* Message highlight animation for search navigation */
+    @keyframes msgHighlight {
+      0% { box-shadow: 0 0 0 3px rgba(44,95,45,0.4); }
+      100% { box-shadow: 0 0 0 3px transparent; }
+    }
+    .msg-highlight {
+      animation: msgHighlight 1.5s ease-out;
+    }
+
     /* ───────── KB-OR-UPLOAD TABS (template/reviewer) ───────── */
     .zone-tabs {
       display: inline-flex;
@@ -1700,7 +1994,7 @@
                 </svg>
               </div>
               <h3 class="text-lg mt-3">Template Generator</h3>
-              <p class="font-body text-sm text-ink/45 mt-1">Get a structured essay outline from your assignment</p>
+              <p class="font-body text-sm text-ink/45 mt-1">Get a structured outline from your assignment</p>
             </a>
             <a class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center bg-white/50" href="#reviewer">
               <div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center">
@@ -1709,8 +2003,8 @@
                   <path d="M9 15l2 2 4-4"/>
                 </svg>
               </div>
-              <h3 class="text-lg mt-3">Essay Reviewer</h3>
-              <p class="font-body text-sm text-ink/45 mt-1">Get AI feedback on your draft essay</p>
+              <h3 class="text-lg mt-3">General Assignment Reviewer</h3>
+              <p class="font-body text-sm text-ink/45 mt-1">Get AI feedback on your draft assignment</p>
             </a>
             <a class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center bg-white/50" href="#knowledge">
               <div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center">
@@ -2019,6 +2313,20 @@
 
         <!-- ============ VIEW: TUTOR ============ -->
         <section id="viewTutor" class="view">
+          <!-- Tutor Landing Page -->
+          <div class="tutor-landing" id="tutorLanding">
+            <h2>Tutor</h2>
+            <div class="tutor-landing-search">
+              <input type="text" id="tutorLandingSearch" placeholder="Search your chats..." aria-label="Search tutor chats" />
+              <svg class="tutor-landing-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </div>
+            <div class="tutor-landing-results" id="tutorLandingResults"></div>
+            <button class="tutor-landing-newchat" id="tutorLandingNewChat" aria-label="Start a new chat">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              New chat
+            </button>
+          </div>
+          <!-- Tutor Chat Shell -->
           <div class="tutor-shell" id="tutorShell">
             <div id="tutorDropOverlay" class="tutor-drop-overlay">
               <div class="tutor-drop-card">
@@ -2353,7 +2661,7 @@
         { role: 'sources', label: 'Source Materials', required: false, hint: 'Study guides, articles, or reference documents', allowKb: true },
       ],
       reviewer: [
-        { role: 'essay', label: 'Your Essay / Draft', required: true, hint: 'Your written work to be reviewed', allowKb: true },
+        { role: 'essay', label: 'Your Assignment / Draft', required: true, hint: 'Your written work to be reviewed', allowKb: true },
         { role: 'instructions', label: 'Assignment Instructions', required: true, hint: 'The assignment brief or question sheet', allowKb: true },
         { role: 'rubric', label: 'Grading Rubric', required: false, hint: 'Marking criteria for your assignment', allowKb: true },
         { role: 'sources', label: 'Source Materials', required: false, hint: 'Study guides, articles, or reference documents', allowKb: true },
@@ -2362,8 +2670,8 @@
 
     const MODE_META = {
       transcribe: { btnLabel: 'Transcribe', title: 'Transcribe', sub: 'Upload handwritten pages to convert to digital text.', resultTitle: 'Your Transcribed Text', resultSub: 'Review, edit if needed, then export.', ext: 'txt' },
-      template:   { btnLabel: 'Generate Template', title: 'Template Generator', sub: 'Upload your assignment and get a structured outline.', resultTitle: 'Your Essay Template', resultSub: 'A structured outline to guide your writing.', ext: 'md' },
-      reviewer:   { btnLabel: 'Review Essay', title: 'Essay Reviewer', sub: 'Upload your draft and get actionable feedback.', resultTitle: 'Your Essay Review', resultSub: 'Actionable feedback to strengthen your draft.', ext: 'md' },
+      template:   { btnLabel: 'Generate Template', title: 'Template Generator', sub: 'Upload your assignment and get a structured outline.', resultTitle: 'Your Assignment Template', resultSub: 'A structured outline to guide your writing.', ext: 'md' },
+      reviewer:   { btnLabel: 'Review Assignment', title: 'General Assignment Reviewer', sub: 'Upload your draft and get actionable feedback.', resultTitle: 'Your Assignment Review', resultSub: 'Actionable feedback to strengthen your draft.', ext: 'md' },
     };
 
     const LOADING_MESSAGES = {
@@ -2380,7 +2688,7 @@
         { title: 'Adding the finishing touches\u2026', sub: 'Inserting specific references and section guidance.' },
       ],
       reviewer: [
-        { title: 'Reading your essay\u2026', sub: 'Carefully analyzing your draft submission.' },
+        { title: 'Reading your assignment\u2026', sub: 'Carefully analyzing your submission.' },
         { title: 'Checking against the rubric\u2026', sub: 'Evaluating each criterion from your marking guide.' },
         { title: 'Identifying key feedback\u2026', sub: 'Finding strengths and areas for improvement.' },
         { title: 'Generating your review\u2026', sub: 'Preparing constructive, actionable feedback.' },
@@ -2547,6 +2855,10 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       viewTool:             $('viewTool'),
       viewKnowledge:        $('viewKnowledge'),
       viewTutor:            $('viewTutor'),
+      tutorLanding:         $('tutorLanding'),
+      tutorLandingSearch:   $('tutorLandingSearch'),
+      tutorLandingResults:  $('tutorLandingResults'),
+      tutorLandingNewChat:  $('tutorLandingNewChat'),
       toolTitle:            $('toolTitle'),
       toolSubtitle:         $('toolSubtitle'),
 
@@ -3665,6 +3977,164 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     }
 
     // ═══════════════════════════════════════════════════════════
+    // ─── UTILITIES: DEBOUNCE, SEARCH, TEXT SIZE ────────────────
+    // ═══════════════════════════════════════════════════════════
+
+    function debounce(fn, ms) {
+      let id;
+      return function(...args) {
+        clearTimeout(id);
+        id = setTimeout(() => fn.apply(this, args), ms);
+      };
+    }
+
+    function searchTutorChats(query, chats = tutor.chats) {
+      const q = (query || '').toLowerCase().trim();
+      if (!q) {
+        return chats.map(chat => ({
+          chat,
+          message: null,
+          messageIndex: -1,
+          snippet: '',
+          matchType: 'none',
+        }));
+      }
+      const results = [];
+      for (const chat of chats) {
+        const titleMatch = (chat.title || '').toLowerCase().includes(q);
+        let bestMatch = null;
+        for (let i = 0; i < (chat.messages || []).length; i++) {
+          const m = chat.messages[i];
+          const text = (m.text || '').toLowerCase();
+          const pos = text.indexOf(q);
+          if (pos === -1) continue;
+          const score =
+            (text === q ? 1000 : 0) +
+            (pos === 0 ? 300 : 0) +
+            (m.role === 'user' ? 25 : 0) +
+            i;
+          if (!bestMatch || score > bestMatch.score) {
+            const raw = m.text || '';
+            const start = Math.max(0, pos - 40);
+            const end = Math.min(raw.length, pos + q.length + 60);
+            bestMatch = {
+              score,
+              message: m,
+              messageIndex: i,
+              snippet: `${start > 0 ? '...' : ''}${raw.slice(start, end)}${end < raw.length ? '...' : ''}`,
+            };
+          }
+        }
+        if (titleMatch || bestMatch) {
+          results.push({
+            chat,
+            message: bestMatch?.message || null,
+            messageIndex: bestMatch?.messageIndex ?? -1,
+            snippet: bestMatch?.snippet || '',
+            matchType: titleMatch ? (bestMatch ? 'both' : 'title') : 'message',
+            navigationMessageIndex: bestMatch ? bestMatch.messageIndex : -1,
+          });
+        }
+      }
+      return results;
+    }
+
+    function formatRelativeDate(ts) {
+      const now = Date.now();
+      const diff = now - ts;
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return 'Just now';
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      const days = Math.floor(hrs / 24);
+      if (days < 7) return `${days}d ago`;
+      return new Date(ts).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
+    }
+
+    function renderTutorLanding(query) {
+      const sorted = [...tutor.chats].sort((a, b) => b.updated - a.updated);
+      const results = searchTutorChats(query, sorted);
+
+      const container = dom.tutorLandingResults;
+      container.innerHTML = '';
+      const q = (query || '').trim();
+      const heading = document.createElement('div');
+      heading.className = 'tutor-landing-results-heading';
+      heading.textContent = q ? `Matching chats` : 'Recent chats';
+      container.appendChild(heading);
+
+      if (!results.length) {
+        const empty = document.createElement('div');
+        empty.className = 'tutor-landing-empty';
+        empty.textContent = q ? 'No chats match your search.' : 'No chats yet. Start a new chat!';
+        container.appendChild(empty);
+        return;
+      }
+
+      const frag = document.createDocumentFragment();
+      for (const r of results) {
+        const card = document.createElement('div');
+        card.className = 'tutor-landing-card';
+        card.tabIndex = 0;
+        card.setAttribute('role', 'button');
+        card.setAttribute('aria-label', `Open chat: ${r.chat.title}`);
+
+        const title = document.createElement('div');
+        title.className = 'tutor-landing-card-title';
+        title.textContent = r.chat.title || 'Untitled chat';
+
+        card.appendChild(title);
+
+        if (r.snippet) {
+          const snippet = document.createElement('div');
+          snippet.className = 'tutor-landing-card-snippet';
+          if (q) {
+            const esc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            snippet.innerHTML = escapeHtml(r.snippet).replace(
+              new RegExp(`(${esc})`, 'gi'),
+              '<mark>$1</mark>'
+            );
+          } else {
+            snippet.textContent = r.snippet;
+          }
+          card.appendChild(snippet);
+        } else if (!q && r.chat.messages?.length) {
+          const lastMsg = r.chat.messages[r.chat.messages.length - 1];
+          const preview = (lastMsg.text || '').slice(0, 100);
+          if (preview) {
+            const snippet = document.createElement('div');
+            snippet.className = 'tutor-landing-card-snippet';
+            snippet.textContent = preview + (lastMsg.text.length > 100 ? '...' : '');
+            card.appendChild(snippet);
+          }
+        }
+
+        const date = document.createElement('div');
+        date.className = 'tutor-landing-card-date';
+        date.textContent = formatRelativeDate(r.chat.updated || r.chat.timestamp);
+        card.appendChild(date);
+
+        const chatId = r.chat.id;
+        const msgIdx = r.navigationMessageIndex;
+        const openHandler = () => {
+          pendingTutorMessageIndex = -1;
+          pendingTutorMessageChatId = null;
+          pendingTutorMessageChatId = msgIdx >= 0 ? chatId : null;
+          pendingTutorMessageIndex = msgIdx;
+          location.hash = `#tutor/${chatId}`;
+        };
+        card.addEventListener('click', openHandler);
+        card.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openHandler(); }
+        });
+
+        frag.appendChild(card);
+      }
+      container.appendChild(frag);
+    }
+
+    // ═══════════════════════════════════════════════════════════
     // ─── ROUTER ────────────────────────────────────────────────
     // ═══════════════════════════════════════════════════════════
     const ROUTES = {
@@ -3690,15 +4160,56 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       });
     }
 
+    let navigationToken = 0;
+    let tutorMessageHighlightTimer = null;
+    let pendingTutorMessageIndex = -1;
+    let pendingTutorMessageChatId = null;
+
+    function navigateTutorMessage(index, chatId, token, attempts = 0) {
+      if (token !== navigationToken || tutor.current()?.id !== chatId) return;
+      const target = dom.tutorMessages.querySelector(`[data-msg-index="${index}"]`);
+      if (!target) {
+        if (attempts >= 5) return;
+        requestAnimationFrame(() => navigateTutorMessage(index, chatId, token, attempts + 1));
+        return;
+      }
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.classList.add('msg-highlight');
+      clearTimeout(tutorMessageHighlightTimer);
+      tutorMessageHighlightTimer = setTimeout(() => {
+        target.classList.remove('msg-highlight');
+      }, 1500);
+    }
+
     async function navigate() {
+      const token = ++navigationToken;
       const { name, arg } = parseHash();
       const cfg = ROUTES[name];
       state.currentRoute = name;
 
-      // Show only this view
-      ['viewHome', 'viewTool', 'viewKnowledge', 'viewTutor', 'viewReference'].forEach(v => {
-        dom[v].classList.toggle('active', v === cfg.view);
+      if (name !== 'tutor' || !arg) {
+        pendingTutorMessageIndex = -1;
+        pendingTutorMessageChatId = null;
+      }
+
+      const viewKeys = ['viewHome', 'viewTool', 'viewKnowledge', 'viewTutor', 'viewReference'];
+      const activeView = document.querySelector('.view.active');
+      const nextView = dom[cfg.view];
+
+      if (activeView && activeView !== nextView) {
+        activeView.classList.add('view-exit');
+        await new Promise(r => setTimeout(r, 140));
+        if (token !== navigationToken) return;
+        activeView.classList.remove('active', 'view-exit', 'view-enter');
+      }
+
+      viewKeys.forEach(v => {
+        if (v !== cfg.view) dom[v].classList.remove('active', 'view-enter', 'view-exit');
       });
+      if (token !== navigationToken) return;
+      nextView.classList.add('active');
+      void nextView.offsetWidth;
+      nextView.classList.add('view-enter');
 
       updateSidebarActive(name);
 
@@ -3721,7 +4232,30 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       }
 
       if (name === 'tutor') {
-        tutor.openChat(arg);
+        if (arg) {
+          dom.tutorLanding.classList.remove('active');
+          dom.tutorShell.style.display = '';
+          tutor.openChat(arg);
+          if (
+            pendingTutorMessageIndex >= 0 &&
+            pendingTutorMessageChatId === arg
+          ) {
+            const targetIndex = pendingTutorMessageIndex;
+            const targetChatId = pendingTutorMessageChatId;
+            const targetToken = navigationToken;
+            pendingTutorMessageIndex = -1;
+            pendingTutorMessageChatId = null;
+            requestAnimationFrame(() => navigateTutorMessage(targetIndex, targetChatId, targetToken));
+          }
+        } else {
+          dom.tutorShell.style.display = 'none';
+          dom.tutorLanding.classList.add('active');
+          dom.tutorLandingSearch.value = '';
+          renderTutorLanding('');
+        }
+      } else {
+        dom.tutorLanding.classList.remove('active');
+        dom.tutorShell.style.display = '';
       }
 
       if (name === 'references') {
@@ -5051,12 +5585,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       openChat(arg) {
         if (arg && this.chats.find(c => c.id === arg)) {
           this.currentId = arg;
-        } else if (this.chats.length > 0) {
-          this.currentId = this.chats[0].id;
-          if (!arg) history.replaceState(null, '', `#tutor/${this.currentId}`);
         } else {
-          // No chats exist — create one
-          this.newChat();
           return;
         }
         this.renderChat();
@@ -5072,12 +5601,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         this.renderSidebarList();
         if (this.currentId === id) {
           this.currentId = null;
-          if (this.chats.length) {
-            location.hash = `#tutor/${this.chats[0].id}`;
-          } else {
-            // Clear tutor view
-            this.renderChat();
-          }
+          location.hash = '#tutor';
         }
       },
 
@@ -5350,14 +5874,11 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       },
 
       renderSidebarList() {
-        const q = (state.sidebarSearch || '').toLowerCase().trim();
-        let items = [...this.chats].sort((a, b) => b.updated - a.updated);
-        if (q) {
-          items = items.filter(c => {
-            if ((c.title || '').toLowerCase().includes(q)) return true;
-            return (c.messages || []).some(m => (m.text || '').toLowerCase().includes(q));
-          });
-        }
+        const q = (state.sidebarSearch || '').trim();
+        const searchResults = searchTutorChats(q);
+        const items = searchResults
+          .map(r => r.chat)
+          .sort((a, b) => b.updated - a.updated);
         dom.tutorChatList.innerHTML = '';
         if (!items.length) {
           dom.tutorChatList.innerHTML = `<p class="chat-empty">${q ? 'No chats match.' : 'No chats yet.'}</p>`;
@@ -5437,6 +5958,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
               wrapper.className = 'msg-wrapper';
               const bubble = document.createElement('div');
               bubble.className = 'chat-bubble model';
+              bubble.dataset.msgIndex = String(idx);
               try {
                 bubble.innerHTML = marked.parse(msg.text || '');
               } catch {
@@ -5525,17 +6047,48 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
       renderBookmarks(c) {
         dom.tutorBookmarks.innerHTML = '';
+        const frag = document.createDocumentFragment();
         c.messages.forEach((msg, idx) => {
-          if (msg.role !== 'user') return;
+          if (msg.role !== 'user' && msg.role !== 'model') return;
           const dot = document.createElement('div');
-          dot.className = 'bookmark-dot';
-          dot.title = (msg.text || '').slice(0, 80);
-          dot.addEventListener('click', () => {
-            const target = dom.tutorMessages.querySelector(`.chat-bubble.user[data-msg-index="${idx}"]`);
-            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          dot.className = `bookmark-dot ${msg.role === 'user' ? 'bookmark-user' : 'bookmark-tutor'}`;
+          dot.tabIndex = 0;
+          dot.setAttribute('role', 'button');
+          const preview = (msg.text || '').slice(0, 60);
+          const roleLabel = msg.role === 'user' ? 'You' : 'Tutor';
+          dot.setAttribute('aria-label', `${roleLabel}: ${preview}`);
+
+          const tooltip = document.createElement('div');
+          tooltip.className = 'bookmark-tooltip';
+          const roleLine = document.createElement('div');
+          roleLine.className = 'bookmark-tooltip-role';
+          roleLine.textContent = roleLabel;
+          tooltip.appendChild(roleLine);
+          tooltip.appendChild(document.createTextNode(preview + (msg.text && msg.text.length > 60 ? '...' : '')));
+          dot.appendChild(tooltip);
+
+          const navToMsg = () => navigateTutorMessage(idx, tutor.current()?.id, navigationToken);
+
+          dot.addEventListener('click', (e) => {
+            if ('ontouchstart' in window) {
+              e.preventDefault();
+              if (dot.classList.contains('tooltip-visible')) {
+                dot.classList.remove('tooltip-visible');
+                navToMsg();
+              } else {
+                dom.tutorBookmarks.querySelectorAll('.bookmark-dot').forEach(d => d.classList.remove('tooltip-visible'));
+                dot.classList.add('tooltip-visible');
+              }
+            } else {
+              navToMsg();
+            }
           });
-          dom.tutorBookmarks.appendChild(dot);
+          dot.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navToMsg(); }
+          });
+          frag.appendChild(dot);
         });
+        dom.tutorBookmarks.appendChild(frag);
       },
     };
 
@@ -5805,6 +6358,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
     function updateHeaderFusion() {
       if (!dom.viewTutor.classList.contains('active')) return setHeaderFused(false);
+      if (dom.tutorShell.style.display === 'none') return setHeaderFused(false);
       const top = dom.tutorMessages.scrollTop;
       const fused = dom.tutorShell.classList.contains('head-fused');
       if (!fused && top > 40) setHeaderFused(true);
@@ -6228,11 +6782,12 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       if (selTipActive && !selTip.contains(e.target)) hideSelTip();
     });
 
-    // Sidebar chat search
+    // Sidebar chat search (debounced)
+    const _debouncedSidebarSearch = debounce(() => tutor.renderSidebarList(), 250);
     dom.sidebarChatSearch.addEventListener('input', () => {
       state.sidebarSearch = dom.sidebarChatSearch.value;
       dom.sidebarChatSearchClear.classList.toggle('visible', !!state.sidebarSearch);
-      tutor.renderSidebarList();
+      _debouncedSidebarSearch();
     });
     dom.sidebarChatSearchClear.addEventListener('click', () => {
       dom.sidebarChatSearch.value = '';
@@ -6386,6 +6941,27 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     document.getElementById('historyResultModal').addEventListener('click', e => {
       if (e.target === document.getElementById('historyResultModal')) {
         document.getElementById('historyResultModal').classList.remove('open');
+      }
+    });
+
+    // Tutor landing page search (debounced)
+    const _debouncedLandingSearch = debounce((q) => renderTutorLanding(q), 250);
+    dom.tutorLandingSearch.addEventListener('input', () => {
+      _debouncedLandingSearch(dom.tutorLandingSearch.value);
+    });
+    dom.tutorLandingSearch.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        dom.tutorLandingSearch.value = '';
+        renderTutorLanding('');
+      }
+    });
+    dom.tutorLandingNewChat.addEventListener('click', () => {
+      tutor.newChat();
+    });
+
+    document.addEventListener('pointerdown', (e) => {
+      if (!e.target.closest('.bookmark-dot')) {
+        document.querySelectorAll('.bookmark-dot.tooltip-visible').forEach(d => d.classList.remove('tooltip-visible'));
       }
     });
 
