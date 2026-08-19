@@ -345,6 +345,57 @@
     .lightbox-nav.prev { left: -56px; } .lightbox-nav.next { right: -56px; }
     @media (max-width: 640px) { .lightbox-nav.prev { left: 8px; } .lightbox-nav.next { right: 8px; } }
 
+    /* Drag-and-drop reorder */
+    .file-card.drag-selected {
+      outline: 2.5px solid #2c5f2d;
+      outline-offset: 1px;
+      border-radius: 10px;
+    }
+    .file-card.drag-selected .drag-check {
+      display: flex;
+    }
+    .drag-check {
+      display: none;
+      position: absolute; bottom: 6px; right: 6px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: #2c5f2d; color: white;
+      align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      z-index: 5;
+    }
+    .file-card.drag-ghost {
+      position: fixed;
+      z-index: 150;
+      pointer-events: none;
+      opacity: 0.8;
+      transform: scale(0.85) rotate(2deg);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+      transition: none;
+    }
+    .file-card.drag-placeholder {
+      outline: 2.5px dashed #2c5f2d;
+      outline-offset: -2px;
+      background: rgba(44,95,45,0.06) !important;
+    }
+    .file-card.drag-placeholder > * { opacity: 0.25; }
+    .file-card.drag-over-slot::before {
+      content: '';
+      position: absolute; inset: 0;
+      border-radius: 8px;
+      outline: 2.5px solid #2c5f2d;
+      outline-offset: 1px;
+      pointer-events: none;
+      z-index: 4;
+    }
+    .file-grid.dragging .file-card { transition: transform 0.2s ease; }
+    .reorder-hint {
+      font-family: 'Outfit', sans-serif;
+      font-size: 11px; color: rgba(26,46,28,0.35);
+      margin-top: 6px; padding-left: 2px;
+      user-select: none;
+    }
+
     /* Login gate */
     .login-overlay {
       position: fixed; inset: 0; z-index: 300;
@@ -2788,6 +2839,12 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       googleAccessToken: null,
       lightboxIndex: -1,
       lightboxRole: null,
+      dragSelectedId: null,
+      dragSelectedRole: null,
+      dragActive: false,
+      dragGhostEl: null,
+      dragStartIdx: -1,
+      dragCurrentIdx: -1,
       currentRoute: 'home',
       kbPickerRole: null,
       kbPickerSelection: new Set(),
@@ -4444,20 +4501,25 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       grid.innerHTML = '';
 
       const files = state.zones[role] || [];
+      const hasImages = files.some(f => f.type === 'image');
+
       files.forEach((f, idx) => {
         const card = document.createElement('div');
+        card.dataset.idx = idx;
+        card.dataset.id = f.id;
 
         if (f.type === 'image') {
           card.className = 'file-card relative rounded-lg overflow-hidden border border-warm/40 bg-white aspect-[3/4] group cursor-pointer';
+          if (state.dragSelectedId === f.id) card.classList.add('drag-selected');
           const kbFlag = f.fromKb ? '<span class="absolute bottom-1.5 left-1.5 bg-accent/90 text-white text-[9px] font-body font-semibold px-1.5 py-0.5 rounded-md shadow-sm">KB</span>' : '';
           card.innerHTML = `
-            <img src="${f.thumbUrl}" alt="${escapeHtml(f.name)}" class="w-full h-full object-cover" />
+            <img src="${f.thumbUrl}" alt="${escapeHtml(f.name)}" class="w-full h-full object-cover" draggable="false" />
             <span class="absolute top-1.5 left-1.5 bg-white/90 text-ink text-[10px] font-body font-semibold px-1.5 py-0.5 rounded-md shadow-sm">${idx + 1}</span>
             <button class="rm-btn absolute top-1.5 right-1.5 w-5 h-5 bg-white/90 hover:bg-red-500 hover:text-white rounded-full flex items-center justify-center text-ink/50 opacity-0 group-hover:opacity-100 transition text-xs font-bold shadow-sm" data-id="${f.id}" data-role="${role}">&times;</button>
+            <span class="drag-check">&#10003;</span>
             ${kbFlag}`;
-          card.addEventListener('click', e => {
-            if (!e.target.closest('.rm-btn')) openLightbox(role, idx);
-          });
+
+          attachDragHandlers(card, role, idx, f);
         } else {
           card.className = 'file-card relative rounded-lg border border-warm/40 bg-white p-3 flex items-center gap-2 group';
           const ext = f.name.split('.').pop().toUpperCase();
@@ -4486,11 +4548,200 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           const obj = (state.zones[r] || []).find(x => x.id === id);
           if (obj && obj.thumbUrl && !obj.fromKb) URL.revokeObjectURL(obj.thumbUrl);
           state.zones[r] = (state.zones[r] || []).filter(x => x.id !== id);
+          if (state.dragSelectedId === id) { state.dragSelectedId = null; state.dragSelectedRole = null; }
           renderFileGrid(r);
           updateActionState();
           scheduleDraftSave();
         });
       });
+
+      let hint = wrapper.querySelector('.reorder-hint');
+      if (hasImages && files.filter(f => f.type === 'image').length > 1) {
+        if (!hint) {
+          hint = document.createElement('p');
+          hint.className = 'reorder-hint';
+          grid.parentNode.insertBefore(hint, grid.nextSibling);
+        }
+        hint.textContent = 'Drag images to reorder · Tap to select, tap again to preview';
+      } else if (hint) {
+        hint.remove();
+      }
+    }
+
+    // ─── Drag-and-Drop Reorder ──────────────────────
+    const DRAG_THRESHOLD = 6;
+
+    function attachDragHandlers(card, role, idx, fileObj) {
+      let pointerStartX = 0, pointerStartY = 0;
+      let dragStarted = false;
+      let pointerId = null;
+
+      card.addEventListener('pointerdown', e => {
+        if (e.target.closest('.rm-btn')) return;
+        if (e.button && e.button !== 0) return;
+        pointerStartX = e.clientX;
+        pointerStartY = e.clientY;
+        dragStarted = false;
+        pointerId = e.pointerId;
+        card.setPointerCapture(e.pointerId);
+
+        state.dragStartIdx = idx;
+        state.dragCurrentIdx = idx;
+      });
+
+      card.addEventListener('pointermove', e => {
+        if (pointerId === null) return;
+        const dx = e.clientX - pointerStartX;
+        const dy = e.clientY - pointerStartY;
+
+        if (!dragStarted && Math.sqrt(dx * dx + dy * dy) > DRAG_THRESHOLD) {
+          dragStarted = true;
+          beginDrag(card, role, idx, e);
+        }
+
+        if (dragStarted) {
+          moveDragGhost(e);
+          updateDropTarget(role, e);
+        }
+      });
+
+      card.addEventListener('pointerup', e => {
+        if (pointerId === null) return;
+        try { card.releasePointerCapture(pointerId); } catch {}
+        pointerId = null;
+
+        if (dragStarted) {
+          endDrag(role);
+          dragStarted = false;
+        } else {
+          handleCardTap(role, idx, fileObj);
+        }
+      });
+
+      card.addEventListener('pointercancel', e => {
+        if (pointerId === null) return;
+        pointerId = null;
+        if (dragStarted) {
+          cancelDrag(role);
+          dragStarted = false;
+        }
+      });
+
+      card.style.touchAction = 'none';
+    }
+
+    function handleCardTap(role, idx, fileObj) {
+      if (state.dragSelectedId === fileObj.id && state.dragSelectedRole === role) {
+        state.dragSelectedId = null;
+        state.dragSelectedRole = null;
+        openLightbox(role, idx);
+      } else {
+        state.dragSelectedId = fileObj.id;
+        state.dragSelectedRole = role;
+        renderFileGrid(role);
+      }
+    }
+
+    function beginDrag(card, role, idx, e) {
+      state.dragActive = true;
+      state.dragSelectedId = null;
+      state.dragSelectedRole = null;
+
+      const rect = card.getBoundingClientRect();
+      const ghost = card.cloneNode(true);
+      ghost.className = card.className + ' drag-ghost';
+      ghost.style.width = rect.width + 'px';
+      ghost.style.height = rect.height + 'px';
+      ghost.style.left = (e.clientX - rect.width / 2) + 'px';
+      ghost.style.top = (e.clientY - rect.height / 2) + 'px';
+      document.body.appendChild(ghost);
+      state.dragGhostEl = ghost;
+
+      card.classList.add('drag-placeholder');
+
+      const grid = card.closest('.file-grid');
+      if (grid) grid.classList.add('dragging');
+    }
+
+    function moveDragGhost(e) {
+      if (!state.dragGhostEl) return;
+      const w = parseFloat(state.dragGhostEl.style.width);
+      const h = parseFloat(state.dragGhostEl.style.height);
+      state.dragGhostEl.style.left = (e.clientX - w / 2) + 'px';
+      state.dragGhostEl.style.top = (e.clientY - h / 2) + 'px';
+    }
+
+    function updateDropTarget(role, e) {
+      const wrapper = document.querySelector(`.upload-zone-wrapper[data-role="${role}"]`);
+      if (!wrapper) return;
+      const grid = wrapper.querySelector('.file-grid');
+      const cards = Array.from(grid.querySelectorAll('.file-card'));
+
+      cards.forEach(c => c.classList.remove('drag-over-slot'));
+
+      let closestIdx = state.dragStartIdx;
+      let closestDist = Infinity;
+
+      cards.forEach((c, i) => {
+        if (i === state.dragStartIdx) return;
+        const r = c.getBoundingClientRect();
+        const cx = r.left + r.width / 2;
+        const cy = r.top + r.height / 2;
+        const dist = Math.sqrt((e.clientX - cx) ** 2 + (e.clientY - cy) ** 2);
+        if (dist < closestDist && dist < Math.max(r.width, r.height)) {
+          closestDist = dist;
+          closestIdx = i;
+        }
+      });
+
+      state.dragCurrentIdx = closestIdx;
+      if (closestIdx !== state.dragStartIdx && cards[closestIdx]) {
+        cards[closestIdx].classList.add('drag-over-slot');
+      }
+    }
+
+    function endDrag(role) {
+      cleanupDragVisuals(role);
+
+      const from = state.dragStartIdx;
+      const to = state.dragCurrentIdx;
+      const files = state.zones[role];
+
+      if (files && from !== to && from >= 0 && to >= 0 && from < files.length && to < files.length) {
+        const [moved] = files.splice(from, 1);
+        files.splice(to, 0, moved);
+        scheduleDraftSave();
+      }
+
+      state.dragActive = false;
+      state.dragStartIdx = -1;
+      state.dragCurrentIdx = -1;
+      renderFileGrid(role);
+    }
+
+    function cancelDrag(role) {
+      cleanupDragVisuals(role);
+      state.dragActive = false;
+      state.dragStartIdx = -1;
+      state.dragCurrentIdx = -1;
+      renderFileGrid(role);
+    }
+
+    function cleanupDragVisuals(role) {
+      if (state.dragGhostEl) {
+        state.dragGhostEl.remove();
+        state.dragGhostEl = null;
+      }
+      const wrapper = document.querySelector(`.upload-zone-wrapper[data-role="${role}"]`);
+      if (wrapper) {
+        const grid = wrapper.querySelector('.file-grid');
+        if (grid) {
+          grid.classList.remove('dragging');
+          grid.querySelectorAll('.file-card').forEach(c => {
+            c.classList.remove('drag-placeholder', 'drag-over-slot');
+          });
+        }
+      }
     }
 
     // ─── Action Button State ────────────────────────
