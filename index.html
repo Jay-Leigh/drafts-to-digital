@@ -3709,9 +3709,9 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         return this.cache.find(i => i.type === 'url' && i.originalUrl === url);
       },
 
-      async addFromScrape(originalUrl, displayName, text) {
-        const LIMIT = 40000;
-        const content = text.length > LIMIT ? text.slice(0, LIMIT) + '\n\n_[Truncated at 40,000 chars]_' : text;
+      async addFromScrape(originalUrl, displayName, text, note) {
+        const LIMIT = 100000;
+        const content = text.length > LIMIT ? text.slice(0, LIMIT) + '\n\n_[Truncated at 100,000 chars]_' : text;
         const entry = {
           id: generateId(),
           name: displayName,
@@ -3722,6 +3722,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           timestamp: Date.now(),
           content,
         };
+        if (note) entry.note = note;
         this.cache.push(entry);
         await this.store.setItem('knowledge_bay', this.cache);
         scheduleDrivePush();
@@ -3916,16 +3917,18 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       }
 
       dom.kbUrlInput.value = '';
-      openScrapePreview(url, data.text);
+      openScrapePreview(url, data.text, data.note || '', data.source || '');
     }
 
-    function openScrapePreview(url, text) {
-      _scrapePreviewPending = { url, text };
+    function openScrapePreview(url, text, note, source) {
+      _scrapePreviewPending = { url, text, note };
       const displayName = formatDomainPath(url);
       dom.scrapePreviewName.value = displayName;
       const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
-      dom.scrapePreviewMeta.textContent = `${wordCount.toLocaleString()} words · ${text.length.toLocaleString()} chars · ${url}`;
-      // Show first 1200 chars as preview
+      let metaLine = `${wordCount.toLocaleString()} words · ${text.length.toLocaleString()} chars · ${url}`;
+      if (source === 'doi-fallback') metaLine = `[DOI metadata] ${metaLine}`;
+      if (note) metaLine += `\n⚠ ${note}`;
+      dom.scrapePreviewMeta.textContent = metaLine;
       dom.scrapePreviewContent.textContent = text.slice(0, 1200) + (text.length > 1200 ? '\n\n[…preview truncated — full content will be saved]' : '');
       dom.scrapePreviewModal.classList.add('open');
     }
@@ -3937,10 +3940,10 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
     async function confirmScrapePreview() {
       if (!_scrapePreviewPending) return closeScrapePreview();
-      const { url, text } = _scrapePreviewPending;
+      const { url, text, note } = _scrapePreviewPending;
       const name = dom.scrapePreviewName.value.trim() || formatDomainPath(url);
       closeScrapePreview();
-      await kb.addFromScrape(url, name, text);
+      await kb.addFromScrape(url, name, text, note);
       renderKbGrid();
       showToast('Saved to Knowledge Bay');
     }
