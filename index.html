@@ -3367,15 +3367,17 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     }
 
-    // Lightweight scrape request — no retry, 20s timeout
-    async function scrapeUrl(url) {
+    async function scrapeUrl(url, opts) {
+      const kbSave = opts && opts.kbSave;
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 20000);
+      const timeout = setTimeout(() => controller.abort(), 35000);
       try {
+        const payload = { mode: 'scrape', url };
+        if (kbSave) payload.kbSave = true;
         const res = await fetch(CONFIG.n8nWebhookUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode: 'scrape', url }),
+          body: JSON.stringify(payload),
           signal: controller.signal,
         });
         clearTimeout(timeout);
@@ -3906,7 +3908,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       dom.kbUrlBtn.disabled = true;
       dom.kbScrapingNote.classList.remove('hidden');
 
-      const data = await scrapeUrl(url);
+      const data = await scrapeUrl(url, { kbSave: true });
 
       dom.kbScrapingNote.classList.add('hidden');
       dom.kbUrlBtn.disabled = false;
