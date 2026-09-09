@@ -7283,6 +7283,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       // Init KB + Tutor stores
       await kb.init();
       await tutor.init();
+      if (navigator.storage?.persist) await navigator.storage.persist();
       wireKbDropzone();
       wireComposerAttach();
 
