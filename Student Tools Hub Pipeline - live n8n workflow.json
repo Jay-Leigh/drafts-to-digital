@@ -587,7 +587,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/{{ $json.model || 'gemini-2.5-flash' }}:generateContent",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -2649,7 +2649,7 @@
     {
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const MAX_ATTEMPTS = 4;\nconst res = $input.first().json;\nconst status = res.statusCode;\nconst candidate = res.body?.candidates?.[0];\nconst hasText = !!candidate?.content?.parts?.some(p => p.text);\nconst reason = candidate?.finishReason || '';\nconst blocked = ['SAFETY', 'RECITATION', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII'].includes(reason) || !!res.body?.promptFeedback?.blockReason;\nconst isRateLimited = status === 429;\nconst isServerError = [500, 503, 504].includes(status);\nconst isEmptyReply = status === 200 && !hasText && !blocked;\nconst attempt = $runIndex + 1;\nconst retry = (isRateLimited || isServerError || isEmptyReply) && attempt < MAX_ATTEMPTS;\n\nlet waitSeconds = 0;\nif (retry) {\n  if (isRateLimited) {\n    const hinted = parseFloat((res.body?.error?.message || '').match(/retry in ([\\d.]+)s/i)?.[1]);\n    waitSeconds = (Number.isFinite(hinted) ? Math.ceil(hinted) + 5 : 35) + Math.floor(Math.random() * 5);\n  } else {\n    waitSeconds = 5 * attempt;\n  }\n  waitSeconds = Math.min(waitSeconds, 60);\n}\n\nreturn [{ json: { ...res, geminiBody: $('Prep — Tutor').first().json.geminiBody, retry, waitSeconds, attempt } }];"
+        "jsCode": "const MAX_ATTEMPTS = 4;\nconst FALLBACK_FROM_ATTEMPT = 3;\nconst FALLBACK_MODEL = 'gemini-2.5-flash-lite';\nconst res = $input.first().json;\nconst status = res.statusCode;\nconst candidate = res.body?.candidates?.[0];\nconst hasText = !!candidate?.content?.parts?.some(p => p.text);\nconst reason = candidate?.finishReason || '';\nconst blocked = ['SAFETY', 'RECITATION', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII'].includes(reason) || !!res.body?.promptFeedback?.blockReason;\nconst isRateLimited = status === 429;\nconst isServerError = [500, 503, 504].includes(status);\nconst isEmptyReply = status === 200 && !hasText && !blocked;\nconst attempt = $runIndex + 1;\nconst retry = (isRateLimited || isServerError || isEmptyReply) && attempt < MAX_ATTEMPTS;\n\nlet waitSeconds = 0;\nif (retry) {\n  if (isRateLimited && attempt + 1 === FALLBACK_FROM_ATTEMPT) {\n    waitSeconds = 3;\n  } else if (isRateLimited) {\n    const hinted = parseFloat((res.body?.error?.message || '').match(/retry in ([\\d.]+)s/i)?.[1]);\n    waitSeconds = (Number.isFinite(hinted) ? Math.ceil(hinted) + 5 : 35) + Math.floor(Math.random() * 5);\n  } else {\n    waitSeconds = 5 * attempt;\n  }\n  waitSeconds = Math.min(waitSeconds, 60);\n}\n\nreturn [{ json: { ...res, geminiBody: $('Prep — Tutor').first().json.geminiBody, retry, waitSeconds, attempt, model: attempt + 1 >= FALLBACK_FROM_ATTEMPT ? FALLBACK_MODEL : undefined } }];"
       },
       "id": "7a6cd9aa-0749-4132-aa4c-c3fdd5b232a7",
       "name": "Tutor Retry Check",
