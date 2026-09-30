@@ -597,7 +597,8 @@
         "options": {
           "response": {
             "response": {
-              "fullResponse": true
+              "fullResponse": true,
+              "neverError": true
             }
           },
           "timeout": 300000
@@ -620,7 +621,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const response = $('Gemini — Tutor').first().json;\nlet text = '';\n\ntry {\n  const candidates = (response.body && response.body.candidates) || response.candidates || [];\n  if (candidates.length > 0) {\n    const candidate = candidates[0];\n    const reason = candidate.finishReason || '';\n    if (reason === 'RECITATION') return { json: { result: '[Transcription blocked] The AI detected this may be published/copyrighted content and cannot reproduce it. Try uploading handwritten notes instead.' } };\n    if (reason === 'SAFETY') return { json: { result: '[Blocked] The AI safety filters prevented processing this content.' } };\n    if (candidate.content && candidate.content.parts) {\n      text = candidate.content.parts.filter(p => p.text).map(p => p.text).join('\\n');\n    }\n  }\n  if (!text) throw new Error('No text extracted from Gemini response');\n} catch (err) {\n  throw new Error(`Tutor Gemini extraction failed: ${err.message}. Raw keys: ${JSON.stringify(Object.keys(response))}`);\n}\n\nconst prep = $('Prep — Tutor').first().json;\n\nreturn { json: {\n  result: text.trim(),\n  cacheName: prep.cacheName || null,\n  cacheExpiresAt: prep.cacheExpiresAt || null\n} };"
+        "jsCode": "const response = $input.first().json;\nconst status = response.statusCode;\nconst candidate = response.body?.candidates?.[0];\nconst reason = candidate?.finishReason || '';\n\nif (status === 429) return { json: { failed: true, result: '[Busy] The tutor is handling too many requests right now. Please resend your message in about a minute.' } };\nif (reason === 'RECITATION') return { json: { result: '[Transcription blocked] The AI detected this may be published/copyrighted content and cannot reproduce it. Try uploading handwritten notes instead.' } };\nif (reason === 'SAFETY') return { json: { result: '[Blocked] The AI safety filters prevented processing this content.' } };\n\nconst text = (candidate?.content?.parts || []).filter(p => p.text).map(p => p.text).join('\\n').trim();\nif (!text) {\n  if (status === 200) return { json: { failed: true, result: '[No reply] The tutor returned an empty response. Please resend your message.' } };\n  throw new Error(`Tutor Gemini failed: HTTP ${status} ${response.body?.error?.message || ''}`);\n}\n\nconst prep = $('Prep — Tutor').first().json;\n\nreturn { json: {\n  result: text,\n  cacheName: prep.cacheName || null,\n  cacheExpiresAt: prep.cacheExpiresAt || null\n} };"
       },
       "id": "9a08e5fa-e1b9-41ad-82fa-579704afeec8",
       "name": "Extract Tutor Text",
@@ -839,7 +840,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const prep = $('Prep — Tutor').first().json;\nconst parsed = $('Scanned PDF Resolution Complete').first().json;\n\nconst previous = parsed.session || {};\n\nconst assistant =\n    $('Extract Tutor Text').first().json.result;\n\nconst latestUser =\n    parsed.body.messages.at(-1);\n\nconst conversation = [\n    ...(previous.conversation || [])\n];\n\nif (latestUser) {\n    conversation.push({\n        role: latestUser.role,\n        text: latestUser.text\n    });\n}\n\nconversation.push({\n    role: \"model\",\n    text: assistant\n});\n\nconst now = Date.now();\n\nconst currentDocs = parsed.body.attachedContext || [];\n\nconst session = {\n    schemaVersion: 1,\n\n    id: prep.sessionId,\n\n    createdAt: previous.createdAt ?? now,\n\n    expiresAt: now + 10800 * 1000,\n\n    documentHash: prep.documentHash,\n\n    documents: currentDocs.map(d => ({\n        name: d.name,\n        hash: prep.documentHash\n    })),\n\n    conversation,\n\n    geminiFiles: parsed.updatedGeminiFiles || previous.geminiFiles || {},\n};\n\nreturn [{\n    json: {\n        sessionKey: `session:${prep.sessionId}`,\n        sessionValue: JSON.stringify(session),\n        reuploadScannedPdfs: parsed.reuploadScannedPdfs || []\n    }\n}];"
+        "jsCode": "const prep = $('Prep — Tutor').first().json;\nconst parsed = $('Scanned PDF Resolution Complete').first().json;\n\nconst previous = parsed.session || {};\n\nconst tutor = $('Extract Tutor Text').first().json;\nconst assistant = tutor.result;\n\nconst latestUser =\n    parsed.body.messages.at(-1);\n\nconst conversation = [\n    ...(previous.conversation || [])\n];\n\nif (!tutor.failed) {\n    if (latestUser) {\n        conversation.push({\n            role: latestUser.role,\n            text: latestUser.text\n        });\n    }\n\n    conversation.push({\n        role: \"model\",\n        text: assistant\n    });\n}\n\nconst now = Date.now();\n\nconst currentDocs = parsed.body.attachedContext || [];\n\nconst session = {\n    schemaVersion: 1,\n\n    id: prep.sessionId,\n\n    createdAt: previous.createdAt ?? now,\n\n    expiresAt: now + 10800 * 1000,\n\n    documentHash: prep.documentHash,\n\n    documents: currentDocs.map(d => ({\n        name: d.name,\n        hash: prep.documentHash\n    })),\n\n    conversation,\n\n    geminiFiles: parsed.updatedGeminiFiles || previous.geminiFiles || {},\n};\n\nreturn [{\n    json: {\n        sessionKey: `session:${prep.sessionId}`,\n        sessionValue: JSON.stringify(session),\n        reuploadScannedPdfs: parsed.reuploadScannedPdfs || []\n    }\n}];"
       },
       "id": "5c25d4a1-732e-4c04-88a8-eac00dd9aed0",
       "name": "Save Session Builder",
@@ -2644,6 +2645,69 @@
         16096,
         1408
       ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const MAX_ATTEMPTS = 4;\nconst res = $input.first().json;\nconst status = res.statusCode;\nconst candidate = res.body?.candidates?.[0];\nconst hasText = !!candidate?.content?.parts?.some(p => p.text);\nconst reason = candidate?.finishReason || '';\nconst blocked = ['SAFETY', 'RECITATION', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII'].includes(reason) || !!res.body?.promptFeedback?.blockReason;\nconst isRateLimited = status === 429;\nconst isServerError = [500, 503, 504].includes(status);\nconst isEmptyReply = status === 200 && !hasText && !blocked;\nconst attempt = $runIndex + 1;\nconst retry = (isRateLimited || isServerError || isEmptyReply) && attempt < MAX_ATTEMPTS;\n\nlet waitSeconds = 0;\nif (retry) {\n  if (isRateLimited) {\n    const hinted = parseFloat((res.body?.error?.message || '').match(/retry in ([\\d.]+)s/i)?.[1]);\n    waitSeconds = (Number.isFinite(hinted) ? Math.ceil(hinted) + 5 : 35) + Math.floor(Math.random() * 5);\n  } else {\n    waitSeconds = 5 * attempt;\n  }\n  waitSeconds = Math.min(waitSeconds, 60);\n}\n\nreturn [{ json: { ...res, geminiBody: $('Prep — Tutor').first().json.geminiBody, retry, waitSeconds, attempt } }];"
+      },
+      "id": "7a6cd9aa-0749-4132-aa4c-c3fdd5b232a7",
+      "name": "Tutor Retry Check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        22144,
+        2112
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-tutor-retry",
+              "leftValue": "={{ $json.retry }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "c01a239f-c86f-4bec-a482-048018176086",
+      "name": "Tutor Retry?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        22368,
+        2112
+      ]
+    },
+    {
+      "parameters": {
+        "amount": "={{ $json.waitSeconds }}",
+        "unit": "seconds"
+      },
+      "id": "6fef0694-a6ce-4c32-a9f2-d93e15421b9d",
+      "name": "Wait Tutor Retry",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        22368,
+        2336
+      ],
+      "webhookId": "ebe0eb93-5492-469f-9be8-cc59dbd1a534"
     }
   ],
   "pinData": {},
@@ -2884,7 +2948,7 @@
       "main": [
         [
           {
-            "node": "Extract Tutor Text",
+            "node": "Tutor Retry Check",
             "type": "main",
             "index": 0
           }
@@ -3969,6 +4033,46 @@
         [
           {
             "node": "Route by Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tutor Retry Check": {
+      "main": [
+        [
+          {
+            "node": "Tutor Retry?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tutor Retry?": {
+      "main": [
+        [
+          {
+            "node": "Wait Tutor Retry",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Extract Tutor Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Tutor Retry": {
+      "main": [
+        [
+          {
+            "node": "Gemini — Tutor",
             "type": "main",
             "index": 0
           }
