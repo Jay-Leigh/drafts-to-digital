@@ -1,0 +1,3993 @@
+{
+  "name": "Student Tools Hub Pipeline",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "138c7d22-f8f2-4db9-bad8-6d0bb44e39bd",
+      "name": "Error Trigger",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        13856,
+        2496
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "cond-transcribe",
+                    "leftValue": "={{ $json.body.mode }}",
+                    "rightValue": "transcribe",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "cond-template",
+                    "leftValue": "={{ $json.body.mode }}",
+                    "rightValue": "template",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "cond-reviewer",
+                    "leftValue": "={{ $json.body.mode }}",
+                    "rightValue": "reviewer",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "cond-error",
+                    "leftValue": "={{ $json.body.mode }}",
+                    "rightValue": "error_report",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "565463fc-149c-428c-b0e8-86504d6dd110",
+                    "leftValue": "={{ $json.body.mode }}",
+                    "rightValue": "tutor",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "ed09ad3f-1d24-41f9-b5c9-461a95b26135",
+                    "leftValue": "={{ $json.body.mode }}",
+                    "rightValue": "scrape",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "a172e37a-8ef3-48da-a38f-f1f18b396258",
+                    "leftValue": "={{ $json.body.mode }}",
+                    "rightValue": "reference",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "3264ebc2-118d-4436-9683-1f6af8203df9",
+      "name": "Route by Mode",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        16320,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('Normalize Multipart Body').first().json.body;\nconst documents = body.documents || [];\n\nconst parts = [];\n\nlet hasPdf = false;\nfor (const doc of documents) {\n  if (doc.type === 'inline') {\n    if (doc.mime_type === 'application/pdf' || (doc.name && doc.name.toLowerCase().endsWith('.pdf'))) hasPdf = true;\n    parts.push({ inline_data: { mime_type: doc.mime_type, data: doc.base64 } });\n  } else if (doc.type === 'text') {\n    parts.push({ text: `[Content from ${doc.name}]:\\n${doc.content}` });\n  }\n}\n\nconst handwrittenPrompt = `You are a professional transcription assistant. You have been given ${documents.length} document(s) containing handwritten notes, essays, or mind maps.\n\nYour task:\n1. CAREFULLY read the handwriting in each document, in the exact order they were provided.\n2. UNDERSTAND the logical flow and context across all pages — they form a single continuous document.\n3. TRANSCRIBE the handwriting into clean, well-structured digital text.\n4. PRESERVE the author's original intent, ideas, paragraph structure, and any headings or bullet points.\n5. If the handwriting contains a mind map, convert it into a logical outline or structured text.\n6. Separate content from different pages with a blank line, but maintain narrative continuity.\n7. Fix obvious spelling errors in the handwriting, but do NOT add, remove, or rephrase the author's ideas.\n8. DO identify if the author had struck through lines or massive crossing out — this means the user has removed that content and does not want it transcribed.\n9. Do NOT add any commentary, preamble, or summary — output ONLY the transcribed text.\n\nBegin transcription now:`;\n\nconst documentPrompt = `You are a study-notes extraction assistant. The student has uploaded ${documents.length} page(s) from their study material for personal academic use.\n\nYour task:\n1. READ each page carefully in order.\n2. EXTRACT the key content: headings, definitions, concepts, lists, tables, case studies, and discussion questions.\n3. RESTRUCTURE the content into clean, well-organised study notes using your own wording.\n4. USE clear headings (# / ## / ###) and bullet points for structure.\n5. PRESERVE all factual information, names, dates, legal references, and technical terms exactly.\n6. For tables, reproduce them in markdown table format.\n7. For case studies or scenarios, summarise the scenario and list the discussion questions.\n8. Do NOT copy sentences verbatim — paraphrase into clear study-note form while keeping all meaning.\n9. Do NOT add commentary or analysis — output ONLY the restructured study notes.\n\nBegin extraction now:`;\n\nparts.push({ text: hasPdf ? documentPrompt : handwrittenPrompt });\n\nconst geminiPayload = {\n  contents: [{ parts }],\n  generationConfig: {\n    temperature: 0.2,\n    topP: 0.8,\n    topK: 40,\n    maxOutputTokens: 8192\n  },\n  safetySettings: [\n    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }\n  ]\n};\n\nreturn { json: { geminiPayload } };"
+      },
+      "id": "01c3bb46-4d2d-42dd-ba54-583ae2576469",
+      "name": "Build Transcription Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16544,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.geminiPayload }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          },
+          "timeout": 300000
+        }
+      },
+      "id": "9e3dec36-7335-4295-9cb9-a8d60ec906d3",
+      "name": "Call Gemini (Transcription)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        16768,
+        16
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uenokmEVAFXfzkBr",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nlet text = '';\n\ntry {\n  const candidates = (response.body && response.body.candidates) || response.candidates || [];\n  if (candidates.length > 0) {\n    const candidate = candidates[0];\n    const reason = candidate.finishReason || '';\n    if (reason === 'RECITATION') return { json: { text: '[Transcription blocked] The AI detected this may be published/copyrighted content and cannot reproduce it. Try uploading handwritten notes instead.' } };\n    if (reason === 'SAFETY') return { json: { text: '[Blocked] The AI safety filters prevented processing this content.' } };\n    if (candidate.content && candidate.content.parts) {\n      text = candidate.content.parts.filter(p => p.text).map(p => p.text).join('\\n');\n    }\n  }\n  if (!text) throw new Error('No text extracted from Gemini response');\n} catch (err) {\n  throw new Error(`Gemini extraction failed: ${err.message}. Raw keys: ${JSON.stringify(Object.keys(response))}`);\n}\n\nreturn { json: { text: text.trim() } };"
+      },
+      "id": "e114f11b-bacc-457b-a045-26f104bd2f74",
+      "name": "Extract Transcription Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16992,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-template-url",
+              "leftValue": "={{ $json.body.url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "dd885789-6768-4482-8e1d-64b7944d999e",
+      "name": "Template Has URL?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        16544,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Normalize Multipart Body').first().json.body.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "d9f5f247-91be-4a21-915d-5add1e9f053a",
+      "name": "Scrape Template URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        16768,
+        208
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── Build Template Generator Payload ───\nconst body = $('Normalize Multipart Body').first().json.body;\nconst documents = body.documents || [];\nconst userNotes = body.userNotes || '';\n\n// Try to get scraped URL content\nlet scrapedContent = '';\ntry {\n  const raw = $('Scrape Template URL').first().json;\n  if (typeof raw === 'string') scrapedContent = raw;\n  else if (raw.data) scrapedContent = String(raw.data);\n  else if (raw.body) scrapedContent = String(raw.body);\n} catch(e) { /* No scraped content */ }\n\n// Strip HTML tags from scraped content\nif (scrapedContent) {\n  scrapedContent = scrapedContent.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim();\n  if (scrapedContent.length > 50000) scrapedContent = scrapedContent.substring(0, 50000) + '\\n[Content truncated]';\n}\n\nconst ROLE_LABELS = {\n  instructions: 'ASSIGNMENT INSTRUCTIONS',\n  rubric: 'GRADING RUBRIC',\n  sources: 'SOURCE MATERIALS'\n};\n\nconst parts = [];\n\n// Add inline documents (images, PDFs)\nfor (const doc of documents) {\n  parts.push({ text: `[${ROLE_LABELS[doc.role] || doc.role.toUpperCase()}: ${doc.name}]` });\n  if (doc.type === 'inline') {\n    parts.push({ inline_data: { mime_type: doc.mime_type, data: doc.base64 } });\n  } else if (doc.type === 'text') {\n    parts.push({ text: doc.content });\n  }\n}\n\n\n// Scanned PDFs — uploaded to Gemini's Files API upstream (see\n// \"Upload Scanned PDFs (Template)\"); append their file_data parts.\nfor (const part of ($json.scannedPdfParts || [])) {\n  parts.push(part);\n}\n// Add scraped URL content\nif (scrapedContent) {\n  parts.push({ text: `[ONLINE RESOURCE from ${body.url}]:\\n${scrapedContent}` });\n}\n\n// Add student notes\nif (userNotes) {\n  parts.push({ text: `[STUDENT'S QUESTIONS/NOTES]:\\n${userNotes}` });\n}\n\n// Add the template generator prompt\nparts.push({\n  text: `You are an expert university lecturer and academic guide. The user has provided documents that may include an assignment brief, a grading rubric, and source materials (study guides/articles).\n\nYour task:\n1. DECONSTRUCT the assignment into a clear, logical essay outline or structured template.\n2. ALLOCATE a target word count for each section based on the overall limit.\n3. PROVIDE specific clues and references for each section. Explicitly mention which provided source document (and what concepts) the student should use for that specific paragraph.\n4. DO NOT write the essay for them. Act as a scaffolding tool to help them understand exactly what is required.\n5. Format your response in clean Markdown with clear headings and bullet points.`\n});\n\nconst geminiPayload = {\n  contents: [{ parts }],\n  generationConfig: {\n    temperature: 0.3,\n    topP: 0.85,\n    topK: 40,\n    maxOutputTokens: 8192\n  },\n  safetySettings: [\n    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }\n  ]\n};\n\nreturn { json: { geminiPayload } };"
+      },
+      "id": "caba5c15-1a11-44d2-89e2-2f3f335701ef",
+      "name": "Build Template Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        21696,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.geminiPayload }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          },
+          "timeout": 300000
+        }
+      },
+      "id": "9c9cad51-d2a6-4917-bafd-10375df71937",
+      "name": "Call Gemini (Template)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        21920,
+        96
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uenokmEVAFXfzkBr",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nlet text = '';\n\ntry {\n  const candidates = (response.body && response.body.candidates) || response.candidates || [];\n  if (candidates.length > 0) {\n    const candidate = candidates[0];\n    const reason = candidate.finishReason || '';\n    if (reason === 'RECITATION') return { json: { text: '[Transcription blocked] The AI detected this may be published/copyrighted content and cannot reproduce it. Try uploading handwritten notes instead.' } };\n    if (reason === 'SAFETY') return { json: { text: '[Blocked] The AI safety filters prevented processing this content.' } };\n    if (candidate.content && candidate.content.parts) {\n      text = candidate.content.parts.filter(p => p.text).map(p => p.text).join('\\n');\n    }\n  }\n  if (!text) throw new Error('No text extracted from Gemini response');\n} catch (err) {\n  throw new Error(`Gemini extraction failed: ${err.message}. Raw keys: ${JSON.stringify(Object.keys(response))}`);\n}\n\nreturn { json: { text: text.trim() } };"
+      },
+      "id": "e43652ea-5f67-478a-9b7e-751fb2b3e9a4",
+      "name": "Extract Template Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        22144,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-reviewer-url",
+              "leftValue": "={{ $json.body.url }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "73205739-28cc-42d1-be63-ac470b8fe44a",
+      "name": "Reviewer Has URL?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        16544,
+        1216
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Normalize Multipart Body').first().json.body.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "8d406734-c299-4f5e-855d-dc9c6955224d",
+      "name": "Scrape Reviewer URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        16768,
+        816
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─── Build Essay Reviewer Payload ───\nconst body = $('Normalize Multipart Body').first().json.body;\nconst documents = body.documents || [];\nconst userNotes = body.userNotes || '';\n\n// Try to get scraped URL content\nlet scrapedContent = '';\ntry {\n  const raw = $('Scrape Reviewer URL').first().json;\n  if (typeof raw === 'string') scrapedContent = raw;\n  else if (raw.data) scrapedContent = String(raw.data);\n  else if (raw.body) scrapedContent = String(raw.body);\n} catch(e) { /* No scraped content */ }\n\n// Strip HTML tags from scraped content\nif (scrapedContent) {\n  scrapedContent = scrapedContent.replace(/<[^>]*>/g, ' ').replace(/\\s+/g, ' ').trim();\n  if (scrapedContent.length > 50000) scrapedContent = scrapedContent.substring(0, 50000) + '\\n[Content truncated]';\n}\n\nconst ROLE_LABELS = {\n  essay: 'STUDENT ESSAY/DRAFT',\n  instructions: 'ASSIGNMENT INSTRUCTIONS',\n  rubric: 'GRADING RUBRIC',\n  sources: 'SOURCE MATERIALS'\n};\n\nconst parts = [];\n\n// Add documents with role labels\nfor (const doc of documents) {\n  parts.push({ text: `[${ROLE_LABELS[doc.role] || doc.role.toUpperCase()}: ${doc.name}]` });\n  if (doc.type === 'inline') {\n    parts.push({ inline_data: { mime_type: doc.mime_type, data: doc.base64 } });\n  } else if (doc.type === 'text') {\n    parts.push({ text: doc.content });\n  }\n}\n\n\n// Scanned PDFs — uploaded to Gemini's Files API upstream (see\n// \"Upload Scanned PDFs (Reviewer)\"); append their file_data parts.\nfor (const part of ($json.scannedPdfParts || [])) {\n  parts.push(part);\n}\n// Add scraped URL content\nif (scrapedContent) {\n  parts.push({ text: `[ONLINE RESOURCE from ${body.url}]:\\n${scrapedContent}` });\n}\n\n// Add student notes\nif (userNotes) {\n  parts.push({ text: `[STUDENT'S QUESTIONS/NOTES]:\\n${userNotes}` });\n}\n\n// Add the reviewer prompt\nparts.push({\n  text: `You are a strict but empathetic university lecturer. The user has provided their draft essay, alongside their assignment instructions, rubric, and source materials.\n\nYour task:\n1. CRITIQUE the draft against the provided rubric and instructions.\n2. IDENTIFY strengths in their argument or synthesis.\n3. PINPOINT areas for improvement: Word count issues, missing core concepts, lack of synthesis, grammar or poor formatting.\n4. QUOTE specific lines from their draft that need work, and explain *why* based on the rubric.\n5. DO NOT rewrite the essay for them. Give them actionable, constructive pointers so they can fix it themselves.\n6. Format your response in clean Markdown with sections like 'The Good', 'Areas for Improvement', and 'Rubric Check'.`\n});\n\nconst geminiPayload = {\n  contents: [{ parts }],\n  generationConfig: {\n    temperature: 0.3,\n    topP: 0.85,\n    topK: 40,\n    maxOutputTokens: 8192\n  },\n  safetySettings: [\n    { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },\n    { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }\n  ]\n};\n\nreturn { json: { geminiPayload } };"
+      },
+      "id": "24169efa-e0b5-4e1e-9d72-8163bc02108f",
+      "name": "Build Reviewer Payload",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        21696,
+        1024
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.geminiPayload }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          },
+          "timeout": 300000
+        }
+      },
+      "id": "ff1d1530-08ac-4130-aae7-d80509c63ef1",
+      "name": "Call Gemini (Reviewer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        21920,
+        1024
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uenokmEVAFXfzkBr",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nlet text = '';\n\ntry {\n  const candidates = (response.body && response.body.candidates) || response.candidates || [];\n  if (candidates.length > 0) {\n    const candidate = candidates[0];\n    const reason = candidate.finishReason || '';\n    if (reason === 'RECITATION') return { json: { text: '[Transcription blocked] The AI detected this may be published/copyrighted content and cannot reproduce it. Try uploading handwritten notes instead.' } };\n    if (reason === 'SAFETY') return { json: { text: '[Blocked] The AI safety filters prevented processing this content.' } };\n    if (candidate.content && candidate.content.parts) {\n      text = candidate.content.parts.filter(p => p.text).map(p => p.text).join('\\n');\n    }\n  }\n  if (!text) throw new Error('No text extracted from Gemini response');\n} catch (err) {\n  throw new Error(`Gemini extraction failed: ${err.message}. Raw keys: ${JSON.stringify(Object.keys(response))}`);\n}\n\nreturn { json: { text: text.trim() } };"
+      },
+      "id": "4dffd62b-313e-4642-847b-174e3df9a532",
+      "name": "Extract Reviewer Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        22144,
+        1024
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handle error reports from the frontend\nconst body = $('Normalize Multipart Body').first().json.body;\n\nreturn {\n  json: {\n    to: body.recipient,\n    subject: `[Student Tools Hub Error] ${new Date().toISOString()}`,\n    htmlBody: `\n      <h2>Student Tools Hub — Error Report</h2>\n      <p><strong>Timestamp:</strong> ${body.timestamp}</p>\n      <p><strong>User Agent:</strong> ${body.userAgent}</p>\n      <p><strong>User Message:</strong> ${body.error.userMessage}</p>\n      <hr/>\n      <h3>Technical Detail</h3>\n      <pre style=\"background:#f4f4f4;padding:12px;border-radius:6px;font-size:13px;overflow-x:auto;\">${body.error.technicalDetail}</pre>\n    `\n  }\n};"
+      },
+      "id": "fc8ae749-fc66-4ecc-8220-f783aaaa87a6",
+      "name": "Handle Error Report1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16544,
+        1584
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ \"jay-leigh.v@conversionscience.co.za\" }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.htmlBody }}",
+        "options": {}
+      },
+      "id": "04a74213-cdb1-43a3-9244-c4e691f22932",
+      "name": "Send Error Email1",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        16768,
+        1584
+      ],
+      "webhookId": "5bfa1643-d9a0-466f-8042-b069b8855b25",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "qmCIR8VCVH51du3B",
+          "name": "Google Access"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return { json: { status: 'error_reported' } };"
+      },
+      "id": "74d0776b-5a6a-47be-9017-215e12599f26",
+      "name": "Error Email Response1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16992,
+        1584
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const error = $input.first().json;\n\nreturn {\n  json: {\n    to: 'jay-leigh.v@conversionscience.co.za',\n    subject: `[STH Workflow Error] ${error.workflow?.name || 'Unknown'} — ${new Date().toISOString()}`,\n    htmlBody: `\n      <h2>n8n Workflow Error — Student Tools Hub</h2>\n      <p><strong>Workflow:</strong> ${error.workflow?.name || 'N/A'}</p>\n      <p><strong>Node:</strong> ${error.execution?.lastNodeExecuted || 'N/A'}</p>\n      <p><strong>Error:</strong> ${error.execution?.error?.message || 'Unknown error'}</p>\n      <hr/>\n      <h3>Full Error</h3>\n      <pre style=\"background:#f4f4f4;padding:12px;border-radius:6px;font-size:13px;overflow-x:auto;\">${JSON.stringify(error, null, 2)}</pre>\n    `\n  }\n};"
+      },
+      "id": "867e8754-ef49-4583-8442-7c524f3b8b12",
+      "name": "Format Workflow Error1",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        14080,
+        2496
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ \"jay-leigh.v@conversionscience.co.za\" }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.htmlBody }}",
+        "options": {}
+      },
+      "id": "ec0d5d7e-1432-4006-b601-843c57197fe2",
+      "name": "Send Workflow Error Email1",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        14304,
+        2496
+      ],
+      "webhookId": "8fa5923a-cb7a-405b-8837-6b5459fbb38f",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "qmCIR8VCVH51du3B",
+          "name": "Google Access"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst body = input.body;\nconst session = input.session;\nconst documentHash = input.documentHash;\n\n// Ad-hoc context (scrapes)\nconst adhocParts = [];\n\nconst docs = body.attachedContext || [];\n\nif (docs.length > 0) {\n\n    // If there's only one document, it's obviously the primary one.\n    if (docs.length === 1) {\n\n        const doc = docs[0];\n\n        adhocParts.push({\n            text:\n`PRIMARY DOCUMENT\n\nFilename: ${doc.name}\n\nThe user's questions should be answered using this document.\n\n${doc.content}`\n        });\n\n    } else {\n\n        // Multiple documents attached.\n        // Present the first as the current document and clearly separate the rest.\n        const [primary, ...others] = docs;\n\n        adhocParts.push({\n            text:\n`PRIMARY DOCUMENT\n\nFilename: ${primary.name}\n\nThe user's current questions most likely refer to this document unless they explicitly ask to compare documents.\n\n${primary.content}`\n        });\n\n        if (others.length) {\n\n            const otherText = others\n                .map(doc =>\n`### ${doc.name}\n\n${doc.content}`)\n                .join(\"\\n\\n--------------------------------------------------\\n\\n\");\n\n            adhocParts.push({\n                text:\n`ADDITIONAL REFERENCE DOCUMENTS\n\nThese documents may provide supporting context if needed.\n\n${otherText}`\n            });\n\n        }\n\n    }\n\n}\n\n// Cacheable context (KB docs + images)\nconst cacheableParts = [];\nif (body.cachableContext && body.cachableContext.length > 0) {\n  const ctxText = body.cachableContext\n    .map(c => `### ${c.name}\\n${c.content}`)\n    .join('\\n\\n');\n  cacheableParts.push({ text: 'Reference material — treat this as the source of truth:\\n\\n' + ctxText });\n}\nfor (const img of (body.attachedImages || [])) {\n  if (!img.data) continue;\n  cacheableParts.push({ text: `Attached image: ${img.name}` });\n  cacheableParts.push({ inline_data: { mime_type: img.mime || 'image/jpeg', data: img.data } });\n}\n\n// Scanned PDFs — handed to Gemini via Files API; n8n owns upload/reuse\n// (see \"Upload Scanned PDFs\"). Cheap to resend every turn: it's just a\n// file_uri reference, not the document bytes.\nfor (const part of (input.geminiFileParts || [])) {\n  cacheableParts.push(part);\n}\n\nconst contents = [];\n\n/*\n * 1. Reference material FIRST\n * This is the authoritative source.\n */\nif (adhocParts.length || cacheableParts.length) {\n\n    contents.push({\n        role: \"user\",\n        parts: [\n            {\n                text:\n`REFERENCE MATERIAL\n\nThe following material is the authoritative source for this conversation.\n\nIf any previous assistant response contradicts this material,\nthe previous response is WRONG.\n\nAlways answer using the reference material below.`\n            },\n            ...adhocParts,\n            ...cacheableParts\n        ]\n    });\n\n}\n\n/*\n * 2. Previous conversation\n */\nconst MAX_HISTORY = 30;\n\nconst previousConversation =\n    (session?.conversation || [])\n        .slice(-MAX_HISTORY);\n\nfor (const m of previousConversation) {\n\n    contents.push({\n        role: m.role,\n        parts: [\n            {\n                text: m.text\n            }\n        ]\n    });\n\n}\n\n/*\n * 3. Latest user messages\n */\nconst latestMessage = body.messages?.at(-1);\n\nif (latestMessage) {\n\n    contents.push({\n        role: latestMessage.role,\n        parts: [\n            {\n                text: latestMessage.text\n            }\n        ]\n    });\n\n}\n\nconst geminiBody = {\n  contents,\n  system_instruction: {\n    parts: [\n      {\n        text:\n`${body.systemPrompt}\n\nGrounding rules:\n\n• The attached documents are the authoritative source.\n\n• If previous assistant responses contradict the attached documents, correct yourself immediately.\n\n• Never repeat an incorrect previous answer merely for consistency.\n\n• Prefer the attached documents over conversation history.\n\n• If multiple documents exist, answer primarily from the PRIMARY DOCUMENT unless the user explicitly asks to compare them.\n\n• If information is absent from the documents, clearly say so instead of guessing.\n`\n      }\n    ]\n  },\n  generationConfig: {\n    temperature: 0.7,\n    maxOutputTokens: 49152\n  }\n};\n\nreturn [{\n  json: {\n    geminiBody,\n    sessionId: body.chatId,\n    documentHash\n  }\n}];"
+      },
+      "id": "bd4f5052-e195-4285-976a-0b49c9350121",
+      "name": "Prep — Tutor",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        21920,
+        1888
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.geminiBody) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          },
+          "timeout": 300000
+        }
+      },
+      "id": "6e9329ae-c4b1-49f0-bbe3-3cb6abd294b1",
+      "name": "Gemini — Tutor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        22144,
+        1888
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uenokmEVAFXfzkBr",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $('Gemini — Tutor').first().json;\nlet text = '';\n\ntry {\n  const candidates = (response.body && response.body.candidates) || response.candidates || [];\n  if (candidates.length > 0) {\n    const candidate = candidates[0];\n    const reason = candidate.finishReason || '';\n    if (reason === 'RECITATION') return { json: { result: '[Transcription blocked] The AI detected this may be published/copyrighted content and cannot reproduce it. Try uploading handwritten notes instead.' } };\n    if (reason === 'SAFETY') return { json: { result: '[Blocked] The AI safety filters prevented processing this content.' } };\n    if (candidate.content && candidate.content.parts) {\n      text = candidate.content.parts.filter(p => p.text).map(p => p.text).join('\\n');\n    }\n  }\n  if (!text) throw new Error('No text extracted from Gemini response');\n} catch (err) {\n  throw new Error(`Tutor Gemini extraction failed: ${err.message}. Raw keys: ${JSON.stringify(Object.keys(response))}`);\n}\n\nconst prep = $('Prep — Tutor').first().json;\n\nreturn { json: {\n  result: text.trim(),\n  cacheName: prep.cacheName || null,\n  cacheExpiresAt: prep.cacheExpiresAt || null\n} };"
+      },
+      "id": "9a08e5fa-e1b9-41ad-82fa-579704afeec8",
+      "name": "Extract Tutor Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        22368,
+        1888
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "student-tools",
+        "responseMode": "lastNode",
+        "options": {
+          "rawBody": false
+        }
+      },
+      "id": "4466ce6f-9652-434d-8e97-66e2759f63cb",
+      "name": "Student Hub Endpoint",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        13856,
+        1584
+      ],
+      "webhookId": "student-tools"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.body.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            },
+            {
+              "name": "Accept",
+              "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+            },
+            {
+              "name": "Accept-Language",
+              "value": "en-US,en;q=0.9"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "redirect": {
+            "redirect": {
+              "maxRedirects": 5
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          },
+          "timeout": 20000
+        }
+      },
+      "id": "ee22ce31-d547-44e1-9688-3c52aa986caf",
+      "name": "Scrape — Fetch URL",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        16544,
+        2272
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst webhookData = $('Student Hub Endpoint').first().json.body || {};\nconst originalUrl = webhookData.url || '';\nconst mode = webhookData.mode || '';\nconst kbSave = !!webhookData.kbSave;\nconst helpers = this.helpers;\n\nfunction extractDoi(url) {\n  const m = url.match(/\\/(10\\.\\d{4,9}\\/[^\\s?#]+)/);\n  return m ? m[1].replace(/\\/+$/, '') : null;\n}\n\nfunction isJsShell(rawHtml) {\n  if (!rawHtml || rawHtml.length < 500) return true;\n  const lower = rawHtml.toLowerCase();\n  const signals = ['enable javascript', 'just a moment', 'cf-browser-verification', 'challenge-platform', '_cf_chl', 'checking your browser', 'ray id'];\n  if (signals.filter(s => lower.includes(s)).length >= 2) return true;\n  const textOnly = rawHtml.replace(/<[^>]+>/g, '').replace(/\\s+/g, ' ').trim();\n  return textOnly.length < 200;\n}\n\nasync function doiFallback(doi) {\n  let text = '';\n  let note = '';\n\n  const [crResult, upResult] = await Promise.allSettled([\n    helpers.httpRequest({\n      method: 'GET',\n      url: `https://api.crossref.org/works/${encodeURIComponent(doi)}`,\n      headers: { 'User-Agent': 'StudentToolsHub/1.0 (mailto:jay-leigh.v@conversionscience.co.za)' },\n      json: true,\n      timeout: 8000,\n    }),\n    helpers.httpRequest({\n      method: 'GET',\n      url: `https://api.unpaywall.org/v2/${encodeURIComponent(doi)}?email=jay-leigh.v@conversionscience.co.za`,\n      json: true,\n      timeout: 8000,\n    }),\n  ]);\n\n  if (crResult.status === 'fulfilled' && crResult.value) {\n    const item = crResult.value.message || {};\n    const title = (item.title || [])[0] || '';\n    const authors = (item.author || []).map(a => `${a.given || ''} ${a.family || ''}`).join(', ');\n    const year = item.issued && item.issued['date-parts'] && item.issued['date-parts'][0] ? item.issued['date-parts'][0][0] : '';\n    const journal = (item['container-title'] || [])[0] || '';\n    const abstract = (item.abstract || '').replace(/<[^>]+>/g, '');\n    const doiUrl = item.URL || `https://doi.org/${doi}`;\n    const parts = [`# ${title}`];\n    if (authors) parts.push(`**Authors:** ${authors}`);\n    if (year) parts.push(`**Year:** ${year}`);\n    if (journal) parts.push(`**Journal:** ${journal}`);\n    parts.push(`**DOI:** ${doiUrl}`);\n    if (abstract) parts.push(`\\n## Abstract\\n${abstract}`);\n    text = parts.join('\\n');\n  }\n\n  if (upResult.status === 'fulfilled' && upResult.value) {\n    const up = upResult.value;\n    const oaUrl = (up.best_oa_location && (up.best_oa_location.url_for_pdf || up.best_oa_location.url)) || '';\n    if (up.is_oa && oaUrl) text += `\\n\\n**Open Access PDF:** ${oaUrl}`;\n    if (!up.is_oa) note = 'This source may not be Open Access. Verify permissions before relying on full text.';\n  }\n\n  return { text, note };\n}\n\nasync function tryDoiFallback() {\n  const doi = extractDoi(originalUrl);\n  if (!doi) return null;\n  const fallback = await doiFallback(doi);\n  if (fallback.text && fallback.text.length > 100) {\n    return [{ json: { text: fallback.text, note: fallback.note || '', source: 'doi-fallback' } }];\n  }\n  return null;\n}\n\nconst status = input.statusCode || (input.body && input.body.error ? 500 : null);\nif (input.error || (status && status >= 400)) {\n  let message = 'We couldn\\'t read this website. It might be protected by a paywall or login screen.';\n  if (status === 403) message = 'We couldn\\'t read this website — it blocked our request (403 Forbidden).';\n  else if (status === 404) message = 'Page not found (404). Double-check the URL.';\n  else if (status === 401) message = 'This page requires a login. Please copy the text manually.';\n  else if (status === 429) message = 'The site is rate-limiting requests. Try again in a minute.';\n  const fb = await tryDoiFallback();\n  if (fb) return fb;\n  return [{ json: { error: true, message } }];\n}\n\nlet html = '';\nif (input.body && typeof input.body === 'string') html = input.body;\nelse if (typeof input.data === 'string') html = input.data;\n\nif (!html || html.trim().length < 50) {\n  const fb = await tryDoiFallback();\n  if (fb) return fb;\n  return [{ json: { error: true, message: 'We couldn\\'t read this website. It may have returned no content.' } }];\n}\n\nif (isJsShell(html)) {\n  const fb = await tryDoiFallback();\n  if (fb) return fb;\n  return [{ json: { error: true, message: 'This page needs a browser to render (bot protection detected). Try pasting the text manually, or use a DOI-based article link.' } }];\n}\n\nlet ytUploadDate = '';\nconst m = html.match(/\"uploadDate\"\\s*:\\s*\"([^\"]+)\"/);\nif (m) ytUploadDate = m[1];\nconst m2 = html.match(/\"datePublished\"\\s*:\\s*\"([^\"]+)\"/);\nif (!ytUploadDate && m2) ytUploadDate = m2[1];\n\nhtml = html.replace(/<script\\b[^<]*(?:(?!<\\/script>)<[^<]*)*<\\/script>/gi, '');\nhtml = html.replace(/<style\\b[^<]*(?:(?!<\\/style>)<[^<]*)*<\\/style>/gi, '');\nhtml = html.replace(/<nav\\b[^<]*(?:(?!<\\/nav>)<[^<]*)*<\\/nav>/gi, '');\nhtml = html.replace(/<header\\b[^<]*(?:(?!<\\/header>)<[^<]*)*<\\/header>/gi, '');\nhtml = html.replace(/<footer\\b[^<]*(?:(?!<\\/footer>)<[^<]*)*<\\/footer>/gi, '');\nhtml = html.replace(/<aside\\b[^<]*(?:(?!<\\/aside>)<[^<]*)*<\\/aside>/gi, '');\nhtml = html.replace(/<!--[\\s\\S]*?-->/g, '');\n\nhtml = html.replace(/<h1[^>]*>([\\s\\S]*?)<\\/h1>/gi, '\\n# $1\\n');\nhtml = html.replace(/<h2[^>]*>([\\s\\S]*?)<\\/h2>/gi, '\\n## $1\\n');\nhtml = html.replace(/<h3[^>]*>([\\s\\S]*?)<\\/h3>/gi, '\\n### $1\\n');\nhtml = html.replace(/<h4[^>]*>([\\s\\S]*?)<\\/h4>/gi, '\\n#### $1\\n');\nhtml = html.replace(/<h5[^>]*>([\\s\\S]*?)<\\/h5>/gi, '\\n##### $1\\n');\nhtml = html.replace(/<li[^>]*>([\\s\\S]*?)<\\/li>/gi, '\\n- $1');\nhtml = html.replace(/<\\/[uo]l>/gi, '\\n');\nhtml = html.replace(/<br\\s*\\/?>/gi, '\\n');\nhtml = html.replace(/<\\/p>/gi, '\\n\\n');\nhtml = html.replace(/<\\/div>/gi, '\\n');\nhtml = html.replace(/<\\/tr>/gi, '\\n');\nhtml = html.replace(/<td[^>]*>/gi, ' | ');\nhtml = html.replace(/<th[^>]*>/gi, ' | ');\nhtml = html.replace(/<\\/table>/gi, '\\n');\nhtml = html.replace(/<hr[^>]*>/gi, '\\n---\\n');\nhtml = html.replace(/<blockquote[^>]*>/gi, '\\n> ');\nhtml = html.replace(/<\\/blockquote>/gi, '\\n');\nhtml = html.replace(/<code[^>]*>([\\s\\S]*?)<\\/code>/gi, '`$1`');\nhtml = html.replace(/<pre[^>]*>([\\s\\S]*?)<\\/pre>/gi, '\\n```\\n$1\\n```\\n');\nhtml = html.replace(/<strong[^>]*>([\\s\\S]*?)<\\/strong>/gi, '**$1**');\nhtml = html.replace(/<b[^>]*>([\\s\\S]*?)<\\/b>/gi, '**$1**');\nhtml = html.replace(/<em[^>]*>([\\s\\S]*?)<\\/em>/gi, '*$1*');\nhtml = html.replace(/<i[^>]*>([\\s\\S]*?)<\\/i>/gi, '*$1*');\nhtml = html.replace(/<a[^>]*href=[\"']([^\"']*)[\"'][^>]*>([\\s\\S]*?)<\\/a>/gi, '$2');\nhtml = html.replace(/<[^>]+>/g, '');\n\nhtml = html.replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '\"').replace(/&#39;/g, \"'\").replace(/&mdash;/g, '—').replace(/&ndash;/g, '–').replace(/&hellip;/g, '…').replace(/&#(\\d+);/g, (m, n) => String.fromCharCode(n));\n\nhtml = html.replace(/[ \\t]{2,}/g, ' ').replace(/\\n{3,}/g, '\\n\\n').trim();\n\nconst truncLimit = kbSave ? 100000 : 40000;\nif (html.length > truncLimit) html = html.slice(0, truncLimit) + `\\n\\n_[Content truncated at ${truncLimit.toLocaleString()} characters]_`;\n\nif (html.length < 50) return [{ json: { error: true, message: 'We couldn\\'t extract readable text from this page. Try copying the text manually.' } }];\n\nlet note = '';\nconst academicDomains = ['tandfonline.com', 'sciencedirect.com', 'springer.com', 'wiley.com', 'sagepub.com', 'jstor.org', 'cambridge.org', 'oxford.org'];\ntry {\n  const hostname = new URL(originalUrl).hostname;\n  if (academicDomains.some(d => hostname.includes(d))) {\n    const doi = extractDoi(originalUrl);\n    if (doi) {\n      try {\n        const upRes = await helpers.httpRequest({\n          method: 'GET',\n          url: `https://api.unpaywall.org/v2/${encodeURIComponent(doi)}?email=jay-leigh.v@conversionscience.co.za`,\n          json: true,\n          timeout: 8000,\n        });\n        if (upRes && !upRes.is_oa) note = 'This source may not be Open Access. Verify permissions before relying on full text.';\n      } catch (e) {}\n    } else {\n      note = 'Academic source detected. Verify this source is OA/permitted before relying on full text.';\n    }\n  }\n} catch (e) {}\n\nreturn [{ json: { text: html, ytUploadDate, note } }];\n"
+      },
+      "id": "2287157e-6034-4412-a23d-eaada7f3f61c",
+      "name": "Clean HTML — Scrape",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16768,
+        2272
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.geminiBody }}",
+        "options": {
+          "allowUnauthorizedCerts": true,
+          "redirect": {
+            "redirect": {
+              "maxRedirects": 5
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          },
+          "timeout": 60000
+        }
+      },
+      "id": "e9a2403e-2f69-45df-928d-ae4e4c61ef70",
+      "name": "Reference",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        16768,
+        1776
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uenokmEVAFXfzkBr",
+          "name": "Gemini API Key"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || {};\nconst style = body.style || 'Harvard';\nconst src = body.source || {};\nconst kind = src.kind || 'link';\nconst label = src.label || '';\nconst meta = src.meta || {};\n\n\n// Build a source-specific context block\nlet sourceBlock = '';\nif (kind === 'link') {\n  sourceBlock = `TYPE: Web article / page\nURL: ${label}\nSCRAPED PAGE TEXT (first ~4000 chars):\n${(meta.scrapedText || '').slice(0, 4000)}`;\n} else if (kind === 'youtube') {\n  sourceBlock = `TYPE: YouTube video\nURL: ${meta.url || label}\nTITLE: ${meta.title || label}\nCHANNEL / AUTHOR: ${meta.author || ''}\nSCRAPED PAGE TEXT (for upload year + description, first ~3000 chars):\n${(meta.scrapedText || '').slice(0, 3000)}`;\n} else if (kind === 'kb') {\n  sourceBlock = `TYPE: Uploaded document (from student's Knowledge Bay)\nFILE NAME: ${label}\nDOCUMENT TEXT (first ~4000 chars):\n${(meta.content || '').slice(0, 4000)}`;\n} else if (kind === 'upload') {\n  sourceBlock = `TYPE: Newly uploaded document\nFILE NAME: ${label}\nDOCUMENT TEXT (first ~4000 chars):\n${(meta.content || '').slice(0, 4000)}`;\n}\n\nconst styleRules = {\n  Harvard:  \"Harvard referencing style (author-date). Format: Surname, Initial. (Year) 'Title', Source, Available at: URL (Accessed: date). Use italics conventions via plain text.\",\n  APA:      \"APA 7th edition. Format: Surname, I. (Year). Title. Source. URL\",\n  MLA:      \"MLA 9th edition. Format: Surname, First Name. \\\"Title.\\\" Source, Day Month Year, URL.\",\n  Chicago:  \"Chicago (author-date). Format: Surname, First Name. Year. \\\"Title.\\\" Source. URL.\",\n};\n\nconst prompt = `You are a citation generator. Produce ONE correctly formatted reference in ${style} style for the source below.\n\nSTYLE RULES: ${styleRules[style] || styleRules.Harvard}\n\nRULES:\n- Output ONLY the finished reference line — no preamble, no explanation, no bullet, no quotes around the whole thing.\n- If the exact year, author, or title is missing, infer the most likely value from the provided text. Never output placeholders like \"n.d.\" unless there is genuinely no date clue anywhere.\n- For YouTube: author = channel name, title = video title, year = upload year from the scraped page.\n- For uploaded documents with no explicit author, use the filename (without extension) as the title and write \"Anon.\" as author only if no author appears in the document text.\n- Use a hanging-indent-ready single line (no manual line breaks).\n\nSOURCE:\n${sourceBlock}\n\nNow output the single ${style} reference line:`;\n\nreturn [{\n  json: {\n    geminiBody: {\n      contents: [{ role: 'user', parts: [{ text: prompt }] }],\n      generationConfig: {\n        temperature: 0.2,\n        maxOutputTokens: 800\n      }\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16544,
+        1776
+      ],
+      "id": "e7d493a7-fddd-4a3f-8b67-d415eac9529f",
+      "name": "Build Reference Payload"
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nlet citation = '';\n\ntry {\n  if (response.body && response.body.candidates && response.body.candidates.length > 0) {\n    const parts = response.body.candidates[0].content?.parts || [];\n    citation = parts.map(p => p.text || '').join('');\n  }\n  if (!citation && response.candidates && response.candidates.length > 0) {\n    citation = (response.candidates[0].content?.parts || []).map(p => p.text || '').join('');\n  }\n} catch (e) { citation = ''; }\n\ncitation = citation\n  .replace(/^```[\\w]*\\s*/i, '')\n  .replace(/\\s*```$/i, '')\n  .replace(/^[\"']|[\"']$/g, '')\n  .trim();\n\nif (!citation) citation = '[Unable to generate citation — please check the source]';\n\nreturn [{ json: { citation } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16992,
+        1776
+      ],
+      "id": "8f95a2f4-14bc-4025-9b1d-4d16d573c038",
+      "name": "Extract Reference Citation"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\n\nfunction hashDocs(fingerprints) {\n  const str = (fingerprints || [])\n    .slice()\n    .sort((a, b) => a.id.localeCompare(b.id))\n    .map(f => `${f.id}:${f.updatedAt}:${f.size}`)\n    .join('|');\n\n  let h = 5381;\n  for (let i = 0; i < str.length; i++) {\n    h = ((h << 5) + h + str.charCodeAt(i)) | 0;\n  }\n\n  return (h >>> 0).toString(16);\n}\n\nreturn [{\n  json: {\n    body,\n    sessionId: body.chatId,\n    documentHash: hashDocs(body.documentFingerprints)\n  }\n}];"
+      },
+      "id": "78a6f5d5-9f47-4eed-b57f-5c91612f18b2",
+      "name": "Load Session",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16544,
+        2080
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sweeping-jennet-172408.upstash.io",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n[\n  \"GET\",\n  `session:${$json.sessionId}`\n]\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        16768,
+        2080
+      ],
+      "id": "f58381b3-9de2-46dd-9e50-d623ed36f019",
+      "name": "Redis GET",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VnWFZXj8xOxogUEA",
+          "name": "Upstash Redis REST"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const load = $('Load Session').first().json;\nconst redisResponse = $input.first().json;\n\nlet session = {\n  conversation: []\n};\n\ntry {\n  if (redisResponse.result) {\n    session = typeof redisResponse.result === 'string'\n      ? JSON.parse(redisResponse.result)\n      : redisResponse.result;\n  }\n} catch (e) {\n  session = { conversation: [] };\n}\n\nconst currentHash = load.documentHash;\n\nif (\n    session.documentHash &&\n    session.documentHash !== currentHash\n) {\n\n    session = {\n        conversation: [],\n        documentHash: currentHash\n    };\n\n}\n\nreturn [{\n  json: {\n    body: load.body,\n    sessionId: load.sessionId,\n    documentHash: load.documentHash,\n    session\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16992,
+        2080
+      ],
+      "id": "f84a9ace-faff-4e3c-a712-3ff364d6f89e",
+      "name": "Parse Session"
+    },
+    {
+      "parameters": {
+        "jsCode": "const prep = $('Prep — Tutor').first().json;\nconst parsed = $('Scanned PDF Resolution Complete').first().json;\n\nconst previous = parsed.session || {};\n\nconst assistant =\n    $('Extract Tutor Text').first().json.result;\n\nconst latestUser =\n    parsed.body.messages.at(-1);\n\nconst conversation = [\n    ...(previous.conversation || [])\n];\n\nif (latestUser) {\n    conversation.push({\n        role: latestUser.role,\n        text: latestUser.text\n    });\n}\n\nconversation.push({\n    role: \"model\",\n    text: assistant\n});\n\nconst now = Date.now();\n\nconst currentDocs = parsed.body.attachedContext || [];\n\nconst session = {\n    schemaVersion: 1,\n\n    id: prep.sessionId,\n\n    createdAt: previous.createdAt ?? now,\n\n    expiresAt: now + 10800 * 1000,\n\n    documentHash: prep.documentHash,\n\n    documents: currentDocs.map(d => ({\n        name: d.name,\n        hash: prep.documentHash\n    })),\n\n    conversation,\n\n    geminiFiles: parsed.updatedGeminiFiles || previous.geminiFiles || {},\n};\n\nreturn [{\n    json: {\n        sessionKey: `session:${prep.sessionId}`,\n        sessionValue: JSON.stringify(session),\n        reuploadScannedPdfs: parsed.reuploadScannedPdfs || []\n    }\n}];"
+      },
+      "id": "5c25d4a1-732e-4c04-88a8-eac00dd9aed0",
+      "name": "Save Session Builder",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        22592,
+        1888
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sweeping-jennet-172408.upstash.io",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n[\n  \"SET\",\n  $json.sessionKey,\n  $json.sessionValue,\n  \"EX\",\n  \"10800\"\n]\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        22816,
+        1888
+      ],
+      "id": "9f64df4b-be29-4f60-873e-c4aa99d6c10b",
+      "name": "Redis SET",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VnWFZXj8xOxogUEA",
+          "name": "Upstash Redis REST"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const tutor = $('Extract Tutor Text').first().json;\nconst saved = $('Save Session Builder').first().json;\n\nreturn [{\n  json: {\n    result: tutor.result,\n    reuploadScannedPdfs: saved.reuploadScannedPdfs || []\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        23040,
+        1888
+      ],
+      "id": "0e0a3715-6a71-4bdd-ac0e-dd3801f92e33",
+      "name": "Build Response"
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nlet body = item.json.body || {};\n\nif (typeof body.payload === 'string') {\n  let parsed;\n  try {\n    parsed = JSON.parse(body.payload);\n  } catch (e) {\n    throw new Error('Malformed multipart \"payload\" field: ' + e.message);\n  }\n  body = { ...body, ...parsed };\n  delete body.payload;\n}\n\nreturn [{ json: { ...item.json, body }, binary: item.binary }];\n"
+      },
+      "id": "31daac46-b8bb-4524-ae25-cfaf5447b28f",
+      "name": "Normalize Multipart Body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        14080,
+        1584
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst body = item.json.body || {};\nconst docs = body.scannedPdfDocs || [];\n\nif (docs.length > 0) {\n  const doc = docs[0]; // single-scanned-PDF-per-request, matching real usage\n  let base64 = null;\n\n  if (doc.fieldName) {\n    try {\n      const buffer = await this.helpers.getBinaryDataBuffer(0, doc.fieldName);\n      base64 = buffer.toString('base64');\n    } catch (e) {\n      base64 = null;\n    }\n  } else if (doc.driveFileId && doc.driveAccessToken) {\n    try {\n      const res = await this.helpers.httpRequest({\n        method: 'GET',\n        url: `https://www.googleapis.com/drive/v3/files/${doc.driveFileId}?alt=media`,\n        headers: { Authorization: `Bearer ${doc.driveAccessToken}` },\n        encoding: 'arraybuffer',\n        json: false,\n      });\n      const buf = Buffer.isBuffer(res) ? res : Buffer.from(res);\n      base64 = buf.toString('base64');\n    } catch (e) {\n      base64 = null;\n    }\n  }\n\n  body.scannedPdfDocs = [{ ...doc, base64 }, ...docs.slice(1)];\n}\n\nreturn [{ json: { ...item.json, body } }];\n"
+      },
+      "id": "f1a1d079-c196-4cd2-8e1e-9939ca516278",
+      "name": "Extract Scanned PDF Bytes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        14304,
+        1584
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.body.scannedPdfDocs && $json.body.scannedPdfDocs.length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e521286b-985c-4cfe-bd7e-9d77e58b9119",
+      "name": "Has Scanned PDF?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        17216,
+        2080
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sweeping-jennet-172408.upstash.io",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ [\"GET\", \"gemini-file:\" + $json.body.scannedPdfDocs[0].contentHash] }}",
+        "options": {}
+      },
+      "id": "c695e69a-af94-4e66-bbe8-b755a0cd10f0",
+      "name": "Redis GET Persistent Gemini File",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        17440,
+        2016
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VnWFZXj8xOxogUEA",
+          "name": "Upstash Redis REST"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const parse = $('Parse Session').first().json;\nconst redisRes = $input.first().json;\nconst doc = parse.body.scannedPdfDocs[0];\nconst now = Date.now();\n\nlet persistentFile = null;\ntry { if (redisRes.result) persistentFile = JSON.parse(redisRes.result); } catch (e) {}\n\nconst sessionFiles = (parse.session && parse.session.geminiFiles) || {};\nconst sessionFile = doc.contentHash ? sessionFiles[doc.contentHash] : null;\n\nconst cached =\n  (sessionFile && sessionFile.expiresAt > now) ? sessionFile :\n  (persistentFile && persistentFile.expiresAt > now) ? persistentFile :\n  null;\n\nreturn [{ json: { ...parse, doc, cached } }];\n"
+      },
+      "id": "83d76fa5-477e-4fc3-b673-d55042d960d4",
+      "name": "Resolve Cached Gemini File",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        17664,
+        2016
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$json.cached }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "868fe063-6f3b-43d9-9a31-90d642a868d4",
+      "name": "Have Cached Gemini File?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        17888,
+        2016
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst parts = [\n  { text: `Attached PDF: ${d.doc.name}${d.doc.pageCount ? ` (${d.doc.pageCount} pages)` : ''}` },\n  { file_data: { mime_type: d.cached.mimeType, file_uri: d.cached.uri } },\n];\nconst sessionFiles = { ...((d.session && d.session.geminiFiles) || {}) };\nif (d.doc.contentHash) sessionFiles[d.doc.contentHash] = d.cached;\nreturn [{ json: { ...d, geminiFileParts: parts, reuploadScannedPdfs: [], updatedGeminiFiles: sessionFiles, newPersistentEntry: null } }];\n"
+      },
+      "id": "2fe9066f-9bfd-4db2-951b-b32503f526f1",
+      "name": "Build Gemini Parts (Cached)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        20800,
+        1744
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst doc = d.doc;\n\nif (!doc.base64) {\n  return [{\n    json: {\n      ...d,\n      skipUpload: true,\n      geminiFileParts: [{ text: `[System note: \"${doc.name}\" could not be read this turn — it may need to be re-attached. If the user asks about it and it's missing, tell them to try attaching it again.]` }],\n      reuploadScannedPdfs: doc.contentHash ? [doc.contentHash] : [],\n      updatedGeminiFiles: (d.session && d.session.geminiFiles) || {},\n      newPersistentEntry: null,\n    }\n  }];\n}\n\nreturn [{ json: { ...d, skipUpload: false } }];\n"
+      },
+      "id": "957168d9-3b92-419a-9941-0b5138a74830",
+      "name": "Validate Scanned PDF Bytes",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        18112,
+        2128
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.skipUpload !== true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0fd6d45f-4684-4aa7-a172-b1a3b5e15a4c",
+      "name": "Need Upload?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        18336,
+        2128
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst buffer = Buffer.from(d.doc.base64, 'base64');\nif (buffer.length > 50 * 1024 * 1024) {\n  throw new Error(`FILE_TOO_LARGE: \"${d.doc.name}\" is ${(buffer.length / 1024 / 1024).toFixed(1)}MB, over Gemini's 50MB PDF limit`);\n}\nconst binaryData = await this.helpers.prepareBinaryData(buffer, d.doc.name, 'application/pdf');\nreturn [{ json: { ...d, byteLength: buffer.length }, binary: { pdfFile: binaryData } }];\n"
+      },
+      "id": "6562fcf6-b6ba-4125-939c-e9152c51a86c",
+      "name": "Convert Base64 To Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        18560,
+        2208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/upload/v1beta/files",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Goog-Upload-Protocol",
+              "value": "resumable"
+            },
+            {
+              "name": "X-Goog-Upload-Command",
+              "value": "start"
+            },
+            {
+              "name": "X-Goog-Upload-Header-Content-Length",
+              "value": "={{ $json.byteLength }}"
+            },
+            {
+              "name": "X-Goog-Upload-Header-Content-Type",
+              "value": "application/pdf"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"file\": { \"display_name\": $json.doc.name } } }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "7945501c-5db0-43ea-b5cc-3a78688e8805",
+      "name": "Gemini Init Upload",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        18784,
+        2208
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uenokmEVAFXfzkBr",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $input.first().json;\nconst headers = res.headers || {};\nconst uploadUrl = headers['x-goog-upload-url'] || headers['X-Goog-Upload-URL'] || null;\nconst prev = $('Convert Base64 To Binary').first().json;\nif (!uploadUrl) throw new Error(`GEMINI_FILE_UPLOAD: no upload URL returned for \"${prev.doc.name}\"`);\nreturn [{ json: { ...prev, uploadUrl }, binary: $('Convert Base64 To Binary').first().binary }];\n"
+      },
+      "id": "1e9cb42f-459e-4077-b225-4fb76a865295",
+      "name": "Extract Upload URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        19008,
+        2208
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.uploadUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Length",
+              "value": "={{ $json.byteLength }}"
+            },
+            {
+              "name": "X-Goog-Upload-Offset",
+              "value": "0"
+            },
+            {
+              "name": "X-Goog-Upload-Command",
+              "value": "upload, finalize"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "pdfFile",
+        "options": {}
+      },
+      "id": "a8c7cf8d-9a80-4fb0-9ddb-98d432236a9c",
+      "name": "Gemini Upload Bytes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        19232,
+        2208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $input.first().json;\nconst uploaded = res.file || res;\nconst prev = $('Extract Upload URL').first().json;\nif (!uploaded || !uploaded.uri) throw new Error(`GEMINI_FILE_UPLOAD: no file URI returned for \"${prev.doc.name}\"`);\nreturn [{ json: { ...prev, geminiFileName: uploaded.name, geminiUri: uploaded.uri, geminiMimeType: uploaded.mimeType || 'application/pdf', geminiState: uploaded.state, geminiPollStartedAt: Date.now(), geminiPollAttempts: 0 } }];\n"
+      },
+      "id": "09b7a2a0-a862-4f70-b2ea-3c64bf3ae953",
+      "name": "Extract Uploaded File",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        19456,
+        2208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.geminiState === 'ACTIVE' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "577d5ef8-4feb-4584-9737-ec12de257d31",
+      "name": "Is File Active?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        19680,
+        2208
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "id": "99df2277-dd56-48f3-bdfa-8892ff5ff000",
+      "name": "Wait For Processing",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        19904,
+        2272
+      ],
+      "webhookId": "693f7591-b845-4a60-87de-071fed9c444c"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://generativelanguage.googleapis.com/v1beta/' + $json.geminiFileName }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "f01cb520-e638-4e22-95d4-8a94140954ca",
+      "name": "Gemini Check File Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        20128,
+        2208
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uenokmEVAFXfzkBr",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst record = { uri: d.geminiUri, mimeType: d.geminiMimeType, expiresAt: Date.now() + 47 * 60 * 60 * 1000 };\nconst parts = [\n  { text: `Attached PDF: ${d.doc.name}${d.doc.pageCount ? ` (${d.doc.pageCount} pages)` : ''}` },\n  { file_data: { mime_type: d.geminiMimeType, file_uri: d.geminiUri } },\n];\nconst sessionFiles = { ...((d.session && d.session.geminiFiles) || {}) };\nif (d.doc.contentHash) sessionFiles[d.doc.contentHash] = record;\nreturn [{\n  json: {\n    ...d,\n    geminiFileParts: parts,\n    reuploadScannedPdfs: [],\n    updatedGeminiFiles: sessionFiles,\n    newPersistentEntry: d.doc.contentHash ? { hash: d.doc.contentHash, record } : null,\n  }\n}];\n"
+      },
+      "id": "075e1d26-9161-48b9-ad14-9846d7b04125",
+      "name": "Build Gemini Parts (Fresh)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        20800,
+        2208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$json.newPersistentEntry }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "da88c4f0-8126-486d-ab25-cd13324636ee",
+      "name": "Should Persist Gemini File?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        21024,
+        1744
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sweeping-jennet-172408.upstash.io",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ [\"SET\", \"gemini-file:\" + $json.newPersistentEntry.hash, JSON.stringify($json.newPersistentEntry.record), \"EX\", \"169200\"] }}",
+        "options": {}
+      },
+      "id": "64426f8d-2d3d-4db6-badd-517cb441a2f4",
+      "name": "Redis SET Persistent Gemini File",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        21248,
+        1584
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VnWFZXj8xOxogUEA",
+          "name": "Upstash Redis REST"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [$('Should Persist Gemini File?').first()];\n"
+      },
+      "id": "63da7f6f-7c94-4553-b22e-3bf5abf66b97",
+      "name": "Restore Data After Save",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        21472,
+        1584
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [$input.first()];\n"
+      },
+      "id": "3fb3b49b-9dd9-43dc-aeb7-75fccdae1db4",
+      "name": "Scanned PDF Resolution Complete",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        21696,
+        1888
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $input.first().json;\nconst prev = $('Extract Uploaded File').first().json;\nconst now = Date.now();\nconst startedAt = prev.geminiPollStartedAt || now;\nconst attempts = (prev.geminiPollAttempts || 0) + 1;\n\nif (res.state === 'FAILED') {\n  throw new Error(`GEMINI_FILE_PROCESSING_FAILED: Gemini failed to process \"${prev.doc.name}\"`);\n}\nif (res.state !== 'ACTIVE' && res.state !== 'PROCESSING') {\n  throw new Error(`GEMINI_FILE_PROCESSING_FAILED: unexpected state \"${res.state}\" for \"${prev.doc.name}\"`);\n}\nif (res.state !== 'ACTIVE' && (now - startedAt) > 60000) {\n  throw new Error(`GEMINI_FILE_PROCESSING_TIMEOUT: \"${prev.doc.name}\" did not become ACTIVE within 60s`);\n}\n\nreturn [{\n  json: {\n    ...prev,\n    geminiUri: res.uri || prev.geminiUri,\n    geminiMimeType: res.mimeType || prev.geminiMimeType,\n    geminiState: res.state,\n    geminiPollStartedAt: startedAt,\n    geminiPollAttempts: attempts,\n  }\n}];\n"
+      },
+      "id": "1eb381e2-dfac-4c7a-bce1-1d3acd35f5b7",
+      "name": "Evaluate Poll State",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        20352,
+        2208
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.geminiState === 'ACTIVE' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9988d5b8-011c-48c0-b7be-7a6ec858a668",
+      "name": "Poll Complete?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        20576,
+        2272
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Normalize Multipart Body').first().json.body.scannedPdfDocs && $('Normalize Multipart Body').first().json.body.scannedPdfDocs.length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "46d1d8f6-9921-4c64-b94f-276f1682fa1f",
+      "name": "Has Scanned PDF? (Template)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        16992,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sweeping-jennet-172408.upstash.io",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ [\"GET\", \"gemini-file:\" + $('Normalize Multipart Body').first().json.body.scannedPdfDocs[0].contentHash] }}",
+        "options": {}
+      },
+      "id": "5f3f1778-aadd-4af3-964d-cc7e46d5891e",
+      "name": "Redis GET Persistent Gemini File (Template)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        17216,
+        352
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VnWFZXj8xOxogUEA",
+          "name": "Upstash Redis REST"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('Normalize Multipart Body').first().json.body;\nconst redisRes = $input.first().json;\nconst doc = body.scannedPdfDocs[0];\nconst now = Date.now();\n\nlet cached = null;\ntry {\n  if (redisRes.result) {\n    const persistentFile = JSON.parse(redisRes.result);\n    if (persistentFile.expiresAt > now) cached = persistentFile;\n  }\n} catch (e) {}\n\nreturn [{ json: { doc, cached } }];\n"
+      },
+      "id": "19361190-d7a8-4101-8b27-1e209355b89d",
+      "name": "Resolve Cached Gemini File (Template)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        17440,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$json.cached }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "20558ea5-2370-45ba-9c16-836ebd3665f5",
+      "name": "Have Cached Gemini File? (Template)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        17664,
+        352
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst parts = [\n  { text: `Attached PDF: ${d.doc.name}${d.doc.pageCount ? ` (${d.doc.pageCount} pages)` : ''}` },\n  { file_data: { mime_type: d.cached.mimeType, file_uri: d.cached.uri } },\n];\nreturn [{ json: { ...d, scannedPdfParts: parts, newPersistentEntry: null } }];\n"
+      },
+      "id": "d8542261-c739-4801-a986-0d2e887906ed",
+      "name": "Build Gemini Parts Cached (Template)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        20576,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst doc = d.doc;\n\nif (!doc.base64) {\n  return [{ json: { ...d, skipUpload: true, scannedPdfParts: [{ text: `[System note: \"${doc.name}\" could not be read — please try attaching it again.]` }], newPersistentEntry: null } }];\n}\n\nreturn [{ json: { ...d, skipUpload: false } }];\n"
+      },
+      "id": "2393e137-9a9c-459b-86a7-98c2f12517c7",
+      "name": "Validate Scanned PDF Bytes (Template)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        17888,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.skipUpload !== true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a3ade5da-e576-44d4-8874-ddf966739fb7",
+      "name": "Need Upload? (Template)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        18112,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst buffer = Buffer.from(d.doc.base64, 'base64');\nif (buffer.length > 50 * 1024 * 1024) {\n  throw new Error(`FILE_TOO_LARGE: \"${d.doc.name}\" is ${(buffer.length / 1024 / 1024).toFixed(1)}MB, over Gemini's 50MB PDF limit`);\n}\nconst binaryData = await this.helpers.prepareBinaryData(buffer, d.doc.name, 'application/pdf');\nreturn [{ json: { ...d, byteLength: buffer.length }, binary: { pdfFile: binaryData } }];\n"
+      },
+      "id": "87d23a20-91f9-4dea-8a79-2218e546490a",
+      "name": "Convert Base64 To Binary (Template)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        18336,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/upload/v1beta/files",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Goog-Upload-Protocol",
+              "value": "resumable"
+            },
+            {
+              "name": "X-Goog-Upload-Command",
+              "value": "start"
+            },
+            {
+              "name": "X-Goog-Upload-Header-Content-Length",
+              "value": "={{ $json.byteLength }}"
+            },
+            {
+              "name": "X-Goog-Upload-Header-Content-Type",
+              "value": "application/pdf"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"file\": { \"display_name\": $json.doc.name } } }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "0f0b6811-b4f8-432a-a509-8d9735fa9032",
+      "name": "Gemini Init Upload (Template)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        18560,
+        544
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uenokmEVAFXfzkBr",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $input.first().json;\nconst headers = res.headers || {};\nconst uploadUrl = headers['x-goog-upload-url'] || headers['X-Goog-Upload-URL'] || null;\nconst prev = $('Convert Base64 To Binary (Template)').first().json;\nif (!uploadUrl) throw new Error(`GEMINI_FILE_UPLOAD: no upload URL returned for \"${prev.doc.name}\"`);\nreturn [{ json: { ...prev, uploadUrl }, binary: $('Convert Base64 To Binary (Template)').first().binary }];\n"
+      },
+      "id": "b52e7faf-f671-4a11-b9d0-491143021802",
+      "name": "Extract Upload URL (Template)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        18784,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.uploadUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Length",
+              "value": "={{ $json.byteLength }}"
+            },
+            {
+              "name": "X-Goog-Upload-Offset",
+              "value": "0"
+            },
+            {
+              "name": "X-Goog-Upload-Command",
+              "value": "upload, finalize"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "pdfFile",
+        "options": {}
+      },
+      "id": "82d0ba6f-b8f4-4e76-ad7c-17147f7dbb95",
+      "name": "Gemini Upload Bytes (Template)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        19008,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $input.first().json;\nconst uploaded = res.file || res;\nconst prev = $('Extract Upload URL (Template)').first().json;\nif (!uploaded || !uploaded.uri) throw new Error(`GEMINI_FILE_UPLOAD: no file URI returned for \"${prev.doc.name}\"`);\nreturn [{ json: { ...prev, geminiFileName: uploaded.name, geminiUri: uploaded.uri, geminiMimeType: uploaded.mimeType || 'application/pdf', geminiState: uploaded.state, geminiPollStartedAt: Date.now(), geminiPollAttempts: 0 } }];\n"
+      },
+      "id": "3a10e6b0-bc68-446f-a26f-4f28ada22d54",
+      "name": "Extract Uploaded File (Template)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        19232,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.geminiState === 'ACTIVE' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "34e8c90f-bbcb-45fc-b639-951d18cda0db",
+      "name": "Is File Active? (Template)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        19456,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "id": "7cf0abc2-83bd-4ceb-bbf6-3e0c4d52e3a7",
+      "name": "Wait For Processing (Template)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        19680,
+        624
+      ],
+      "webhookId": "19b8ee06-cf2a-43ef-95ab-44f36cc813ea"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://generativelanguage.googleapis.com/v1beta/' + $json.geminiFileName }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "8cf28572-8671-4f5d-857b-0aca7aa04ef6",
+      "name": "Gemini Check File Status (Template)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        19904,
+        544
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uenokmEVAFXfzkBr",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $input.first().json;\nconst prev = $('Extract Uploaded File (Template)').first().json;\nconst now = Date.now();\nconst startedAt = prev.geminiPollStartedAt || now;\nconst attempts = (prev.geminiPollAttempts || 0) + 1;\n\nif (res.state === 'FAILED') {\n  throw new Error(`GEMINI_FILE_PROCESSING_FAILED: Gemini failed to process \"${prev.doc.name}\"`);\n}\nif (res.state !== 'ACTIVE' && res.state !== 'PROCESSING') {\n  throw new Error(`GEMINI_FILE_PROCESSING_FAILED: unexpected state \"${res.state}\" for \"${prev.doc.name}\"`);\n}\nif (res.state !== 'ACTIVE' && (now - startedAt) > 60000) {\n  throw new Error(`GEMINI_FILE_PROCESSING_TIMEOUT: \"${prev.doc.name}\" did not become ACTIVE within 60s`);\n}\n\nreturn [{\n  json: {\n    ...prev,\n    geminiUri: res.uri || prev.geminiUri,\n    geminiMimeType: res.mimeType || prev.geminiMimeType,\n    geminiState: res.state,\n    geminiPollStartedAt: startedAt,\n    geminiPollAttempts: attempts,\n  }\n}];\n"
+      },
+      "id": "97878546-15c2-4b15-b424-990d59f8e94c",
+      "name": "Evaluate Poll State (Template)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        20128,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.geminiState === 'ACTIVE' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b2ca910c-d7cd-44bb-9ea6-c33e0e3585d4",
+      "name": "Poll Complete? (Template)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        20352,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst record = { uri: d.geminiUri, mimeType: d.geminiMimeType, expiresAt: Date.now() + 47 * 60 * 60 * 1000 };\nconst parts = [\n  { text: `Attached PDF: ${d.doc.name}${d.doc.pageCount ? ` (${d.doc.pageCount} pages)` : ''}` },\n  { file_data: { mime_type: d.geminiMimeType, file_uri: d.geminiUri } },\n];\nreturn [{\n  json: {\n    ...d,\n    scannedPdfParts: parts,\n    newPersistentEntry: d.doc.contentHash ? { hash: d.doc.contentHash, record } : null,\n  }\n}];\n"
+      },
+      "id": "c819be92-ee27-46d4-a2df-55c353b5f190",
+      "name": "Build Gemini Parts Fresh (Template)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        20576,
+        544
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$json.newPersistentEntry }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "ba95a263-d3a6-48ad-b862-f989d7045d50",
+      "name": "Should Persist Gemini File? (Template)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        20800,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sweeping-jennet-172408.upstash.io",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ [\"SET\", \"gemini-file:\" + $json.newPersistentEntry.hash, JSON.stringify($json.newPersistentEntry.record), \"EX\", \"169200\"] }}",
+        "options": {}
+      },
+      "id": "4900716d-f1dc-47d3-a29b-42e6b632b541",
+      "name": "Redis SET Persistent Gemini File (Template)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        21024,
+        16
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VnWFZXj8xOxogUEA",
+          "name": "Upstash Redis REST"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [$('Should Persist Gemini File? (Template)').first()];\n"
+      },
+      "id": "fa385997-bd38-41e3-b93b-e5dbca6d7191",
+      "name": "Restore Data After Save (Template)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        21248,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [$input.first()];\n"
+      },
+      "id": "405bfb9c-4dc6-42cc-8d19-5dab9fbe77da",
+      "name": "Scanned PDF Resolution Complete (Template)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        21472,
+        96
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $('Normalize Multipart Body').first().json.body.scannedPdfDocs && $('Normalize Multipart Body').first().json.body.scannedPdfDocs.length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "90994c06-eff6-48bb-a89c-414c71179b76",
+      "name": "Has Scanned PDF? (Reviewer)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        16992,
+        1216
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sweeping-jennet-172408.upstash.io",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ [\"GET\", \"gemini-file:\" + $('Normalize Multipart Body').first().json.body.scannedPdfDocs[0].contentHash] }}",
+        "options": {}
+      },
+      "id": "3f453099-4aa6-4fb5-bd7f-317bfb88c909",
+      "name": "Redis GET Persistent Gemini File (Reviewer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        17216,
+        1296
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VnWFZXj8xOxogUEA",
+          "name": "Upstash Redis REST"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $('Normalize Multipart Body').first().json.body;\nconst redisRes = $input.first().json;\nconst doc = body.scannedPdfDocs[0];\nconst now = Date.now();\n\nlet cached = null;\ntry {\n  if (redisRes.result) {\n    const persistentFile = JSON.parse(redisRes.result);\n    if (persistentFile.expiresAt > now) cached = persistentFile;\n  }\n} catch (e) {}\n\nreturn [{ json: { doc, cached } }];\n"
+      },
+      "id": "cdf56343-e72d-46d7-9532-4886b6b0a372",
+      "name": "Resolve Cached Gemini File (Reviewer)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        17440,
+        1296
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$json.cached }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "bb4789a1-e40c-49e4-a7f0-8e00ccab4372",
+      "name": "Have Cached Gemini File? (Reviewer)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        17664,
+        1296
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst parts = [\n  { text: `Attached PDF: ${d.doc.name}${d.doc.pageCount ? ` (${d.doc.pageCount} pages)` : ''}` },\n  { file_data: { mime_type: d.cached.mimeType, file_uri: d.cached.uri } },\n];\nreturn [{ json: { ...d, scannedPdfParts: parts, newPersistentEntry: null } }];\n"
+      },
+      "id": "35796989-afba-49e4-8862-e0b930b161a6",
+      "name": "Build Gemini Parts Cached (Reviewer)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        20576,
+        1024
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst doc = d.doc;\n\nif (!doc.base64) {\n  return [{ json: { ...d, skipUpload: true, scannedPdfParts: [{ text: `[System note: \"${doc.name}\" could not be read — please try attaching it again.]` }], newPersistentEntry: null } }];\n}\n\nreturn [{ json: { ...d, skipUpload: false } }];\n"
+      },
+      "id": "08c1cffa-c230-4a0f-8910-cd6a6519bc7e",
+      "name": "Validate Scanned PDF Bytes (Reviewer)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        17888,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.skipUpload !== true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "2b6d6154-a95e-4539-a95d-ee31e917939a",
+      "name": "Need Upload? (Reviewer)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        18112,
+        1408
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst buffer = Buffer.from(d.doc.base64, 'base64');\nif (buffer.length > 50 * 1024 * 1024) {\n  throw new Error(`FILE_TOO_LARGE: \"${d.doc.name}\" is ${(buffer.length / 1024 / 1024).toFixed(1)}MB, over Gemini's 50MB PDF limit`);\n}\nconst binaryData = await this.helpers.prepareBinaryData(buffer, d.doc.name, 'application/pdf');\nreturn [{ json: { ...d, byteLength: buffer.length }, binary: { pdfFile: binaryData } }];\n"
+      },
+      "id": "07f321c1-2d46-4bb9-88bc-7e60db8418f8",
+      "name": "Convert Base64 To Binary (Reviewer)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        18336,
+        1488
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/upload/v1beta/files",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Goog-Upload-Protocol",
+              "value": "resumable"
+            },
+            {
+              "name": "X-Goog-Upload-Command",
+              "value": "start"
+            },
+            {
+              "name": "X-Goog-Upload-Header-Content-Length",
+              "value": "={{ $json.byteLength }}"
+            },
+            {
+              "name": "X-Goog-Upload-Header-Content-Type",
+              "value": "application/pdf"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"file\": { \"display_name\": $json.doc.name } } }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "342786a7-04d4-4b10-ad11-7cd60da99cf1",
+      "name": "Gemini Init Upload (Reviewer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        18560,
+        1488
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uenokmEVAFXfzkBr",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $input.first().json;\nconst headers = res.headers || {};\nconst uploadUrl = headers['x-goog-upload-url'] || headers['X-Goog-Upload-URL'] || null;\nconst prev = $('Convert Base64 To Binary (Reviewer)').first().json;\nif (!uploadUrl) throw new Error(`GEMINI_FILE_UPLOAD: no upload URL returned for \"${prev.doc.name}\"`);\nreturn [{ json: { ...prev, uploadUrl }, binary: $('Convert Base64 To Binary (Reviewer)').first().binary }];\n"
+      },
+      "id": "8e0e4bb8-58d9-4bf1-8ab3-0ad02dc5ac39",
+      "name": "Extract Upload URL (Reviewer)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        18784,
+        1488
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.uploadUrl }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Length",
+              "value": "={{ $json.byteLength }}"
+            },
+            {
+              "name": "X-Goog-Upload-Offset",
+              "value": "0"
+            },
+            {
+              "name": "X-Goog-Upload-Command",
+              "value": "upload, finalize"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "pdfFile",
+        "options": {}
+      },
+      "id": "d30cb5cf-f366-416b-822f-a3177384c0e8",
+      "name": "Gemini Upload Bytes (Reviewer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        19008,
+        1488
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $input.first().json;\nconst uploaded = res.file || res;\nconst prev = $('Extract Upload URL (Reviewer)').first().json;\nif (!uploaded || !uploaded.uri) throw new Error(`GEMINI_FILE_UPLOAD: no file URI returned for \"${prev.doc.name}\"`);\nreturn [{ json: { ...prev, geminiFileName: uploaded.name, geminiUri: uploaded.uri, geminiMimeType: uploaded.mimeType || 'application/pdf', geminiState: uploaded.state, geminiPollStartedAt: Date.now(), geminiPollAttempts: 0 } }];\n"
+      },
+      "id": "a8d7ae25-97a5-4237-8a6a-ba1894646980",
+      "name": "Extract Uploaded File (Reviewer)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        19232,
+        1488
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.geminiState === 'ACTIVE' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0cb79a5a-7ff6-4115-9a03-4ae615915c12",
+      "name": "Is File Active? (Reviewer)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        19456,
+        1488
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "id": "321c0d7f-d197-46e9-862d-0229291a665d",
+      "name": "Wait For Processing (Reviewer)",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        19680,
+        1552
+      ],
+      "webhookId": "354da074-45c3-4a1d-bdd4-96648fb9c0db"
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://generativelanguage.googleapis.com/v1beta/' + $json.geminiFileName }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {}
+      },
+      "id": "f370da54-b271-4d70-a12d-00f4b4786945",
+      "name": "Gemini Check File Status (Reviewer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        19904,
+        1488
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uenokmEVAFXfzkBr",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $input.first().json;\nconst prev = $('Extract Uploaded File (Reviewer)').first().json;\nconst now = Date.now();\nconst startedAt = prev.geminiPollStartedAt || now;\nconst attempts = (prev.geminiPollAttempts || 0) + 1;\n\nif (res.state === 'FAILED') {\n  throw new Error(`GEMINI_FILE_PROCESSING_FAILED: Gemini failed to process \"${prev.doc.name}\"`);\n}\nif (res.state !== 'ACTIVE' && res.state !== 'PROCESSING') {\n  throw new Error(`GEMINI_FILE_PROCESSING_FAILED: unexpected state \"${res.state}\" for \"${prev.doc.name}\"`);\n}\nif (res.state !== 'ACTIVE' && (now - startedAt) > 60000) {\n  throw new Error(`GEMINI_FILE_PROCESSING_TIMEOUT: \"${prev.doc.name}\" did not become ACTIVE within 60s`);\n}\n\nreturn [{\n  json: {\n    ...prev,\n    geminiUri: res.uri || prev.geminiUri,\n    geminiMimeType: res.mimeType || prev.geminiMimeType,\n    geminiState: res.state,\n    geminiPollStartedAt: startedAt,\n    geminiPollAttempts: attempts,\n  }\n}];\n"
+      },
+      "id": "c80ce81f-237b-48e0-89eb-f0dc7bc3e31e",
+      "name": "Evaluate Poll State (Reviewer)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        20128,
+        1488
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.geminiState === 'ACTIVE' }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a8942249-130c-477e-8e48-1a1e16fd2350",
+      "name": "Poll Complete? (Reviewer)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        20352,
+        1552
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const d = $input.first().json;\nconst record = { uri: d.geminiUri, mimeType: d.geminiMimeType, expiresAt: Date.now() + 47 * 60 * 60 * 1000 };\nconst parts = [\n  { text: `Attached PDF: ${d.doc.name}${d.doc.pageCount ? ` (${d.doc.pageCount} pages)` : ''}` },\n  { file_data: { mime_type: d.geminiMimeType, file_uri: d.geminiUri } },\n];\nreturn [{\n  json: {\n    ...d,\n    scannedPdfParts: parts,\n    newPersistentEntry: d.doc.contentHash ? { hash: d.doc.contentHash, record } : null,\n  }\n}];\n"
+      },
+      "id": "683b23af-546b-4d8a-ae29-e4e28c0602c4",
+      "name": "Build Gemini Parts Fresh (Reviewer)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        20576,
+        1488
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ !!$json.newPersistentEntry }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "7da071e7-fc3a-4915-b8a3-d16c6710a514",
+      "name": "Should Persist Gemini File? (Reviewer)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        20800,
+        1024
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sweeping-jennet-172408.upstash.io",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ [\"SET\", \"gemini-file:\" + $json.newPersistentEntry.hash, JSON.stringify($json.newPersistentEntry.record), \"EX\", \"169200\"] }}",
+        "options": {}
+      },
+      "id": "f0fdff66-8b77-4eab-8e3a-fbe7c391f867",
+      "name": "Redis SET Persistent Gemini File (Reviewer)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        21024,
+        960
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VnWFZXj8xOxogUEA",
+          "name": "Upstash Redis REST"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return [$('Should Persist Gemini File? (Reviewer)').first()];\n"
+      },
+      "id": "2d7f5c50-cb8e-4c77-a782-d0de86cbc5d7",
+      "name": "Restore Data After Save (Reviewer)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        21248,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [$input.first()];\n"
+      },
+      "id": "c8ef50eb-723a-4c54-8cb7-267773d7198b",
+      "name": "Scanned PDF Resolution Complete (Reviewer)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        21472,
+        1024
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.body.scannedPdfDocs && $json.body.scannedPdfDocs[0] && $json.body.scannedPdfDocs[0].needsDocConversion === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "dd8bb54c-de07-4d98-88cd-3118793f55e3",
+      "name": "Needs DOC Conversion?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        14528,
+        1584
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first();\nconst doc = item.json.body.scannedPdfDocs[0];\nif (!doc.base64) throw new Error(`DOC_CONVERSION: no bytes available for \"${doc.name}\"`);\nconst buffer = Buffer.from(doc.base64, 'base64');\nconst binaryData = await this.helpers.prepareBinaryData(buffer, doc.name, 'application/msword');\nreturn [{ json: { ...item.json, doc }, binary: { docFile: binaryData } }];\n"
+      },
+      "id": "2036202b-d61b-4453-916e-3bc9e318abef",
+      "name": "Convert DOC Base64 To Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        14752,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $json.doc.driveAccessToken }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json; charset=UTF-8"
+            },
+            {
+              "name": "X-Upload-Content-Type",
+              "value": "application/msword"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"name\": (\"__STH_CONVERT__ \" + $json.doc.name), \"mimeType\": \"application/vnd.google-apps.document\", \"parents\": [\"appDataFolder\"] } }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true
+            }
+          }
+        }
+      },
+      "id": "3ddba1e1-ec3a-438b-84b0-ac19735d2837",
+      "name": "Init Drive Import Upload",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        14976,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $input.first().json;\nconst headers = res.headers || {};\nconst uploadUrl = headers['location'] || headers['Location'] || null;\nconst prev = $('Convert DOC Base64 To Binary').first().json;\nif (!uploadUrl) throw new Error(`DOC_CONVERSION_UPLOAD: no resumable session URL returned for \"${prev.doc.name}\"`);\nreturn [{ json: { ...prev, uploadUrl }, binary: $('Convert DOC Base64 To Binary').first().binary }];\n"
+      },
+      "id": "93de820c-6363-4d5d-a97c-73f7a3fc2ec7",
+      "name": "Extract Drive Upload URL",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        15200,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ $json.uploadUrl }}",
+        "sendBody": true,
+        "contentType": "binaryData",
+        "inputDataFieldName": "docFile",
+        "options": {}
+      },
+      "id": "38e94a3b-9fed-4f28-af80-eade39ed01bf",
+      "name": "Drive Upload DOC Bytes",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        15424,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const res = $input.first().json;\nconst prev = $('Extract Drive Upload URL').first().json;\nif (!res || !res.id) throw new Error(`DOC_CONVERSION_UPLOAD: Drive did not return a file id for \"${prev.doc.name}\"`);\nreturn [{ json: { ...prev, driveTempFileId: res.id } }];\n"
+      },
+      "id": "f8d572d6-0f82-4fe5-8486-8de8500dcad8",
+      "name": "Extract Drive Temp File ID",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        15648,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ 'https://www.googleapis.com/drive/v3/files/' + $json.driveTempFileId + '/export?mimeType=application/pdf' }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $json.doc.driveAccessToken }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "convertedPdf"
+            }
+          }
+        }
+      },
+      "id": "8e2e561d-e693-4441-8eec-606b26e8128f",
+      "name": "Drive Export As PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        15872,
+        1504
+      ]
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "={{ 'https://www.googleapis.com/drive/v3/files/' + $json.driveTempFileId }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{ 'Bearer ' + $json.doc.driveAccessToken }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "222eb96b-aa56-483f-8b9f-cd81add6d8f4",
+      "name": "Drive Delete Temp File",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        16096,
+        1600
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const prev = $('Extract Drive Temp File ID').first().json;\nlet buffer;\ntry {\n  buffer = await this.helpers.getBinaryDataBuffer(0, 'convertedPdf');\n} catch (e) {\n  throw new Error(`DOC_CONVERSION_EXPORT: could not read converted PDF for \"${prev.doc.name}\" — ${e.message}`);\n}\nconst body = prev.body;\nbody.scannedPdfDocs = [\n  { ...body.scannedPdfDocs[0], base64: buffer.toString('base64'), needsDocConversion: false },\n  ...body.scannedPdfDocs.slice(1),\n];\nreturn [{ json: { ...prev, body } }];\n"
+      },
+      "id": "a5d92c90-fa95-46f7-9166-483ea6b82c2b",
+      "name": "Finalize Converted PDF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16096,
+        1408
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Error Trigger": {
+      "main": [
+        [
+          {
+            "node": "Format Workflow Error1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route by Mode": {
+      "main": [
+        [
+          {
+            "node": "Build Transcription Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Template Has URL?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reviewer Has URL?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Handle Error Report1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Load Session",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Scrape — Fetch URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Reference Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Transcription Payload": {
+      "main": [
+        [
+          {
+            "node": "Call Gemini (Transcription)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini (Transcription)": {
+      "main": [
+        [
+          {
+            "node": "Extract Transcription Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Template Has URL?": {
+      "main": [
+        [
+          {
+            "node": "Scrape Template URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Has Scanned PDF? (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Template URL": {
+      "main": [
+        [
+          {
+            "node": "Has Scanned PDF? (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Template Payload": {
+      "main": [
+        [
+          {
+            "node": "Call Gemini (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini (Template)": {
+      "main": [
+        [
+          {
+            "node": "Extract Template Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reviewer Has URL?": {
+      "main": [
+        [
+          {
+            "node": "Scrape Reviewer URL",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Has Scanned PDF? (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Reviewer URL": {
+      "main": [
+        [
+          {
+            "node": "Has Scanned PDF? (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Reviewer Payload": {
+      "main": [
+        [
+          {
+            "node": "Call Gemini (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Call Gemini (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Extract Reviewer Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Handle Error Report1": {
+      "main": [
+        [
+          {
+            "node": "Send Error Email1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Error Email1": {
+      "main": [
+        [
+          {
+            "node": "Error Email Response1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Workflow Error1": {
+      "main": [
+        [
+          {
+            "node": "Send Workflow Error Email1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep — Tutor": {
+      "main": [
+        [
+          {
+            "node": "Gemini — Tutor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini — Tutor": {
+      "main": [
+        [
+          {
+            "node": "Extract Tutor Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Student Hub Endpoint": {
+      "main": [
+        [
+          {
+            "node": "Normalize Multipart Body",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape — Fetch URL": {
+      "main": [
+        [
+          {
+            "node": "Clean HTML — Scrape",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Reference Payload": {
+      "main": [
+        [
+          {
+            "node": "Reference",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reference": {
+      "main": [
+        [
+          {
+            "node": "Extract Reference Citation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load Session": {
+      "main": [
+        [
+          {
+            "node": "Redis GET",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis GET": {
+      "main": [
+        [
+          {
+            "node": "Parse Session",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Session": {
+      "main": [
+        [
+          {
+            "node": "Has Scanned PDF?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Session Builder": {
+      "main": [
+        [
+          {
+            "node": "Redis SET",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis SET": {
+      "main": [
+        [
+          {
+            "node": "Build Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Tutor Text": {
+      "main": [
+        [
+          {
+            "node": "Save Session Builder",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Multipart Body": {
+      "main": [
+        [
+          {
+            "node": "Extract Scanned PDF Bytes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Scanned PDF Bytes": {
+      "main": [
+        [
+          {
+            "node": "Needs DOC Conversion?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Scanned PDF?": {
+      "main": [
+        [
+          {
+            "node": "Redis GET Persistent Gemini File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Scanned PDF Resolution Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis GET Persistent Gemini File": {
+      "main": [
+        [
+          {
+            "node": "Resolve Cached Gemini File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Cached Gemini File": {
+      "main": [
+        [
+          {
+            "node": "Have Cached Gemini File?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Have Cached Gemini File?": {
+      "main": [
+        [
+          {
+            "node": "Build Gemini Parts (Cached)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validate Scanned PDF Bytes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Gemini Parts (Cached)": {
+      "main": [
+        [
+          {
+            "node": "Should Persist Gemini File?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Scanned PDF Bytes": {
+      "main": [
+        [
+          {
+            "node": "Need Upload?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Need Upload?": {
+      "main": [
+        [
+          {
+            "node": "Convert Base64 To Binary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Scanned PDF Resolution Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert Base64 To Binary": {
+      "main": [
+        [
+          {
+            "node": "Gemini Init Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Init Upload": {
+      "main": [
+        [
+          {
+            "node": "Extract Upload URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Upload URL": {
+      "main": [
+        [
+          {
+            "node": "Gemini Upload Bytes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Upload Bytes": {
+      "main": [
+        [
+          {
+            "node": "Extract Uploaded File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Uploaded File": {
+      "main": [
+        [
+          {
+            "node": "Is File Active?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is File Active?": {
+      "main": [
+        [
+          {
+            "node": "Build Gemini Parts (Fresh)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait For Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait For Processing": {
+      "main": [
+        [
+          {
+            "node": "Gemini Check File Status",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Check File Status": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Poll State",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Gemini Parts (Fresh)": {
+      "main": [
+        [
+          {
+            "node": "Should Persist Gemini File?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Persist Gemini File?": {
+      "main": [
+        [
+          {
+            "node": "Redis SET Persistent Gemini File",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Scanned PDF Resolution Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis SET Persistent Gemini File": {
+      "main": [
+        [
+          {
+            "node": "Restore Data After Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Data After Save": {
+      "main": [
+        [
+          {
+            "node": "Scanned PDF Resolution Complete",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scanned PDF Resolution Complete": {
+      "main": [
+        [
+          {
+            "node": "Prep — Tutor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Poll State": {
+      "main": [
+        [
+          {
+            "node": "Poll Complete?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll Complete?": {
+      "main": [
+        [
+          {
+            "node": "Build Gemini Parts (Fresh)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait For Processing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Scanned PDF? (Template)": {
+      "main": [
+        [
+          {
+            "node": "Redis GET Persistent Gemini File (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Scanned PDF Resolution Complete (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis GET Persistent Gemini File (Template)": {
+      "main": [
+        [
+          {
+            "node": "Resolve Cached Gemini File (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Cached Gemini File (Template)": {
+      "main": [
+        [
+          {
+            "node": "Have Cached Gemini File? (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Have Cached Gemini File? (Template)": {
+      "main": [
+        [
+          {
+            "node": "Build Gemini Parts Cached (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validate Scanned PDF Bytes (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Gemini Parts Cached (Template)": {
+      "main": [
+        [
+          {
+            "node": "Should Persist Gemini File? (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Scanned PDF Bytes (Template)": {
+      "main": [
+        [
+          {
+            "node": "Need Upload? (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Need Upload? (Template)": {
+      "main": [
+        [
+          {
+            "node": "Convert Base64 To Binary (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Scanned PDF Resolution Complete (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert Base64 To Binary (Template)": {
+      "main": [
+        [
+          {
+            "node": "Gemini Init Upload (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Init Upload (Template)": {
+      "main": [
+        [
+          {
+            "node": "Extract Upload URL (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Upload URL (Template)": {
+      "main": [
+        [
+          {
+            "node": "Gemini Upload Bytes (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Upload Bytes (Template)": {
+      "main": [
+        [
+          {
+            "node": "Extract Uploaded File (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Uploaded File (Template)": {
+      "main": [
+        [
+          {
+            "node": "Is File Active? (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is File Active? (Template)": {
+      "main": [
+        [
+          {
+            "node": "Build Gemini Parts Fresh (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait For Processing (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait For Processing (Template)": {
+      "main": [
+        [
+          {
+            "node": "Gemini Check File Status (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Check File Status (Template)": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Poll State (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Poll State (Template)": {
+      "main": [
+        [
+          {
+            "node": "Poll Complete? (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll Complete? (Template)": {
+      "main": [
+        [
+          {
+            "node": "Build Gemini Parts Fresh (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait For Processing (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Gemini Parts Fresh (Template)": {
+      "main": [
+        [
+          {
+            "node": "Should Persist Gemini File? (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Persist Gemini File? (Template)": {
+      "main": [
+        [
+          {
+            "node": "Redis SET Persistent Gemini File (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Scanned PDF Resolution Complete (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis SET Persistent Gemini File (Template)": {
+      "main": [
+        [
+          {
+            "node": "Restore Data After Save (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Data After Save (Template)": {
+      "main": [
+        [
+          {
+            "node": "Scanned PDF Resolution Complete (Template)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scanned PDF Resolution Complete (Template)": {
+      "main": [
+        [
+          {
+            "node": "Build Template Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Scanned PDF? (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Redis GET Persistent Gemini File (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Scanned PDF Resolution Complete (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis GET Persistent Gemini File (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Resolve Cached Gemini File (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resolve Cached Gemini File (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Have Cached Gemini File? (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Have Cached Gemini File? (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Build Gemini Parts Cached (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Validate Scanned PDF Bytes (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Gemini Parts Cached (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Should Persist Gemini File? (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validate Scanned PDF Bytes (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Need Upload? (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Need Upload? (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Convert Base64 To Binary (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Scanned PDF Resolution Complete (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert Base64 To Binary (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Gemini Init Upload (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Init Upload (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Extract Upload URL (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Upload URL (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Gemini Upload Bytes (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Upload Bytes (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Extract Uploaded File (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Uploaded File (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Is File Active? (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is File Active? (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Build Gemini Parts Fresh (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait For Processing (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait For Processing (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Gemini Check File Status (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini Check File Status (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Evaluate Poll State (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Evaluate Poll State (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Poll Complete? (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Poll Complete? (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Build Gemini Parts Fresh (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait For Processing (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Gemini Parts Fresh (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Should Persist Gemini File? (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Should Persist Gemini File? (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Redis SET Persistent Gemini File (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Scanned PDF Resolution Complete (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Redis SET Persistent Gemini File (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Restore Data After Save (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Restore Data After Save (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Scanned PDF Resolution Complete (Reviewer)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scanned PDF Resolution Complete (Reviewer)": {
+      "main": [
+        [
+          {
+            "node": "Build Reviewer Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Needs DOC Conversion?": {
+      "main": [
+        [
+          {
+            "node": "Convert DOC Base64 To Binary",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Route by Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert DOC Base64 To Binary": {
+      "main": [
+        [
+          {
+            "node": "Init Drive Import Upload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init Drive Import Upload": {
+      "main": [
+        [
+          {
+            "node": "Extract Drive Upload URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Drive Upload URL": {
+      "main": [
+        [
+          {
+            "node": "Drive Upload DOC Bytes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive Upload DOC Bytes": {
+      "main": [
+        [
+          {
+            "node": "Extract Drive Temp File ID",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Drive Temp File ID": {
+      "main": [
+        [
+          {
+            "node": "Drive Export As PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Drive Export As PDF": {
+      "main": [
+        [
+          {
+            "node": "Drive Delete Temp File",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Finalize Converted PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Converted PDF": {
+      "main": [
+        [
+          {
+            "node": "Route by Mode",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "4af2aff2-716a-4b74-83c2-efc50e6788b7",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "4190c168cbd50dfbfe156f5f76c01bdc79d29b27692b6eaffe874511c6dddbe7"
+  },
+  "nodeGroups": [],
+  "id": "dT6ZBofuwIcBjAUS",
+  "tags": []
+}
