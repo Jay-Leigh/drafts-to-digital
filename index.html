@@ -68,7 +68,8 @@
       top: 0;
       height: 100vh;
       z-index: 50;
-      transition: transform 220ms cubic-bezier(0.22,1,0.36,1);
+      overflow-x: hidden;
+      transition: transform 220ms cubic-bezier(0.22,1,0.36,1), width 260ms cubic-bezier(0.22,1,0.36,1);
     }
     .sidebar-header {
       padding: 20px 20px 16px;
@@ -585,11 +586,13 @@
       border: 1px solid rgba(44,95,45,0.15);
       color: rgba(26,46,28,0.55); font-style: italic;
       font-size: 13px; display: flex; align-items: center; gap: 8px;
+      font-variant-numeric: tabular-nums;
     }
     .reading-link-spinner {
       width: 14px; height: 14px; border-radius: 50%;
       border: 2px solid rgba(44,95,45,0.2);
       border-top-color: #2c5f2d;
+      will-change: transform;
       animation: spin 0.8s linear infinite; flex-shrink: 0;
     }
 
@@ -752,12 +755,13 @@
     .tutor-messages {
       position: absolute; inset: 0;
       overflow-y: auto;
-      padding: 20px 18px;
+      padding: 24px max(52px, calc((100% - var(--chat-col)) / 2)) 24px max(18px, calc((100% - var(--chat-col)) / 2));
       display: flex; flex-direction: column; gap: 14px;
       background: #faf7f0;
     }
     .tutor-scroll-rail {
-      position: absolute; top: 10px; right: 10px; bottom: 10px;
+      position: absolute; top: 10px; bottom: 10px;
+      right: max(10px, calc((100% - var(--chat-col)) / 2 - 42px));
       width: 26px;
       display: flex; flex-direction: column; align-items: center;
       gap: 6px; z-index: 5; pointer-events: none;
@@ -774,7 +778,8 @@
     .tutor-bookmarks {
       flex: 1; min-height: 0;
       display: flex; flex-direction: column; align-items: center;
-      gap: 6px; padding: 4px 0;
+      justify-content: space-evenly;
+      gap: 6px; padding: 6px 0;
       overflow-y: auto; pointer-events: auto;
       scrollbar-width: none;
     }
@@ -783,19 +788,21 @@
       flex-shrink: 0;
       width: 8px; height: 8px; border-radius: 50%;
       background: rgba(44,95,45,0.3);
-      cursor: pointer; transition: background 0.15s, transform 0.15s;
+      cursor: pointer; transition: background 0.2s ease, transform 0.2s cubic-bezier(0.22,1,0.36,1), box-shadow 0.2s ease;
     }
     .bookmark-dot.bookmark-user { background: rgba(44,95,45,0.75); }
     .bookmark-dot.bookmark-tutor { background: rgba(44,95,45,0.28); }
-    .bookmark-dot.bookmark-user:hover,
-    .bookmark-dot.bookmark-tutor:hover { background: #2c5f2d; transform: scale(1.5); }
+    .bookmark-dot:hover, .bookmark-dot:focus-visible, .bookmark-dot.tooltip-visible { background: #2c5f2d; transform: scale(1.5); outline: none; }
+    .bookmark-dot.current { background: #2c5f2d; box-shadow: 0 0 0 3px rgba(44,95,45,0.18); }
+    .bookmark-dot.highlight-pulse { background: #2c5f2d; transform: scale(2); }
     .chat-bubble {
       max-width: 82%;
       padding: 12px 16px;
       border-radius: 16px;
       font-size: 14.5px; line-height: 1.55;
-      animation: fadeUp 0.25s ease-out;
     }
+    .chat-bubble.enter, .msg-wrapper.enter, .quote-ref.enter { animation: msgEnter 0.28s cubic-bezier(0.22,1,0.36,1) both; }
+    @keyframes msgEnter { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
     .chat-bubble.user {
       align-self: flex-end;
       background: #2c5f2d; color: white;
@@ -821,20 +828,22 @@
       background: white;
       border: 1px solid rgba(212,201,168,0.55);
       border-bottom-left-radius: 6px;
-      display: flex; gap: 4px; align-items: center;
-      padding: 14px 16px;
+      display: flex; gap: 5px; align-items: center;
+      height: 42px; padding: 0 16px;
     }
     .chat-bubble.typing span {
-      width: 6px; height: 6px; border-radius: 50%;
+      width: 7px; height: 7px; border-radius: 50%;
       background: #2c5f2d;
-      animation: typingBounce 1.2s infinite ease-in-out;
+      will-change: transform, opacity;
+      animation: typingWave 1.3s infinite cubic-bezier(0.45,0,0.55,1);
     }
-    .chat-bubble.typing span:nth-child(2) { animation-delay: 0.15s; }
-    .chat-bubble.typing span:nth-child(3) { animation-delay: 0.3s; }
-    @keyframes typingBounce {
-      0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
-      40% { transform: translateY(-4px); opacity: 1; }
+    .chat-bubble.typing span:nth-child(2) { animation-delay: 0.16s; }
+    .chat-bubble.typing span:nth-child(3) { animation-delay: 0.32s; }
+    @keyframes typingWave {
+      0%, 60%, 100% { transform: translateY(0) scale(0.85); opacity: 0.35; }
+      30% { transform: translateY(-5px) scale(1); opacity: 1; }
     }
+    .chat-bubble.model.revealing + .msg-actions { visibility: hidden; }
     /* Message action bar */
     .msg-wrapper { display: flex; flex-direction: column; align-items: flex-start; }
     .msg-actions {
@@ -962,7 +971,6 @@
     /* Reference Generator */
     .refs-shell {
       display: flex; flex-direction: column; gap: 20px;
-      max-width: 960px; margin: 0 auto;
     }
     .refs-style-row {
       display: flex; align-items: center; gap: 12px;
@@ -1487,66 +1495,6 @@
       .tutor-landing h2 { font-size: 26px; }
     }
 
-    /* ───────── MESSAGE NAVIGATOR TOOLTIP ───────── */
-    .bookmark-dot {
-      position: relative;
-    }
-    .bookmark-tooltip {
-      position: absolute;
-      right: calc(100% + 10px);
-      top: 50%;
-      transform: translateY(-50%);
-      background: #1a2e1c;
-      color: white;
-      padding: 6px 10px;
-      border-radius: 8px;
-      font-family: 'Outfit', sans-serif;
-      font-size: 12px;
-      line-height: 1.4;
-      white-space: nowrap;
-      max-width: 220px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.15s ease;
-      z-index: 10;
-    }
-    .bookmark-tooltip::after {
-      content: '';
-      position: absolute;
-      right: -5px;
-      top: 50%;
-      transform: translateY(-50%);
-      border: 5px solid transparent;
-      border-left-color: #1a2e1c;
-      border-right: 0;
-    }
-    .bookmark-dot:hover .bookmark-tooltip,
-    .bookmark-dot:focus .bookmark-tooltip {
-      opacity: 1;
-    }
-    .bookmark-tooltip-role {
-      font-weight: 600;
-      color: rgba(255,255,255,0.7);
-      font-size: 10px;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .bookmark-dot.highlight-pulse {
-      background: #2c5f2d;
-      transform: scale(2);
-    }
-
-    /* Mobile: tap to show tooltip persistently */
-    @media (hover: none) {
-      .bookmark-dot.tooltip-visible .bookmark-tooltip {
-        opacity: 1;
-        pointer-events: auto;
-        cursor: pointer;
-      }
-    }
-
     /* ───────── REDUCED MOTION ───────── */
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after {
@@ -1585,13 +1533,10 @@
     @media (max-width: 430px) {
       .tutor-head { padding: 10px 14px; }
       .tutor-head h3 { font-size: 15px; }
-      .tutor-messages { padding: 14px 12px; }
+      .tutor-messages { padding: 14px 44px 14px 12px; }
       .tutor-composer-row { gap: 6px; }
       .tutor-input { padding: 10px 12px; }
       .chat-bubble { max-width: 88%; font-size: 13.5px; }
-    }
-    @media (min-width: 1280px) {
-      .tutor-messages { padding: 24px 28px; }
     }
 
     /* Message highlight animation for search navigation */
@@ -1875,6 +1820,70 @@
       .history-result-actions { flex-wrap: wrap; }
       .hist-res-btn-docs { margin-left: 0; }
     }
+
+    /* ───────── UI CLEANUP: shared tokens ───────── */
+    :root { --chat-col: 860px; --ease-out: cubic-bezier(0.22,1,0.36,1); --rail-w: 58px; }
+    @media (min-width: 431px) {
+      .tutor-head { padding-left: max(18px, calc((100% - var(--chat-col)) / 2)); padding-right: max(18px, calc((100% - var(--chat-col)) / 2)); }
+      .tutor-composer { padding-left: max(0px, calc((100% - var(--chat-col) - 32px) / 2)); padding-right: max(0px, calc((100% - var(--chat-col) - 32px) / 2)); }
+    }
+    #btnTutorSend .mini-spinner { width: 12px; height: 12px; border-color: rgba(255,255,255,0.35); border-top-color: #fff; }
+
+    /* Floating tooltip (sidebar rail + bookmarks) — lives on <body> so scrolling containers never clip it */
+    .float-tip {
+      position: fixed; top: 0; left: 0; z-index: 400;
+      background: #1a2e1c; color: white;
+      padding: 6px 10px; border-radius: 8px;
+      font-family: 'Outfit', sans-serif; font-size: 12px; line-height: 1.4;
+      max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      pointer-events: none; opacity: 0;
+      transition: opacity 0.14s ease;
+    }
+    .float-tip.show { opacity: 1; }
+    .float-tip-role { display: block; font-weight: 600; color: rgba(255,255,255,0.65); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; }
+
+    /* Collapsible sidebar (laptop / desktop) */
+    .sidebar-collapse-btn {
+      flex-shrink: 0; width: 30px; height: 30px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: rgba(26,46,28,0.5); background: transparent; border: none; cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+    .sidebar-collapse-btn:hover { background: rgba(44,95,45,0.08); color: #2c5f2d; }
+    .sidebar-collapse-btn svg { transition: transform 260ms var(--ease-out); }
+    .sidebar-title { flex: 1; min-width: 0; overflow: hidden; transition: opacity 180ms ease; }
+    .sidebar-title > div:last-child { white-space: nowrap; }
+    .nav-label { white-space: nowrap; transition: opacity 180ms ease; }
+    @media (max-width: 900px) { .sidebar-collapse-btn { display: none; } }
+    @media (min-width: 901px) {
+      .sidebar.collapsed { width: var(--rail-w); }
+      .sidebar.collapsed .sidebar-header { padding-left: 0; padding-right: 0; justify-content: center; }
+      .sidebar.collapsed .sidebar-title { flex: 0 0 0; opacity: 0; }
+      .sidebar.collapsed .sidebar-collapse-btn svg { transform: scaleX(-1); }
+      .sidebar.collapsed .nav-label { opacity: 0; }
+      .sidebar.collapsed .sidebar-nav-section { height: 1px; padding: 0; margin: 9px 14px; color: transparent; background: rgba(212,201,168,0.5); overflow: hidden; }
+      .sidebar.collapsed .sidebar-tutor-chats { padding: 10px 6px; overflow: hidden; }
+      .sidebar.collapsed .sidebar-tutor-chats > :not(.new-chat-btn) { display: none; }
+      .sidebar.collapsed .new-chat-btn { justify-content: center; padding: 9px 0; gap: 0; }
+      .sidebar.collapsed .new-chat-btn .nav-label { display: none; }
+      .sidebar.collapsed .sync-section { padding: 10px 8px 14px; }
+      .sidebar.collapsed .sync-btn { justify-content: center; padding: 9px 0; gap: 0; }
+      .sidebar.collapsed .sync-btn .nav-label,
+      .sidebar.collapsed .sync-hint,
+      .sidebar.collapsed .sync-user-info,
+      .sidebar.collapsed .sync-sign-out-btn { display: none; }
+      .sidebar.collapsed .sync-user-row { justify-content: center; }
+    }
+
+    /* Home: recent chats */
+    .home-recent { margin-top: 36px; }
+    .home-recent-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+    .home-recent-head h3 { font-size: 20px; }
+    .home-recent-head a { font-size: 13px; font-weight: 500; color: #2c5f2d; text-decoration: none; }
+    .home-recent-head a:hover { text-decoration: underline; }
+    .home-recent .tutor-landing-results { max-width: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+    .home-recent .tutor-landing-results-heading { display: none; }
+    .home-recent .tutor-landing-card { padding: 14px 16px; }
   </style>
 </head>
 
@@ -1921,38 +1930,41 @@
             <p>v2.0</p>
           </div>
         </div>
+        <button id="btnSidebarCollapse" class="sidebar-collapse-btn" aria-label="Collapse sidebar" aria-expanded="true" title="Collapse sidebar (Ctrl+B)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><polyline points="16 9 13 12 16 15"/></svg>
+        </button>
       </div>
 
       <nav class="sidebar-nav">
-        <a class="nav-link" data-route="home" href="#home">
+        <a class="nav-link" data-route="home" href="#home" data-tip="Home">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          Home
+          <span class="nav-label">Home</span>
         </a>
         <div class="sidebar-nav-section">Tools</div>
-        <a class="nav-link" data-route="transcribe" href="#transcribe">
+        <a class="nav-link" data-route="transcribe" href="#transcribe" data-tip="Transcribe">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-          Transcribe
+          <span class="nav-label">Transcribe</span>
         </a>
-        <a class="nav-link" data-route="template" href="#template">
+        <a class="nav-link" data-route="template" href="#template" data-tip="Template">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-          Template
+          <span class="nav-label">Template</span>
         </a>
-        <a class="nav-link" data-route="reviewer" href="#reviewer">
+        <a class="nav-link" data-route="reviewer" href="#reviewer" data-tip="Reviewer">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M9 15l2 2 4-4"/></svg>
-          Reviewer
+          <span class="nav-label">Reviewer</span>
         </a>
-        <a class="nav-link" data-route="references" href="#references">
+        <a class="nav-link" data-route="references" href="#references" data-tip="References">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5z"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="13" y2="11"/></svg>
-          References
+          <span class="nav-label">References</span>
         </a>
         <div class="sidebar-nav-section">Study Space</div>
-        <a class="nav-link" data-route="knowledge" href="#knowledge">
+        <a class="nav-link" data-route="knowledge" href="#knowledge" data-tip="Knowledge Bay">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
-          Knowledge Bay
+          <span class="nav-label">Knowledge Bay</span>
         </a>
-        <a class="nav-link" data-route="tutor" href="#tutor">
+        <a class="nav-link" data-route="tutor" href="#tutor" data-tip="Tutor">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          Tutor
+          <span class="nav-label">Tutor</span>
         </a>
       </nav>
 
@@ -1965,9 +1977,9 @@
           <input id="sidebarChatSearch" class="chat-search-input" type="text" placeholder="Search all chats…" />
           <button id="sidebarChatSearchClear" class="chat-search-clear" title="Clear">×</button>
         </div>
-        <div class="new-chat-btn" id="btnNewChat">
+        <div class="new-chat-btn" id="btnNewChat" data-tip="New chat" role="button" tabindex="0">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          New chat
+          <span class="nav-label">New chat</span>
         </div>
         <div id="tutorChatList"></div>
       </div>
@@ -1975,12 +1987,12 @@
       <!-- ── Google Sync ── -->
       <div id="syncSection" class="sync-section">
         <div id="syncSignedOut">
-          <button id="btnSyncSignIn" class="sync-btn">
+          <button id="btnSyncSignIn" class="sync-btn" data-tip="Sync across devices">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
               <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
             </svg>
-            Sync across devices
+            <span class="nav-label">Sync across devices</span>
           </button>
           <p class="sync-hint">Sign in with Google to keep your data on every device</p>
         </div>
@@ -2085,6 +2097,14 @@
               <h3 class="text-lg mt-3">References</h3>
               <p class="font-body text-sm text-ink/45 mt-1">Generate formatted reference lists from any source</p>
             </a>
+          </div>
+
+          <div id="homeRecent" class="home-recent" hidden>
+            <div class="home-recent-head">
+              <h3>Recent chats</h3>
+              <a href="#tutor">View all &rarr;</a>
+            </div>
+            <div id="homeRecentList" class="tutor-landing-results"></div>
           </div>
         </section>
 
@@ -2273,12 +2293,9 @@
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
               Home
             </button>
-          </div>
-
-          <div class="view-intro">
-            <div>
+            <div class="view-title-block">
               <h2>References</h2>
-              <p>Drop in your sources &mdash; articles, YouTube videos, notes from your Knowledge Bay, or fresh uploads. We&rsquo;ll generate a styled reference list you can copy or export.</p>
+              <p>Drop in articles, YouTube videos, Knowledge Bay notes or fresh uploads &mdash; get a styled reference list to copy or export.</p>
             </div>
           </div>
 
@@ -4267,11 +4284,10 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       return new Date(ts).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' });
     }
 
-    function renderTutorLanding(query) {
+    function renderTutorLanding(query, container = dom.tutorLandingResults, limit = Infinity) {
       const sorted = [...tutor.chats].sort((a, b) => b.updated - a.updated);
-      const results = searchTutorChats(query, sorted);
+      const results = searchTutorChats(query, sorted).slice(0, limit);
 
-      const container = dom.tutorLandingResults;
       container.innerHTML = '';
       const q = (query || '').trim();
       const heading = document.createElement('div');
@@ -4316,11 +4332,11 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           card.appendChild(snippet);
         } else if (!q && r.chat.messages?.length) {
           const lastMsg = r.chat.messages[r.chat.messages.length - 1];
-          const preview = (lastMsg.text || '').slice(0, 100);
+          const preview = plainPreview(lastMsg.text, 100);
           if (preview) {
             const snippet = document.createElement('div');
             snippet.className = 'tutor-landing-card-snippet';
-            snippet.textContent = preview + (lastMsg.text.length > 100 ? '...' : '');
+            snippet.textContent = preview;
             card.appendChild(snippet);
           }
         }
@@ -4347,6 +4363,12 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         frag.appendChild(card);
       }
       container.appendChild(frag);
+    }
+
+    function renderHomeRecent() {
+      const box = document.getElementById('homeRecent');
+      box.hidden = !tutor.chats.length;
+      if (!box.hidden) renderTutorLanding('', document.getElementById('homeRecentList'), 6);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -4445,6 +4467,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       if (name === 'knowledge') {
         renderKbGrid();
       }
+      if (name === 'home') renderHomeRecent();
 
       if (name === 'tutor') {
         if (arg) {
@@ -4479,6 +4502,21 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
       closeSidebar();
       if (!isTutor) window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+
+    // Desktop/laptop: collapse sidebar to an icon rail (persisted per device).
+    const SIDEBAR_COLLAPSED_KEY = 'sth.sidebarCollapsed';
+    function setSidebarCollapsed(collapsed) {
+      dom.sidebar.classList.toggle('collapsed', collapsed);
+      const btn = document.getElementById('btnSidebarCollapse');
+      btn.setAttribute('aria-expanded', String(!collapsed));
+      btn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
+      btn.title = (collapsed ? 'Expand' : 'Collapse') + ' sidebar (Ctrl+B)';
+      floatTip.hide();
+      try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch {}
+    }
+    function isRailMode() {
+      return dom.sidebar.classList.contains('collapsed') && window.matchMedia('(min-width: 901px)').matches;
     }
 
     function openSidebar() {
@@ -5877,7 +5915,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
             <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
           </svg>
-          ${status === 'expired' ? 'Re-connect Google' : 'Sync across devices'}`;
+          <span class="nav-label">${status === 'expired' ? 'Re-connect Google' : 'Sync across devices'}</span>`;
+        btnSyncSignIn.dataset.tip = status === 'expired' ? 'Re-connect Google' : 'Sync across devices';
         return;
       }
 
@@ -6271,6 +6310,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           const data = await sendToWebhook(payload, binaryFiles);
           const reply = (data && (data.text || data.result)) || '';
           c.messages.push({ role: 'model', text: reply || '_(No response text returned.)_' });
+          this._revealIdx = c.messages.length - 1;
+          this._revealChatId = c.id;
           if (data && data.cacheName) {
             c.cacheName = data.cacheName;
             c.cacheExpiresAt = data.cacheExpiresAt || (Date.now() + 3 * 60 * 60 * 1000);
@@ -6317,12 +6358,16 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         const hasText = dom.tutorInput.value.trim().length > 0;
         const busy = state.tutorTyping || state.tutorScraping || !!state.tutorReadingLabel;
         dom.btnTutorSend.disabled = !hasText || busy;
-        if (state.tutorScraping || state.tutorReadingLabel) dom.btnTutorSend.textContent = 'Reading…';
-        else if (state.tutorTyping) dom.btnTutorSend.textContent = 'Thinking…';
-        else dom.btnTutorSend.textContent = 'Send';
+        const label = (state.tutorScraping || state.tutorReadingLabel) ? 'Reading…' : state.tutorTyping ? 'Thinking…' : 'Send';
+        if (dom.btnTutorSend.dataset.label === label) return;
+        dom.btnTutorSend.dataset.label = label;
+        dom.btnTutorSend.innerHTML = label === 'Send'
+          ? 'Send <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'
+          : `<span class="mini-spinner"></span> ${label}`;
       },
 
       renderSidebarList() {
+        if (state.currentRoute === 'home') renderHomeRecent();
         const q = (state.sidebarSearch || '').trim();
         const searchResults = searchTutorChats(q);
         const items = searchResults
@@ -6367,6 +6412,9 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
               <p>Start a new chat from the sidebar and we can dig in.</p>
             </div>`;
           dom.tutorBookmarks.innerHTML = '';
+          this.finishReveal();
+          this._view = null;
+          this._status = null;
           dom.tutorInput.disabled = true;
           dom.btnTutorSend.disabled = true;
           dom.btnTutorAttach.disabled = true;
@@ -6391,87 +6439,56 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:inline;vertical-align:-2px"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg> ${n} attached`
           : 'No resources attached';
 
-        dom.tutorMessages.innerHTML = '';
+        this.renderMessages(c);
+        this.updateSendButton();
+      },
 
-        if (!c.messages.length && !state.tutorTyping) {
-          dom.tutorMessages.innerHTML = `
-            <div class="tutor-empty">
-              <h4>Hey — what are we tackling today?</h4>
-              <p>Drop me a question, or attach some notes from your Knowledge Bay first so I can ground my answers in your material.</p>
-            </div>`;
-          dom.tutorBookmarks.innerHTML = '';
-        } else {
-          c.messages.forEach((msg, idx) => {
-            if (msg.role === 'model') {
-              const wrapper = document.createElement('div');
-              wrapper.className = 'msg-wrapper';
-              const bubble = document.createElement('div');
-              bubble.className = 'chat-bubble model';
-              bubble.dataset.msgIndex = String(idx);
-              try {
-                bubble.innerHTML = marked.parse(msg.text || '');
-              } catch {
-                bubble.textContent = msg.text || '';
-              }
-              const actions = document.createElement('div');
-              actions.className = 'msg-actions';
-              actions.innerHTML = `
-                <button class="msg-action-btn" title="Reply to this message">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
-                  Reply
-                </button>
-                <button class="msg-action-btn" title="Copy to clipboard">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                  Copy
-                </button>
-                <button class="msg-action-btn" title="Export to Google Docs">
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  Export
-                </button>`;
-              const [replyBtn, copyBtn, exportBtn] = actions.querySelectorAll('.msg-action-btn');
-              const msgText = msg.text;
-              replyBtn.addEventListener('click', () => tutor.setQuote(msgText));
-              copyBtn.addEventListener('click', () => tutor.copyMessage(msgText));
-              exportBtn.addEventListener('click', () => tutor.exportMessage(msgText));
-              wrapper.appendChild(bubble);
-              wrapper.appendChild(actions);
-              dom.tutorMessages.appendChild(wrapper);
-            } else {
-              if (msg.quote) {
-                const quoteRef = document.createElement('div');
-                quoteRef.className = 'quote-ref';
-                const preview = msg.quote.length > 200 ? msg.quote.slice(0, 200) + '…' : msg.quote;
-                quoteRef.innerHTML = `<span class="quote-ref-label">Replying to Tutor</span>${escapeHtml(preview)}`;
-                dom.tutorMessages.appendChild(quoteRef);
-              }
-              const bubble = document.createElement('div');
-              bubble.className = `chat-bubble user${msg.quote ? ' with-quote' : ''}`;
-              bubble.textContent = msg.text || '';
-              bubble.dataset.msgIndex = String(idx);
-              dom.tutorMessages.appendChild(bubble);
-            }
-          });
-          this.renderBookmarks(c);
-          if (state.tutorScraping || state.tutorReadingLabel) {
-            const reading = document.createElement('div');
-            reading.className = 'chat-bubble reading-link';
-            reading.innerHTML = `<div class="reading-link-spinner"></div> ${escapeHtml(state.tutorReadingLabel || 'Reading link…')}`;
-            dom.tutorMessages.appendChild(reading);
-          } else if (state.tutorTyping) {
-            const typing = document.createElement('div');
-            typing.className = 'chat-bubble typing';
-            typing.innerHTML = '<span></span><span></span><span></span>';
-            dom.tutorMessages.appendChild(typing);
+      // Incremental render: bubbles already on screen are kept, so the typing /
+      // reading indicator keeps animating and history never re-fades per state tick.
+      renderMessages(c) {
+        const box = dom.tutorMessages;
+        const q = (state.chatSearch || '').trim();
+        const v = this._view;
+        const busy = state.tutorTyping || state.tutorScraping || !!state.tutorReadingLabel;
+        const sameChat = !!v && v.chatId === c.id && v.msgs === c.messages;
+        const incremental = sameChat && !q && !v.q && !v.empty && v.count <= c.messages.length;
+        const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
+
+        if (!incremental) {
+          this.finishReveal();
+          box.innerHTML = '';
+          this._status = null;
+          if (!c.messages.length && !busy) {
+            box.innerHTML = `
+              <div class="tutor-empty">
+                <h4>Hey — what are we tackling today?</h4>
+                <p>Drop me a question, or attach some notes from your Knowledge Bay first so I can ground my answers in your material.</p>
+              </div>`;
+            dom.tutorBookmarks.innerHTML = '';
+            this._view = { chatId: c.id, msgs: c.messages, count: 0, q, empty: true };
+            return;
           }
         }
 
-        // Apply in-chat search highlight if active
-        const q = (state.chatSearch || '').trim();
+        const from = incremental ? v.count : 0;
+        const animate = incremental || (sameChat && v.empty);
+        const frag = document.createDocumentFragment();
+        let reveal = null;
+        for (let i = from; i < c.messages.length; i++) {
+          const bubble = this.buildMessage(c.messages[i], i, animate, frag);
+          if (animate && i === this._revealIdx && this._revealChatId === c.id) reveal = { bubble, text: c.messages[i].text || '' };
+        }
+        box.insertBefore(frag, this._status);
+        if (reveal) { this._revealIdx = -1; this.startReveal(reveal.bubble, reveal.text); }
+        const added = c.messages.length - from;
+        if (added > 0) this.renderBookmarks(c);
+        this._view = { chatId: c.id, msgs: c.messages, count: c.messages.length, q, empty: false };
+        this.syncStatus();
+
         if (q) {
           const qLower = q.toLowerCase();
-          const bubbles = dom.tutorMessages.querySelectorAll('.chat-bubble.user, .chat-bubble.model');
           let firstMatch = null;
-          bubbles.forEach(b => {
+          box.querySelectorAll('.chat-bubble.user, .chat-bubble.model').forEach(b => {
             if ((b.textContent || '').toLowerCase().includes(qLower)) {
               b.classList.remove('dimmed');
               highlightTextNodes(b, q);
@@ -6483,19 +6500,129 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           requestAnimationFrame(() => {
             if (firstMatch) firstMatch.scrollIntoView({ block: 'center', behavior: 'smooth' });
           });
-        } else {
-          // Scroll to bottom normally
+          return;
+        }
+        if (!incremental || added > 0 || nearBottom) {
           requestAnimationFrame(() => {
-            dom.tutorMessages.scrollTop = dom.tutorMessages.scrollHeight;
+            box.scrollTo({ top: box.scrollHeight, behavior: incremental ? 'smooth' : 'instant' });
             updateHeaderFusion();
           });
         }
+      },
 
-        this.updateSendButton();
+      buildMessage(msg, idx, animate, parent) {
+        const enter = animate ? ' enter' : '';
+        if (msg.role === 'model') {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'msg-wrapper' + enter;
+          const bubble = document.createElement('div');
+          bubble.className = 'chat-bubble model';
+          bubble.dataset.msgIndex = String(idx);
+          renderMarkdown(bubble, msg.text || '');
+          const actions = document.createElement('div');
+          actions.className = 'msg-actions';
+          actions.innerHTML = `
+            <button class="msg-action-btn" title="Reply to this message">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 17 4 12 9 7"/><path d="M20 18v-2a4 4 0 0 0-4-4H4"/></svg>
+              Reply
+            </button>
+            <button class="msg-action-btn" title="Copy to clipboard">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Copy
+            </button>
+            <button class="msg-action-btn" title="Export to Google Docs">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Export
+            </button>`;
+          const [replyBtn, copyBtn, exportBtn] = actions.querySelectorAll('.msg-action-btn');
+          const msgText = msg.text;
+          replyBtn.addEventListener('click', () => tutor.setQuote(msgText));
+          copyBtn.addEventListener('click', () => tutor.copyMessage(msgText));
+          exportBtn.addEventListener('click', () => tutor.exportMessage(msgText));
+          wrapper.appendChild(bubble);
+          wrapper.appendChild(actions);
+          parent.appendChild(wrapper);
+          return bubble;
+        }
+        if (msg.quote) {
+          const quoteRef = document.createElement('div');
+          quoteRef.className = 'quote-ref' + enter;
+          const preview = msg.quote.length > 200 ? msg.quote.slice(0, 200) + '…' : msg.quote;
+          quoteRef.innerHTML = `<span class="quote-ref-label">Replying to Tutor</span>${escapeHtml(preview)}`;
+          parent.appendChild(quoteRef);
+        }
+        const bubble = document.createElement('div');
+        bubble.className = `chat-bubble user${msg.quote ? ' with-quote' : ''}${enter}`;
+        bubble.textContent = msg.text || '';
+        bubble.dataset.msgIndex = String(idx);
+        parent.appendChild(bubble);
+        return bubble;
+      },
+
+      // One persistent indicator node: label updates in place, never recreated mid-spin.
+      syncStatus() {
+        const kind = (state.tutorScraping || state.tutorReadingLabel) ? 'reading' : state.tutorTyping ? 'typing' : null;
+        let el = this._status;
+        if (el && el.dataset.kind !== kind) { el.remove(); el = this._status = null; }
+        if (!kind || !this._view || this._view.empty) return;
+        if (!el) {
+          el = document.createElement('div');
+          el.dataset.kind = kind;
+          el.className = `chat-bubble enter ${kind === 'reading' ? 'reading-link' : 'typing'}`;
+          el.setAttribute('role', 'status');
+          el.innerHTML = kind === 'reading'
+            ? '<div class="reading-link-spinner"></div><span></span>'
+            : '<span></span><span></span><span></span>';
+          if (kind === 'typing') el.setAttribute('aria-label', 'Tutor is typing');
+          dom.tutorMessages.appendChild(el);
+          this._status = el;
+        }
+        if (kind === 'reading') {
+          const label = state.tutorReadingLabel || 'Reading link…';
+          if (el.lastChild.textContent !== label) el.lastChild.textContent = label;
+        }
+      },
+
+      // Client-side typewriter for fresh replies: ≥60 words/s, whole reply ≤ ~4s; click to skip.
+      startReveal(bubble, text) {
+        this.finishReveal();
+        const tokens = text.split(/(\s+)/);
+        const total = tokens.length;
+        if (total < 12 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        const box = dom.tutorMessages;
+        const perMs = Math.max(0.12, total / 4000);
+        const start = performance.now();
+        let shown = 0;
+        const step = (now) => {
+          if (this._reveal !== r) return;
+          const n = Math.min(total, Math.ceil((now - start) * perMs));
+          if (n !== shown) {
+            shown = n;
+            const pinned = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+            renderMarkdown(bubble, tokens.slice(0, n).join(''));
+            if (pinned) box.scrollTop = box.scrollHeight;
+          }
+          if (n < total) r.raf = requestAnimationFrame(step);
+          else this.finishReveal();
+        };
+        const r = { bubble, text, raf: 0 };
+        this._reveal = r;
+        bubble.classList.add('revealing');
+        bubble.addEventListener('click', () => { if (this._reveal === r) this.finishReveal(); }, { once: true });
+        renderMarkdown(bubble, '');
+        r.raf = requestAnimationFrame(step);
+      },
+
+      finishReveal() {
+        const r = this._reveal;
+        if (!r) return;
+        this._reveal = null;
+        cancelAnimationFrame(r.raf);
+        renderMarkdown(r.bubble, r.text);
+        r.bubble.classList.remove('revealing');
       },
 
       renderBookmarks(c) {
-        dom.tutorBookmarks.innerHTML = '';
         const frag = document.createDocumentFragment();
         c.messages.forEach((msg, idx) => {
           if (msg.role !== 'user' && msg.role !== 'model') return;
@@ -6503,43 +6630,78 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           dot.className = `bookmark-dot ${msg.role === 'user' ? 'bookmark-user' : 'bookmark-tutor'}`;
           dot.tabIndex = 0;
           dot.setAttribute('role', 'button');
-          const preview = (msg.text || '').slice(0, 60);
-          const roleLabel = msg.role === 'user' ? 'You' : 'Tutor';
-          dot.setAttribute('aria-label', `${roleLabel}: ${preview}`);
-
-          const tooltip = document.createElement('div');
-          tooltip.className = 'bookmark-tooltip';
-          const roleLine = document.createElement('div');
-          roleLine.className = 'bookmark-tooltip-role';
-          roleLine.textContent = roleLabel;
-          tooltip.appendChild(roleLine);
-          tooltip.appendChild(document.createTextNode(preview + (msg.text && msg.text.length > 60 ? '...' : '')));
-          dot.appendChild(tooltip);
-
-          const navToMsg = () => navigateTutorMessage(idx, tutor.current()?.id, navigationToken);
-
-          dot.addEventListener('click', (e) => {
-            if ('ontouchstart' in window) {
-              e.preventDefault();
-              if (dot.classList.contains('tooltip-visible')) {
-                dot.classList.remove('tooltip-visible');
-                navToMsg();
-              } else {
-                dom.tutorBookmarks.querySelectorAll('.bookmark-dot').forEach(d => d.classList.remove('tooltip-visible'));
-                dot.classList.add('tooltip-visible');
-              }
-            } else {
-              navToMsg();
-            }
-          });
-          dot.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navToMsg(); }
-          });
+          dot.dataset.idx = String(idx);
+          dot.dataset.role = msg.role === 'user' ? 'You' : 'Tutor';
+          dot.dataset.preview = plainPreview(msg.text, 60);
+          dot.setAttribute('aria-label', `${dot.dataset.role}: ${dot.dataset.preview}`);
           frag.appendChild(dot);
         });
-        dom.tutorBookmarks.appendChild(frag);
+        dom.tutorBookmarks.replaceChildren(frag);
+        requestAnimationFrame(() => this.trackCurrentBookmark());
+      },
+
+      // Highlight the dot of the message sitting at ~35% of the viewport.
+      trackCurrentBookmark() {
+        const box = dom.tutorMessages;
+        const line = box.getBoundingClientRect().top + box.clientHeight * 0.35;
+        let cur = null;
+        for (const el of box.querySelectorAll('[data-msg-index]')) {
+          if (cur !== null && el.getBoundingClientRect().top > line) break;
+          cur = el.dataset.msgIndex;
+        }
+        const rail = dom.tutorBookmarks;
+        const prev = rail.querySelector('.bookmark-dot.current');
+        const dot = cur !== null ? rail.querySelector(`[data-idx="${cur}"]`) : null;
+        if (prev === dot) return;
+        prev?.classList.remove('current');
+        if (!dot) return;
+        dot.classList.add('current');
+        const rr = rail.getBoundingClientRect(), dr = dot.getBoundingClientRect();
+        if (dr.top < rr.top || dr.bottom > rr.bottom) rail.scrollTop += dr.top - rr.top - rr.height / 2;
       },
     };
+
+    // Markdown -> plain one-liner for previews (cards, bookmark tooltips).
+    function plainPreview(text, max) {
+      const t = (text || '').replace(/\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[*_`#>~]+/g, '').replace(/\s+/g, ' ').trim();
+      return t.length > max ? t.slice(0, max) + '…' : t;
+    }
+
+    function renderMarkdown(el, text) {
+      try { el.innerHTML = marked.parse(text); } catch { el.textContent = text; }
+    }
+
+    // Shared tooltip on <body>: never clipped by scrolling rails / collapsed sidebar.
+    const floatTip = (() => {
+      const el = document.createElement('div');
+      el.className = 'float-tip';
+      el.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(el);
+      let owner = null;
+      return {
+        show(target, text, role, side = 'right') {
+          owner = target;
+          el.replaceChildren();
+          if (role) {
+            const r = document.createElement('span');
+            r.className = 'float-tip-role';
+            r.textContent = role;
+            el.appendChild(r);
+          }
+          el.appendChild(document.createTextNode(text));
+          const t = target.getBoundingClientRect(), tip = el.getBoundingClientRect();
+          const left = side === 'right' ? t.right + 10 : t.left - 10 - tip.width;
+          const top = Math.min(window.innerHeight - tip.height - 8, Math.max(8, t.top + t.height / 2 - tip.height / 2));
+          el.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+          el.classList.add('show');
+        },
+        hide(target) {
+          if (target && target !== owner) return;
+          owner = null;
+          el.classList.remove('show');
+        },
+      };
+    })();
 
     // Walk text nodes inside an element and wrap query matches in <mark>.
     function highlightTextNodes(root, query) {
@@ -7115,6 +7277,32 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     });
     dom.sidebarBackdrop.addEventListener('click', closeSidebar);
 
+    try { if (localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1') setSidebarCollapsed(true); } catch {}
+    document.getElementById('btnSidebarCollapse').addEventListener('click', () => {
+      setSidebarCollapsed(!dom.sidebar.classList.contains('collapsed'));
+    });
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b' && window.matchMedia('(min-width: 901px)').matches) {
+        e.preventDefault();
+        setSidebarCollapsed(!dom.sidebar.classList.contains('collapsed'));
+      }
+    });
+    const showRailTip = (e) => {
+      const t = e.target.closest('[data-tip]');
+      if (t && isRailMode()) floatTip.show(t, t.dataset.tip, null, 'right');
+    };
+    const hideRailTip = (e) => {
+      const t = e.target.closest('[data-tip]');
+      if (t && !t.contains(e.relatedTarget)) floatTip.hide(t);
+    };
+    dom.sidebar.addEventListener('mouseover', showRailTip);
+    dom.sidebar.addEventListener('focusin', showRailTip);
+    dom.sidebar.addEventListener('mouseout', hideRailTip);
+    dom.sidebar.addEventListener('focusout', hideRailTip);
+    dom.btnNewChat.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tutor.newChat(); }
+    });
+
     // Back / Home buttons in view headers
     document.querySelectorAll('[data-nav]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -7194,6 +7382,41 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
     dom.btnClearQuote.addEventListener('click', () => tutor.clearQuote());
     dom.tutorMessages.addEventListener('scroll', updateHeaderFusion, { passive: true });
+    let bookmarkTrackRaf = 0;
+    dom.tutorMessages.addEventListener('scroll', () => {
+      floatTip.hide();
+      if (bookmarkTrackRaf) return;
+      bookmarkTrackRaf = requestAnimationFrame(() => { bookmarkTrackRaf = 0; tutor.trackCurrentBookmark(); });
+    }, { passive: true });
+
+    const isTouch = 'ontouchstart' in window;
+    const dotFrom = (e) => e.target.closest('.bookmark-dot');
+    const showDotTip = (dot) => floatTip.show(dot, dot.dataset.preview, dot.dataset.role, 'left');
+    const goToDot = (dot) => {
+      floatTip.hide();
+      navigateTutorMessage(Number(dot.dataset.idx), tutor.current()?.id, navigationToken);
+    };
+    dom.tutorBookmarks.addEventListener('mouseover', (e) => { const d = dotFrom(e); if (d && !isTouch) showDotTip(d); });
+    dom.tutorBookmarks.addEventListener('mouseout', (e) => { const d = dotFrom(e); if (d && !isTouch) floatTip.hide(d); });
+    dom.tutorBookmarks.addEventListener('focusin', (e) => { const d = dotFrom(e); if (d) showDotTip(d); });
+    dom.tutorBookmarks.addEventListener('focusout', (e) => { const d = dotFrom(e); if (d) { d.classList.remove('tooltip-visible'); floatTip.hide(d); } });
+    dom.tutorBookmarks.addEventListener('scroll', () => floatTip.hide(), { passive: true });
+    dom.tutorBookmarks.addEventListener('click', (e) => {
+      const d = dotFrom(e);
+      if (!d) return;
+      if (isTouch && !d.classList.contains('tooltip-visible')) {
+        dom.tutorBookmarks.querySelectorAll('.tooltip-visible').forEach(x => x.classList.remove('tooltip-visible'));
+        d.classList.add('tooltip-visible');
+        showDotTip(d);
+        return;
+      }
+      d.classList.remove('tooltip-visible');
+      goToDot(d);
+    });
+    dom.tutorBookmarks.addEventListener('keydown', (e) => {
+      const d = dotFrom(e);
+      if (d && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); goToDot(d); }
+    });
 
     // Selection-to-quote tooltip
     const selTip = dom.selectionTooltip;
