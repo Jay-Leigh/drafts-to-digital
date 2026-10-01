@@ -176,6 +176,29 @@
                 ],
                 "combinator": "and"
               }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 1
+                },
+                "conditions": [
+                  {
+                    "id": "0a1815a1-7472-4ea9-89e0-5e2d242c3d14",
+                    "leftValue": "={{ $json.body.mode }}",
+                    "rightValue": "ocr",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
             }
           ]
         },
@@ -573,7 +596,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nconst body = input.body;\nconst session = input.session;\nconst documentHash = input.documentHash;\n\n// Ad-hoc context (scrapes)\nconst adhocParts = [];\n\nconst docs = body.attachedContext || [];\n\nif (docs.length > 0) {\n\n    // If there's only one document, it's obviously the primary one.\n    if (docs.length === 1) {\n\n        const doc = docs[0];\n\n        adhocParts.push({\n            text:\n`PRIMARY DOCUMENT\n\nFilename: ${doc.name}\n\nThe user's questions should be answered using this document.\n\n${doc.content}`\n        });\n\n    } else {\n\n        // Multiple documents attached.\n        // Present the first as the current document and clearly separate the rest.\n        const [primary, ...others] = docs;\n\n        adhocParts.push({\n            text:\n`PRIMARY DOCUMENT\n\nFilename: ${primary.name}\n\nThe user's current questions most likely refer to this document unless they explicitly ask to compare documents.\n\n${primary.content}`\n        });\n\n        if (others.length) {\n\n            const otherText = others\n                .map(doc =>\n`### ${doc.name}\n\n${doc.content}`)\n                .join(\"\\n\\n--------------------------------------------------\\n\\n\");\n\n            adhocParts.push({\n                text:\n`ADDITIONAL REFERENCE DOCUMENTS\n\nThese documents may provide supporting context if needed.\n\n${otherText}`\n            });\n\n        }\n\n    }\n\n}\n\n// Cacheable context (KB docs + images)\nconst cacheableParts = [];\nif (body.cachableContext && body.cachableContext.length > 0) {\n  const ctxText = body.cachableContext\n    .map(c => `### ${c.name}\\n${c.content}`)\n    .join('\\n\\n');\n  cacheableParts.push({ text: 'Reference material — treat this as the source of truth:\\n\\n' + ctxText });\n}\nfor (const img of (body.attachedImages || [])) {\n  if (!img.data) continue;\n  cacheableParts.push({ text: `Attached image: ${img.name}` });\n  cacheableParts.push({ inline_data: { mime_type: img.mime || 'image/jpeg', data: img.data } });\n}\n\n// Scanned PDFs — handed to Gemini via Files API; n8n owns upload/reuse\n// (see \"Upload Scanned PDFs\"). Cheap to resend every turn: it's just a\n// file_uri reference, not the document bytes.\nfor (const part of (input.geminiFileParts || [])) {\n  cacheableParts.push(part);\n}\n\nconst contents = [];\n\n/*\n * 1. Reference material FIRST\n * This is the authoritative source.\n */\nif (adhocParts.length || cacheableParts.length) {\n\n    contents.push({\n        role: \"user\",\n        parts: [\n            {\n                text:\n`REFERENCE MATERIAL\n\nThe following material is the authoritative source for this conversation.\n\nIf any previous assistant response contradicts this material,\nthe previous response is WRONG.\n\nAlways answer using the reference material below.`\n            },\n            ...adhocParts,\n            ...cacheableParts\n        ]\n    });\n\n}\n\n/*\n * 2. Previous conversation\n */\nconst MAX_HISTORY = 30;\n\nconst previousConversation =\n    (session?.conversation || [])\n        .slice(-MAX_HISTORY);\n\nfor (const m of previousConversation) {\n\n    contents.push({\n        role: m.role,\n        parts: [\n            {\n                text: m.text\n            }\n        ]\n    });\n\n}\n\n/*\n * 3. Latest user messages\n */\nconst latestMessage = body.messages?.at(-1);\n\nif (latestMessage) {\n\n    contents.push({\n        role: latestMessage.role,\n        parts: [\n            {\n                text: latestMessage.text\n            }\n        ]\n    });\n\n}\n\nconst geminiBody = {\n  contents,\n  system_instruction: {\n    parts: [\n      {\n        text:\n`${body.systemPrompt}\n\nGrounding rules:\n\n• The attached documents are the authoritative source.\n\n• If previous assistant responses contradict the attached documents, correct yourself immediately.\n\n• Never repeat an incorrect previous answer merely for consistency.\n\n• Prefer the attached documents over conversation history.\n\n• If multiple documents exist, answer primarily from the PRIMARY DOCUMENT unless the user explicitly asks to compare them.\n\n• If information is absent from the documents, clearly say so instead of guessing.\n`\n      }\n    ]\n  },\n  generationConfig: {\n    temperature: 0.7,\n    maxOutputTokens: 49152\n  }\n};\n\nreturn [{\n  json: {\n    geminiBody,\n    sessionId: body.chatId,\n    documentHash\n  }\n}];"
+        "jsCode": "const input = $input.first().json;\nconst body = input.body;\nconst session = input.session;\nconst documentHash = input.documentHash;\n\n// Ad-hoc context (scrapes)\nconst adhocParts = [];\n\nconst docs = body.attachedContext || [];\n\nif (docs.length > 0) {\n\n    // If there's only one document, it's obviously the primary one.\n    if (docs.length === 1) {\n\n        const doc = docs[0];\n\n        adhocParts.push({\n            text:\n`PRIMARY DOCUMENT\n\nFilename: ${doc.name}\n\nThe user's questions should be answered using this document.\n\n${doc.content}`\n        });\n\n    } else {\n\n        // Multiple documents attached.\n        // Present the first as the current document and clearly separate the rest.\n        const [primary, ...others] = docs;\n\n        adhocParts.push({\n            text:\n`PRIMARY DOCUMENT\n\nFilename: ${primary.name}\n\nThe user's current questions most likely refer to this document unless they explicitly ask to compare documents.\n\n${primary.content}`\n        });\n\n        if (others.length) {\n\n            const otherText = others\n                .map(doc =>\n`### ${doc.name}\n\n${doc.content}`)\n                .join(\"\\n\\n--------------------------------------------------\\n\\n\");\n\n            adhocParts.push({\n                text:\n`ADDITIONAL REFERENCE DOCUMENTS\n\nThese documents may provide supporting context if needed.\n\n${otherText}`\n            });\n\n        }\n\n    }\n\n}\n\n// Cacheable context (KB docs + images).\n// Large documents are searched (BM25) and only the best-matching excerpts are sent,\n// keeping each turn far below Gemini's per-minute input token quota.\nconst RETRIEVAL_BUDGET_TOKENS = 60000;\nconst CHUNK_CHARS = 4800;\nconst REGION_CHUNKS = 12;\nconst MAX_CHUNKS_PER_REGION = 6;\nconst WHOLE_DOCUMENT_PATTERN = /\\b(summar(y|ise|ize)|overview|whole (book|document|text)|entire (book|document)|all (the )?chapters|outline of the|main (themes|ideas|points|arguments))\\b/i;\nconst STOP_WORDS = new Set('the and for that this what does how why about with are was his her its from they them their there which who whom when where can could would should will into than then also not but you your yours our out has have had been being were more most some such only other any each very just like over under book chapter author explain tell describe give example examples please help understand simple simply'.split(' '));\n\nconst estimateTokens = text => Math.ceil(text.length / 4);\nconst toTerms = text => (text.toLowerCase().match(/[a-z]{3,}|\\d{2,}/g) || [])\n  .filter(word => !STOP_WORDS.has(word))\n  .map(word => word.replace(/(ing|ed|es|s)$/, ''));\n\nfunction chunkDocument(doc, docIndex) {\n  const chunks = [];\n  let buffer = '';\n  let page = null;\n  let chunkPage = null;\n  const flush = () => {\n    if (buffer.trim()) chunks.push({ docIndex, name: doc.name, page: chunkPage, text: buffer.trim() });\n    buffer = '';\n    chunkPage = page;\n  };\n  for (const paragraph of doc.content.split(/\\n\\s*\\n/)) {\n    const markers = paragraph.match(/\\[Scan page (\\d+)\\]/g);\n    if (markers) page = Number(markers.at(-1).match(/\\d+/)[0]);\n    if (chunkPage === null) chunkPage = page;\n    buffer += paragraph + '\\n\\n';\n    if (buffer.length > CHUNK_CHARS) flush();\n  }\n  flush();\n  return chunks;\n}\n\nfunction selectExcerpts(docs, query) {\n  const chunks = docs.flatMap(chunkDocument);\n  const indexed = chunks.map(chunk => {\n    const frequencies = {};\n    const terms = toTerms(chunk.text);\n    for (const term of terms) frequencies[term] = (frequencies[term] || 0) + 1;\n    return { frequencies, length: terms.length };\n  });\n  const documentFrequency = {};\n  for (const { frequencies } of indexed) for (const term in frequencies) documentFrequency[term] = (documentFrequency[term] || 0) + 1;\n  const averageLength = indexed.reduce((sum, d) => sum + d.length, 0) / Math.max(indexed.length, 1);\n  const queryTerms = [...new Set(toTerms(query))];\n  const ranked = indexed.map((d, i) => {\n    let score = 0;\n    for (const term of queryTerms) {\n      const frequency = d.frequencies[term];\n      if (!frequency) continue;\n      const idf = Math.log(1 + (indexed.length - documentFrequency[term] + 0.5) / (documentFrequency[term] + 0.5));\n      score += idf * frequency * 2.2 / (frequency + 1.2 * (0.25 + 0.75 * d.length / averageLength));\n    }\n    return { score, i };\n  }).filter(r => r.score > 0).sort((a, b) => b.score - a.score);\n\n  const selected = [];\n  const perRegion = {};\n  let used = 0;\n  for (const { i } of ranked) {\n    const region = `${chunks[i].docIndex}:${Math.floor(i / REGION_CHUNKS)}`;\n    if ((perRegion[region] || 0) >= MAX_CHUNKS_PER_REGION) continue;\n    const tokens = estimateTokens(chunks[i].text);\n    if (used + tokens > RETRIEVAL_BUDGET_TOKENS) continue;\n    selected.push(i);\n    perRegion[region] = (perRegion[region] || 0) + 1;\n    used += tokens;\n  }\n  return selected.sort((a, b) => a - b).map(i => chunks[i]);\n}\n\nconst cacheableParts = [];\nconst referenceDocs = (body.cachableContext || []).filter(c => c.content);\nif (referenceDocs.length > 0) {\n  const userMessages = (body.messages || []).filter(m => m.role === 'user').map(m => m.text || '');\n  const latestQuestion = userMessages.at(-1) || '';\n  const totalTokens = referenceDocs.reduce((sum, c) => sum + estimateTokens(c.content), 0);\n  const sendWholeDocuments = totalTokens <= RETRIEVAL_BUDGET_TOKENS || WHOLE_DOCUMENT_PATTERN.test(latestQuestion);\n\n  if (sendWholeDocuments) {\n    const ctxText = referenceDocs.map(c => `### ${c.name}\\n${c.content}`).join('\\n\\n');\n    cacheableParts.push({ text: 'Reference material — treat this as the source of truth:\\n\\n' + ctxText });\n  } else {\n    const excerpts = selectExcerpts(referenceDocs, userMessages.slice(-2).join('\\n'));\n    const excerptText = excerpts\n      .map(e => `### ${e.name}${e.page ? ` (scan page ${e.page})` : ''}\\n${e.text}`)\n      .join('\\n\\n[…]\\n\\n');\n    cacheableParts.push({\n      text:\n`Reference material — relevant excerpts found by searching: ${referenceDocs.map(c => c.name).join(', ')}.\nThese are excerpts, not the full documents. Treat them as the source of truth.\nIf they don't contain the answer, say the retrieved sections didn't cover it and ask the student which chapter, section or topic to look in — don't claim the document lacks it.\n\n${excerptText || '(No matching sections found for this question.)'}`\n    });\n  }\n}\nfor (const img of (body.attachedImages || [])) {\n  if (!img.data) continue;\n  cacheableParts.push({ text: `Attached image: ${img.name}` });\n  cacheableParts.push({ inline_data: { mime_type: img.mime || 'image/jpeg', data: img.data } });\n}\n\n// Scanned PDFs — handed to Gemini via Files API; n8n owns upload/reuse\n// (see \"Upload Scanned PDFs\"). Cheap to resend every turn: it's just a\n// file_uri reference, not the document bytes.\nfor (const part of (input.geminiFileParts || [])) {\n  cacheableParts.push(part);\n}\n\nconst contents = [];\n\n/*\n * 1. Reference material FIRST\n * This is the authoritative source.\n */\nif (adhocParts.length || cacheableParts.length) {\n\n    contents.push({\n        role: \"user\",\n        parts: [\n            {\n                text:\n`REFERENCE MATERIAL\n\nThe following material is the authoritative source for this conversation.\n\nIf any previous assistant response contradicts this material,\nthe previous response is WRONG.\n\nAlways answer using the reference material below.`\n            },\n            ...adhocParts,\n            ...cacheableParts\n        ]\n    });\n\n}\n\n/*\n * 2. Previous conversation\n */\nconst MAX_HISTORY = 30;\n\nconst previousConversation =\n    (session?.conversation || [])\n        .slice(-MAX_HISTORY);\n\nfor (const m of previousConversation) {\n\n    contents.push({\n        role: m.role,\n        parts: [\n            {\n                text: m.text\n            }\n        ]\n    });\n\n}\n\n/*\n * 3. Latest user messages\n */\nconst latestMessage = body.messages?.at(-1);\n\nif (latestMessage) {\n\n    contents.push({\n        role: latestMessage.role,\n        parts: [\n            {\n                text: latestMessage.text\n            }\n        ]\n    });\n\n}\n\nconst geminiBody = {\n  contents,\n  system_instruction: {\n    parts: [\n      {\n        text:\n`${body.systemPrompt}\n\nGrounding rules:\n\n• The attached documents are the authoritative source.\n\n• If previous assistant responses contradict the attached documents, correct yourself immediately.\n\n• Never repeat an incorrect previous answer merely for consistency.\n\n• Prefer the attached documents over conversation history.\n\n• If multiple documents exist, answer primarily from the PRIMARY DOCUMENT unless the user explicitly asks to compare them.\n\n• If information is absent from the documents, clearly say so instead of guessing.\n`\n      }\n    ]\n  },\n  generationConfig: {\n    temperature: 0.7,\n    maxOutputTokens: 49152\n  }\n};\n\nreturn [{\n  json: {\n    geminiBody,\n    sessionId: body.chatId,\n    documentHash\n  }\n}];"
       },
       "id": "bd4f5052-e195-4285-976a-0b49c9350121",
       "name": "Prep — Tutor",
@@ -2708,6 +2731,170 @@
         2336
       ],
       "webhookId": "ebe0eb93-5492-469f-9be8-cc59dbd1a534"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\nconst startPage = Number(body.startPage);\nconst endPage = Number(body.endPage);\nconst MAX_PAGES_PER_REQUEST = 5;\n\nif (!/^[0-9a-f]{64}$/.test(body.contentHash || '')) throw new Error('OCR: missing or invalid contentHash');\nif (!(startPage >= 1) || !(endPage >= startPage) || endPage - startPage + 1 > MAX_PAGES_PER_REQUEST) {\n  throw new Error(`OCR: invalid page range ${body.startPage}-${body.endPage}`);\n}\n\nreturn [{ json: {\n  contentHash: body.contentHash,\n  startPage,\n  endPage,\n  pdfBase64: body.pdfBase64 || null,\n  cacheKey: `ocr:${body.contentHash}:${startPage}-${endPage}`\n} }];"
+      },
+      "id": "9dd15247-e723-4fc9-85b3-02a9c6e4a719",
+      "name": "OCR — Prep",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16544,
+        2752
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sweeping-jennet-172408.upstash.io",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ [\"GET\", $json.cacheKey] }}",
+        "options": {}
+      },
+      "id": "e1615a90-a5db-47bf-9a36-09b37e20e245",
+      "name": "OCR — Redis GET",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        16768,
+        2752
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VnWFZXj8xOxogUEA",
+          "name": "Upstash Redis REST"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const prep = $('OCR — Prep').first().json;\nconst cached = $input.first().json.result;\nconst { startPage, endPage } = prep;\n\nif (cached) {\n  return [{ json: { done: true, response: { cached: true, startPage, endPage, pages: JSON.parse(cached).pages } } }];\n}\nif (!prep.pdfBase64) {\n  return [{ json: { done: true, response: { cached: false, missing: true, startPage, endPage, pages: [] } } }];\n}\n\nconst pageCount = endPage - startPage + 1;\nreturn [{ json: {\n  done: false,\n  visionBody: {\n    requests: [{\n      inputConfig: { content: prep.pdfBase64, mimeType: 'application/pdf' },\n      features: [{ type: 'DOCUMENT_TEXT_DETECTION' }],\n      pages: Array.from({ length: pageCount }, (_, i) => i + 1)\n    }]\n  }\n} }];"
+      },
+      "id": "35f569bd-a5fa-4d04-8729-4d9c6dea610c",
+      "name": "OCR — Resolve Cache",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        16992,
+        2752
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "id": "cond-ocr-done",
+              "leftValue": "={{ $json.done }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "9b7f8c35-dfea-4666-964a-24b912784666",
+      "name": "OCR — Resolved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        17216,
+        2752
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://vision.googleapis.com/v1/files:annotate",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpQueryAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "rawContentType": "application/json",
+        "body": "={{ JSON.stringify($json.visionBody) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "90ddcdce-d949-4a5d-9c23-97fd5ce04f73",
+      "name": "OCR — Cloud Vision",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        17440,
+        2912
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "const prep = $('OCR — Prep').first().json;\nconst pageResponses = $input.first().json.responses?.[0]?.responses || [];\nconst { startPage, endPage } = prep;\n\nconst rawPages = [];\nfor (let page = startPage; page <= endPage; page++) {\n  const result = pageResponses[page - startPage] || {};\n  if (result.error) throw new Error(`OCR: Vision failed on scan page ${page}: ${result.error.message}`);\n  rawPages.push({ page, lines: (result.fullTextAnnotation?.text || '').split('\\n') });\n}\n\n// Running headers repeat across pages; page numbers sit on their own line.\nconst normalize = line => line.trim().toLowerCase().replace(/\\s+/g, ' ');\nconst lineCounts = {};\nfor (const { lines } of rawPages) for (const line of lines) {\n  const key = normalize(line);\n  if (key) lineCounts[key] = (lineCounts[key] || 0) + 1;\n}\nconst isPageNumber = line => /^([0-9]{1,4}|[ivxlc]{1,7})$/i.test(line.trim());\nconst minHeaderRepeats = Math.max(2, Math.ceil(rawPages.length * 0.6));\nconst isRunningHeader = line => {\n  const key = normalize(line);\n  return lineCounts[key] >= minHeaderRepeats && key.split(' ').length >= 4 && key.length < 100;\n};\n\nconst pages = rawPages.map(({ page, lines }) => ({\n  page,\n  text: lines.filter(line => !isPageNumber(line) && !isRunningHeader(line)).join('\\n').replace(/\\n{3,}/g, '\\n\\n').trim()\n}));\n\nreturn [{ json: {\n  cacheKey: prep.cacheKey,\n  cacheValue: JSON.stringify({ pages }),\n  response: { cached: false, startPage, endPage, pages }\n} }];"
+      },
+      "id": "721f5428-18e4-4e5c-8e31-30a23676bbc3",
+      "name": "OCR — Clean Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        17664,
+        2912
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://sweeping-jennet-172408.upstash.io",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ [\"SET\", $json.cacheKey, $json.cacheValue] }}",
+        "options": {}
+      },
+      "id": "677f7a36-1dd4-4547-b201-d006ff88ae7f",
+      "name": "OCR — Redis SET",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        17888,
+        2912
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "VnWFZXj8xOxogUEA",
+          "name": "Upstash Redis REST"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nreturn [{ json: input.response || $('OCR — Clean Text').first().json.response }];"
+      },
+      "id": "fd82e11e-dd1b-410a-884e-181940962a1c",
+      "name": "OCR — Respond",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        18112,
+        2752
+      ]
     }
   ],
   "pinData": {},
@@ -2770,6 +2957,13 @@
         [
           {
             "node": "Build Reference Payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OCR — Prep",
             "type": "main",
             "index": 0
           }
@@ -4073,6 +4267,90 @@
         [
           {
             "node": "Gemini — Tutor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OCR — Prep": {
+      "main": [
+        [
+          {
+            "node": "OCR — Redis GET",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OCR — Redis GET": {
+      "main": [
+        [
+          {
+            "node": "OCR — Resolve Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OCR — Resolve Cache": {
+      "main": [
+        [
+          {
+            "node": "OCR — Resolved?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OCR — Resolved?": {
+      "main": [
+        [
+          {
+            "node": "OCR — Respond",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "OCR — Cloud Vision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OCR — Cloud Vision": {
+      "main": [
+        [
+          {
+            "node": "OCR — Clean Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OCR — Clean Text": {
+      "main": [
+        [
+          {
+            "node": "OCR — Redis SET",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OCR — Redis SET": {
+      "main": [
+        [
+          {
+            "node": "OCR — Respond",
             "type": "main",
             "index": 0
           }
