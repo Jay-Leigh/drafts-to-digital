@@ -759,6 +759,7 @@
       display: flex; flex-direction: column; gap: 14px;
       background: #faf7f0;
     }
+    .tutor-messages > * { flex-shrink: 0; }
     .tutor-scroll-rail {
       position: absolute; top: 10px; bottom: 10px;
       right: max(10px, calc((100% - var(--chat-col)) / 2 - 42px));
@@ -6855,28 +6856,22 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         const ids = allIds.filter(id => !seen.has(id));
         const items = ids.map(id => kb.cache.find(i => i.id === id)).filter(Boolean);
 
-        dom.tutorChips.innerHTML = '';
         dom.tutorChips.classList.toggle('active', items.length > 0 || this.pending.length > 0);
 
-        for (const item of items) {
-          const chip = document.createElement('div');
-          chip.className = 'tutor-chip';
-          chip.innerHTML = `
-            <span class="tutor-chip-ext">${escapeHtml((item.ext || item.type || '').toUpperCase())}</span>
-            <span class="tutor-chip-name">${escapeHtml(item.name)}</span>
-            <button class="tutor-chip-x" title="Remove from this chat">&times;</button>`;
-          chip.querySelector('.tutor-chip-x').addEventListener('click', () => this.detach(item.id));
-          dom.tutorChips.appendChild(chip);
-        }
-
-        for (const p of this.pending) {
-          const chip = document.createElement('div');
-          chip.className = 'tutor-chip pending';
-          chip.innerHTML = `
-            <span class="tutor-chip-spinner"></span>
-            <span class="tutor-chip-name">${escapeHtml(p.name)}</span>`;
-          dom.tutorChips.appendChild(chip);
-        }
+        // Keyed reconcile: existing chips stay in the DOM so pending spinners never restart.
+        const want = [
+          ...items.map(item => [`kb:${item.id}:${item.name}`, () => this.buildChip(item)]),
+          ...this.pending.map(p => [`p:${p.key}`, () => this.buildPendingChip(p)]),
+        ];
+        const existing = new Map([...dom.tutorChips.children].map(el => [el.dataset.key, el]));
+        want.forEach(([key, build], i) => {
+          let chip = existing.get(key);
+          existing.delete(key);
+          if (!chip) { chip = build(); chip.dataset.key = key; }
+          const at = dom.tutorChips.children[i] || null;
+          if (at !== chip) dom.tutorChips.insertBefore(chip, at);
+        });
+        existing.forEach(el => el.remove());
 
         // Badge reflects the total attached to this chat (not just unseen chips).
         const count = allIds.length;
@@ -6884,6 +6879,26 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         dom.composerAttachBadge.textContent = count;
         dom.headerAttachCount.hidden = count === 0;
         dom.headerAttachCount.textContent = count;
+      },
+
+      buildChip(item) {
+        const chip = document.createElement('div');
+        chip.className = 'tutor-chip';
+        chip.innerHTML = `
+          <span class="tutor-chip-ext">${escapeHtml((item.ext || item.type || '').toUpperCase())}</span>
+          <span class="tutor-chip-name">${escapeHtml(item.name)}</span>
+          <button class="tutor-chip-x" title="Remove from this chat">&times;</button>`;
+        chip.querySelector('.tutor-chip-x').addEventListener('click', () => this.detach(item.id));
+        return chip;
+      },
+
+      buildPendingChip(p) {
+        const chip = document.createElement('div');
+        chip.className = 'tutor-chip pending';
+        chip.innerHTML = `
+          <span class="tutor-chip-spinner"></span>
+          <span class="tutor-chip-name">${escapeHtml(p.name)}</span>`;
+        return chip;
       },
 
       // Nudge students toward material they already saved
