@@ -81,7 +81,7 @@
 
   .table-wrap { margin: 0 0 16px; border: 1px solid var(--warm); border-radius: 12px; background: var(--card); overflow: hidden; }
   table { border-collapse: collapse; width: 100%; font-size: 0.92rem; line-height: 1.5; }
-  th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--warm); overflow-wrap: break-word; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--warm); overflow-wrap: anywhere; }
   th { background: var(--mist); font-weight: 600; }
   tr:last-child td { border-bottom: none; }
 
@@ -138,11 +138,13 @@
     <strong>In short</strong>
     <ul>
       <li>The notes, PDFs, images and text you give the app are sent to Google's AI (Gemini and Cloud Vision) to be read and processed. Giving the app your files is your choice, but the features cannot work without them.</li>
-      <li>Most of your saved work stays in your own browser. If you connect Google, a hidden sync file is kept in your own Google Drive.</li>
-      <li>Some copies are kept by the app's services while you work, and the text read from scanned PDFs is kept with no end date (not linked to your name). See <a href="#data">section 2</a>.</li>
-      <li>No ads, no analytics, and the site sets no cookies.</li>
+      <li>Your information is not sold and not used to train AI. There are no ads, no analytics, and the site sets no cookies.</li>
+      <li>The service is free today, and you will never be charged without agreeing first (<a href="#pricing">section 11</a>).</li>
+      <li>Your notes stay in your own browser and, if you connect Google, in a hidden sync file in your own Google Drive.</li>
+      <li>I can see error reports and server logs, and these may contain parts of what you uploaded (<a href="#data">section 2</a>).</li>
+      <li>Text read from scanned PDFs is kept with no end date and is shared by anyone who uploads the same file. It is filed under the file's fingerprint, not your name, but the text itself may contain personal details.</li>
       <li>The service is for people aged 18 and over (<a href="#age">section 10</a>).</li>
-      <li>To see, correct or delete your information, email <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a> (<a href="#rights">section 8</a>).</li>
+      <li>To see, correct or delete your information, email <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a> and follow the steps in <a href="#rights">section 8</a>.</li>
     </ul>
   </div>
 
@@ -164,11 +166,11 @@
   </ul>
 
   <h2 id="who">1. Who runs this</h2>
-  <p>Student Tools Hub is run by <strong>Jay-Leigh Vergotine</strong>, an individual in South Africa. Under the Protection of Personal Information Act 4 of 2013 (POPIA), I am the "responsible party": the person who decides why and how your personal information is used. In this policy "I" and "the responsible party" mean Jay-Leigh Vergotine. The service providers in <a href="#others">section 5</a>, which POPIA calls "operators", are separate from me.</p>
+  <p>Student Tools Hub is run by <strong>Jay-Leigh Vergotine</strong>, an individual in South Africa. Under the Protection of Personal Information Act 4 of 2013 (POPIA), I am the "responsible party". I decide what happens to your information. The companies that handle it for me (such as Google) work under their own terms. POPIA calls them "operators" (<a href="#others">section 5</a>). In this policy "I" and "the responsible party" mean Jay-Leigh Vergotine.</p>
   <p>The only contact is <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a>. The web address of the app still contains its earlier name, "drafts-to-digital". It is the same service.</p>
 
   <h2 id="data">2. What is collected, why, and for how long</h2>
-  <p>Only what the features need. There is no user account database, and the server is not built to store your name or email. The one exception is a short-lived Google access token that can appear in server logs (see the token row below).</p>
+  <p>Only what the features need, plus technical records that can contain parts of your files (see the log row). There is no user account database, and the server is not built to store your name or email. The one exception is a short-lived Google access token that can appear in server logs (see the token row below).</p>
 
   <div class="table-wrap">
     <table>
@@ -189,13 +191,13 @@
           <td data-label="How long">Deleted automatically, currently within about 2 days</td>
         </tr>
         <tr>
-          <td data-label="Data">Short-lived Google access token (valid about 1 hour). Sent only when (a) a legacy <code>.doc</code> file is converted, or (b) a scanned PDF that is stored only in your Drive (not on this device) is processed. For about an hour the token gives access to the app's whole hidden Drive area (including your sync file) and your name and email. The server only uses it to fetch or convert the one file you are processing.</td>
+          <td data-label="Data">Short-lived Google access token (valid about 1 hour). Sent only when (a) a legacy <code>.doc</code> file is converted, or (b) a scanned PDF that is stored only in your Drive (not on this device) is processed. For about an hour the token gives access to the app's whole hidden Drive area (including your sync file) and your name and email. Google adds permissions you granted earlier to new tokens, so if you have also allowed Docs access this token may cover your Google Docs too. The server only uses it to fetch or convert the one file you are processing.</td>
           <td data-label="Why">So the server can fetch and convert that file in the app's hidden area of your Drive and normally delete the temporary copy</td>
-          <td data-label="Where it goes">Your browser sends it to the server with the request. It is not stored by design, but because it travels in the request it may sit in the execution log until that log is deleted. If a request fails, the token may also appear in the error email.</td>
+          <td data-label="Where it goes">Your browser sends it to the server with the request. The server never stores your name or email on purpose, but during some requests it holds a temporary Google pass (about 1 hour) that could look them up, and it can end up in the server's log until the log is deleted. If a request fails, the token may also appear in the error email.</td>
           <td data-label="How long">Expires at Google after about 1 hour. Log copies follow the execution log retention above.</td>
         </tr>
         <tr>
-          <td data-label="Data">Tutor chats: your messages, the AI's replies, names of web pages you attached, references to files already sent to Gemini</td>
+          <td data-label="Data">Tutor chats: your messages, the AI's replies, names of web pages or files attached to the chat, references to files already sent to Gemini</td>
           <td data-label="Why">So the tutor remembers the conversation</td>
           <td data-label="Where it goes">Upstash Redis</td>
           <td data-label="How long">Deleted automatically 3 hours after the last message</td>
@@ -207,16 +209,16 @@
           <td data-label="How long">Pointer deleted after 47 hours. Google deletes uploaded Gemini files after 48 hours.</td>
         </tr>
         <tr>
-          <td data-label="Data">Text read from scanned PDF pages (OCR, or text recognition, results), filed under a hash of the file and the page range. This text can include personal details that appear in your scans.</td>
+          <td data-label="Data">Text read from scanned PDF pages (OCR, or text recognition, results), filed under a hash of the file and the page range. This text can include personal details that appear in your scans. Text recognition starts automatically in the background as soon as you add a scanned PDF to Knowledge Bay, and resumes when you reopen the app if it did not finish.</td>
           <td data-label="Why">So the same pages are not scanned twice</td>
-          <td data-label="Where it goes">Upstash Redis. Shared across users and not linked to any name or email.</td>
+          <td data-label="Where it goes">Upstash Redis. Text recognised from scanned PDFs, including PDFs fetched from your Drive, is stored in a shared cache without your name and kept until removed by hand (<a href="#rights">section 8</a>).</td>
           <td data-label="How long"><strong>No expiry.</strong> Kept until removed by hand. To have an entry removed, email me the same PDF and I will find and remove its stored text (<a href="#rights">section 8</a>).</td>
         </tr>
         <tr>
           <td data-label="Data">Your Google name, email address and profile picture, if you connect Google for sync</td>
           <td data-label="Why">To show who is connected and to run sync</td>
           <td data-label="Where it goes">Stored in your browser. The app does not send them to the server as such, but the access token above belongs to your Google account, so the server could use it to look them up while a request is running.</td>
-          <td data-label="How long">In your browser until you sign out in the app or clear site data</td>
+          <td data-label="How long">In your browser until you sign out of sync in the app (this clears your Google name, email and picture and the ID of your sync file, nothing else) or clear site data</td>
         </tr>
         <tr>
           <td data-label="Data">Sync file in your Google Drive "app data" area (a hidden folder only this app can open). The file <code>sth-userdata-v1.json</code> holds your Knowledge Bay items (your saved study library in the app): extracted text, including scraped web pages and OCR text, and images as base64, plus tutor chats. Original scanned PDFs and legacy <code>.doc</code> files are saved as separate files in the same hidden folder, under their original file names.</td>
@@ -239,11 +241,11 @@
         <tr>
           <td data-label="Data">Web addresses you ask the app to read, and any DOI inside them</td>
           <td data-label="Why">To fetch the page and read it</td>
-          <td data-label="Where it goes">The server fetches the address (http and https both work, and it may accept sites with invalid security certificates). A DOI may also be looked up at Crossref and Unpaywall. The page text then goes to Gemini.</td>
+          <td data-label="Where it goes">The server fetches the address (http and https both work, and it may open web pages that are not properly secured). A DOI may also be looked up at Crossref and Unpaywall. The page text then goes to Gemini.</td>
           <td data-label="How long">Not kept beyond the execution log above</td>
         </tr>
         <tr>
-          <td data-label="Data">Reference generator input: the source address, scraped text, or the first part of a Knowledge Bay document</td>
+          <td data-label="Data">Reference generator input: the source address or file name, a YouTube video's title and channel, scraped page text or the first part (about 2,500 characters) of a Knowledge Bay document or a file added there, plus the chosen style</td>
           <td data-label="Why">To build a reference for that source</td>
           <td data-label="Where it goes">Your browser sends it to the server, which passes it to Google Gemini</td>
           <td data-label="How long">Not kept beyond the execution log above</td>
@@ -251,32 +253,31 @@
         <tr>
           <td data-label="Data">IP address and browser details that your browser sends automatically</td>
           <td data-label="Why">Needed to deliver pages and features</td>
-          <td data-label="Where it goes">GitHub, Google and the other hosts in <a href="#others">section 5</a>, under their own policies</td>
+          <td data-label="Where it goes">GitHub, Google and the other hosts in <a href="#others">section 5</a>, under their own policies. Also the app's server on Google Cloud Run, whose platform logs record each request's IP address and browser details.</td>
           <td data-label="How long">Set by those providers</td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <p>Files you process are saved automatically to Knowledge Bay (your saved study library in the app) in your browser, and to your Drive if sync is on. They stay until you delete them. Only the History list expires, after 30 days. Browser storage also holds original scanned-PDF and <code>.doc</code> files and the full result text.</p>
+  <p>Files you process are normally saved automatically to Knowledge Bay (your saved study library in the app) in your browser (unless an item with the same name is already there), and to your Drive if sync is on. Very large inline images (over about 6 MB) are skipped. Saved items stay until you delete them. Only the History list expires, after 30 days. Browser storage also holds original scanned-PDF and <code>.doc</code> files and the full result text.</p>
   <p>Anyone who already has an identical file (or its hash) can get its cached text or file pointer.</p>
-  <p>The app asks for a shared access code before it opens. The code is kept in your browser (<a href="#technical">section 14</a>) and is treated as valid for 24 hours after you enter it. The stored entry is removed the next time you open the app after that, or when you clear the site's data. Signing out of sync does not remove it, and does not revoke Google access (the token stays valid for up to about an hour).</p>
-  <p>Please do not upload other people's sensitive details (ID numbers, health or financial records) unless you must. If your notes contain information about other people, you are responsible for having the right to share it.</p>
+  <p>The app asks for a shared access code before it opens, and remembers it in your browser for a limited time (see <a href="#security">section 7</a> and <a href="#technical">section 14</a>).</p>
+  <p>Please do not upload other people's sensitive details (ID numbers, health or financial records) unless you must. If your notes contain information about other people, you are responsible for having the right to share it (<a href="#why">section 3</a>).</p>
 
   <h2 id="why">3. Why your information is used</h2>
   <ul>
     <li><strong>Supplying files is voluntary.</strong> Nobody has to use the app or upload anything. But the features work by processing what you supply, so without it they cannot work. No law requires you to give me this information.</li>
-    <li><strong>To do what you ask:</strong> transcribing, summarising and tutoring cannot happen without processing your material.</li>
-    <li><strong>Your consent</strong> when you connect your Google account. You can withdraw it at any time (<a href="#rights">section 8</a>).</li>
+    <li><strong>The legal basis</strong> is your request (to provide the service you ask for) and, for connecting Google, your consent. You can withdraw your consent at any time (<a href="#rights">section 8</a>). If you upload other people's information, you confirm that you may lawfully share it.</li>
     <li><strong>Keeping the app working and secure,</strong> which is why error reports and server logs exist.</li>
   </ul>
-  <p>Your notes and files can contain any personal information, such as names and contact details. Please do not upload special personal information (health, beliefs, biometric or criminal information) unless you must.</p>
+  <p>Your notes and files can contain any personal information, such as names and contact details. Please do not upload special personal information (health, beliefs, biometric or criminal information) unless you must. If you do upload it, you agree to it being processed as described here.</p>
   <p>Your information is not sold, is not used for advertising, and is not used to build profiles of you.</p>
 
   <h2 id="google">4. Google permissions and the Limited Use rule</h2>
   <p>When you connect Google, the app asks for the permissions below, and only uses them for the purpose shown. Export asks for Docs and Drive-file access; turning on sync asks for the hidden-folder, name and email access.</p>
   <ul>
-    <li id="scope-documents"><strong>Google Docs (<code>documents</code>, <code>https://www.googleapis.com/auth/documents</code>):</strong> to create a new Google Doc when you export. If you paste a link to one of your own Docs and choose to append, the app also reads that Doc to find where it ends and adds your text there. The app does not open any other Docs, and the contents of your Docs are not sent to the server.</li>
+    <li id="scope-documents"><strong>Google Docs (<code>documents</code>, <code>https://www.googleapis.com/auth/documents</code>):</strong> to create a new Google Doc when you export. If you paste a link to one of your own Docs and choose to append, the app also reads that Doc to find where it ends and adds your text there. The app does not open any other Docs, and the contents of your Docs are not sent to the server. <code>drive.file</code> alone cannot open a Doc you already have, so the documents permission is needed to add to one you link.</li>
     <li><strong>Drive files (<code>drive.file</code>, <code>https://www.googleapis.com/auth/drive.file</code>):</strong> requested together with Docs access when you export. It only covers files this app creates; the app does not use it to open any other file in your Drive.</li>
     <li><strong>Drive app data (<code>drive.appdata</code>, <code>https://www.googleapis.com/auth/drive.appdata</code>):</strong> to keep the hidden sync file and copies of your scanned documents in your own Drive, so your work follows you between devices. When you process a scanned PDF that is not on this device, or a legacy <code>.doc</code> file, the server also uses this access to fetch that file from the hidden area, or to convert it there and normally delete the temporary copy.</li>
     <li><strong>Profile and email (<code>userinfo.profile</code>, <code>https://www.googleapis.com/auth/userinfo.profile</code>; <code>userinfo.email</code>, <code>https://www.googleapis.com/auth/userinfo.email</code>):</strong> to show your name and picture and to know which account is connected.</li>
@@ -287,7 +288,7 @@
 
   <h2 id="others">5. Who else handles your information</h2>
   <h3 id="processors">Services that process data for me</h3>
-  <p>These are service providers that process information on my behalf (POPIA calls them 'operators', but in this policy 'I' always means Jay-Leigh Vergotine). They work under their own terms.</p>
+  <p>I decide what happens to your information. The companies that handle it for me (such as Google) work under their own terms. POPIA calls them 'operators'. In this policy 'I' always means Jay-Leigh Vergotine.</p>
 
   <div class="table-wrap">
     <table>
@@ -380,18 +381,18 @@
   <p>There are no ad networks and no third-party analytics. Apart from the service providers listed above, information is not shared with anyone else except where the law requires it.</p>
 
   <h2 id="transfers">6. Sending information outside South Africa</h2>
-  <p>The app's server runs in Johannesburg, but Google may process your files and chats (Gemini, Cloud Vision, Drive, Gmail) outside South Africa, and Upstash stores its data in Cape Town, South Africa (AWS af-south-1). POPIA section 72 sets the rules for sending personal information outside South Africa, for example where the receiving provider is bound by law, binding rules or an agreement that gives similar protection. Upstash stores its data in Cape Town, South Africa. Google publishes its own data-protection terms for Gemini, Vision and Drive. This policy does not treat your use of the app as consent to these transfers.</p>
+  <p>Upstash and the app's server are in South Africa (the server in Johannesburg, Upstash in Cape Town on AWS af-south-1). Google may process your files and chats (Gemini, Cloud Vision, Drive, Gmail) in other countries; Google does not tell me which. POPIA section 72 sets the rules for sending personal information outside South Africa, for example where the receiving provider is bound by law, binding rules or an agreement that gives similar protection. Using the app does not mean you have agreed to this; the law allows these transfers where the provider gives similar protection. Google publishes its own data-protection terms for Gemini, Vision and Drive.</p>
 
   <h2 id="security">7. Keeping your information safe, and breaches</h2>
   <p>I take appropriate, reasonable steps, but no online service is completely secure and I cannot promise it is.</p>
   <ul>
-    <li>The app's pages and the Google services it uses are loaded over HTTPS. Web addresses you ask the server to read may start with <code>http://</code>, which is not encrypted, and the server may accept sites with invalid security certificates.</li>
+    <li>The app's pages and the Google services it uses are loaded over HTTPS. Web addresses you ask the server to read may start with <code>http://</code>, which is not encrypted, and the server may open web pages that are not properly secured.</li>
     <li>Google sign-in uses Google's own system, so the app never sees your Google password.</li>
     <li>The access code is a shared code that works as a simple gate. It is not strong protection, and the server does not check who is sending each request.</li>
     <li>Tutor sessions and Gemini file pointers expire on a timer (<a href="#data">section 2</a>). OCR text does not.</li>
     <li>Your synced data sits in your own Google Drive, protected by your Google account. Use a strong password and 2-step verification.</li>
   </ul>
-  <p>The access code is stored in your browser, encoded but not encrypted, and is treated as valid for 24 hours after you enter it. The stored entry is removed the next time you open the app after that, or when you clear the site's data. Signing out of sync does not remove it, and does not revoke Google access (the token stays valid for up to about an hour). Do not use the app on a shared or public computer without clearing the site's data.</p>
+  <p>The app remembers the access code in your browser for 24 hours. It is only lightly scrambled, not locked, so do not use the app on a shared computer; clear the site's data when you finish.</p>
   <p><strong>If there is a breach</strong> that puts your information at risk, I will tell the Information Regulator and the people affected as soon as reasonably possible. Because the app has no accounts and holds no contact list, I will do this through a notice on this page and, where I can, in the app.</p>
 
   <h2 id="rights">8. Your rights and deleting your data</h2>
@@ -402,14 +403,15 @@
     <li><strong>Ask for deletion,</strong> or for use to stop.</li>
     <li><strong>Object</strong> to your information being used, or <strong>withdraw your consent.</strong> Withdrawing does not undo what was lawfully done before.</li>
   </ul>
-  <p>Email <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a> and say what you want. You may be asked to show who you are. I reply within 30 days.</p>
+  <p>Email <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a> and say what you want. You may be asked to show who you are. I reply within 30 days. Rights requests are free of charge.</p>
 
   <h3 id="delete">How to delete your data</h3>
+  <p>Nothing is deleted automatically from your browser, Drive or the OCR cache when you simply stop using the app.</p>
   <ul>
-    <li><strong>On your device:</strong> clear this site's data in your browser. Signing out in the app clears only your Google account details used for sync, not the rest.</li>
+    <li><strong>On your device:</strong> clear this site's data in your browser. Signing out of sync in the app clears only your sync details (your Google name, email and picture and the ID of your sync file). It does not clear the access code or anything else in your browser, and it does not revoke Google access.</li>
     <li><strong>Stop Google access:</strong> go to <a href="https://myaccount.google.com/connections">myaccount.google.com/connections</a>, choose Student Tools Hub and remove its access. Syncing then stops; your hidden Drive data stays until you delete it as described below.</li>
     <li><strong>Your hidden Drive data:</strong> in Google Drive choose Settings &rarr; Manage apps &rarr; Student Tools Hub &rarr; Options &rarr; Delete hidden app data. Docs you exported are ordinary files in your Drive that you can delete.</li>
-    <li><strong>On the server:</strong> tutor chats and Gemini file pointers expire by themselves. Execution logs and error emails are deleted on the schedule in <a href="#data">section 2</a>. For the OCR cache (text recognition results), email me the same PDF and I will find and remove its stored text. Entries are filed under a digital fingerprint (hash) of the file and not under your name, so I find them from the PDF itself.</li>
+    <li><strong>On the server:</strong> tutor chats and Gemini file pointers expire by themselves. Execution logs and error emails are deleted on the schedule in <a href="#data">section 2</a>. You can ask me to delete a specific error email or log entry earlier: send the date and time. For the OCR cache (text recognition results), email me the same PDF and I will find and remove its stored text. Entries are filed under a digital fingerprint (hash) of the file and not under your name, so I find them from the PDF itself. If you no longer have the PDF, tell me what it was and when you used it and I will do what I reasonably can.</li>
     <li><strong>Not built yet:</strong> a "Delete my data" button in the app. This page will be updated if it is added.</li>
   </ul>
 
@@ -423,7 +425,7 @@
   <p>The service is free today and is expected to become paid later. You will not be charged without your agreement. Payment details are not collected now. Before any payment feature starts, this policy will be updated to say what is collected and who handles it. Changes will be announced on this page and, where I can, in the app, at least 14 days before they take effect.</p>
 
   <h2 id="changes">12. Changes to this policy</h2>
-  <p>This policy will be updated when the app changes. Important changes are announced on this page and, where I can, in the app, at least 14 days before they take effect. Except where a change is needed urgently for security or to comply with the law, in which case I will tell you as soon as I can. The effective date at the top shows the current version. Your rights under POPIA and the Consumer Protection Act that cannot be limited are not affected by anything here. The law of South Africa applies.</p>
+  <p>This policy will be updated when the app changes. Important changes are announced on this page and, where I can, in the app, at least 14 days before they take effect. If a change is urgent (for security or to follow the law), I may make it sooner and will tell you as soon as I can. The effective date at the top shows the current version. Your rights under POPIA and the Consumer Protection Act that cannot be limited are not affected by anything here. The law of South Africa applies.</p>
 
   <h2 id="contact">13. Contact</h2>
   <p>Jay-Leigh Vergotine, South Africa<br />
@@ -461,10 +463,10 @@
   <h3 id="tech-browser">Browser storage</h3>
   <p>The site sets no cookies. Google Identity Services, Google Fonts and the other hosts in <a href="#others">section 5</a> may use their own storage under their own policies. The app itself uses:</p>
   <ul>
-    <li><strong>Local storage:</strong> the access code (base64-encoded) and when you unlocked (treated as valid for 24 hours, then removed the next time you open the app); your Google name, email and picture for sync; the ID of your Drive sync file; whether the sidebar is collapsed.</li>
+    <li><strong>Local storage:</strong> the access code (base64-encoded, not encrypted) and when you unlocked (treated as valid for 24 hours after you enter it; the stored entry is removed the next time you open the app after that, or when you clear the site's data); your Google name, email and picture for sync; the ID of your Drive sync file (these two are what signing out of sync clears); whether the sidebar is collapsed.</li>
     <li><strong>IndexedDB:</strong> your draft in progress, 30 days of history (the only part that expires), Knowledge Bay items (including images as base64, original scanned-PDF and <code>.doc</code> files, and full result text), scanned-PDF progress, and tutor chats.</li>
   </ul>
-  <p>Both stay on your device until you clear the site's data. Signing out in the app clears only the Google account details.</p>
+  <p>Both stay on your device until you clear the site's data. Signing out of sync in the app clears only your Google name, email and picture and the ID of your sync file. It does not remove the access code or any other browser data, and it does not revoke Google access (the token stays valid for up to about an hour).</p>
 
   <h3 id="tech-drive">Google Drive</h3>
   <p>The hidden sync file is <code>sth-userdata-v1.json</code> in the app data area (<code>drive.appdata</code>, a hidden folder only this app can open). It holds Knowledge Bay items (your saved study library in the app): extracted text, including scraped web pages and OCR text, and base64 images, plus tutor chats. Original scanned PDFs and legacy <code>.doc</code> files are saved as separate files in the same hidden folder under their original file names. During <code>.doc</code> conversion a temporary file named <code>__STH_CONVERT__ &lt;name&gt;</code> is created there and normally deleted straight after. If a conversion fails it can remain until you delete the hidden app data.</p>
