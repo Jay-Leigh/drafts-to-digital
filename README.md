@@ -34,7 +34,7 @@ Student Tools Hub turns handwritten notes and study files into text and Google D
 - **Frontend:** vanilla JS, HTML5, Tailwind CSS (CDN)
 - **Middleware:** [n8n](https://n8n.io), workflow exported in this repo (`Student Tools Hub Pipeline - live n8n workflow.json`)
 - **AI:** Google Gemini 2.5 via n8n; the Gemini API key stays in n8n and never reaches the browser
-- **Google sign-in:** Google Identity Services. The Google access token is held in the browser for Docs export, and for Drive sync it is currently also passed to n8n for some Drive operations (see the Privacy Policy). Signing out of sync revokes Google access.
+- **Google sign-in:** Google Identity Services. The Google access token is held in the browser for Docs export, and for Drive sync it is currently also passed to n8n for some Drive operations (see the Privacy Policy). Signing out of sync asks Google to revoke the app's access and tells you if that fails.
 
 ---
 

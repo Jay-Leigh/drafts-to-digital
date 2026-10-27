@@ -450,6 +450,7 @@
       font-family: 'Outfit', sans-serif; font-size: 12px;
     }
     #loginForm.consent-only .login-input { display: none; }
+    .login-links a, .sidebar-legal a { display: inline-block; min-height: 24px; line-height: 24px; }
     .storage-note {
       display: flex; align-items: center; justify-content: space-between; gap: 8px;
       padding: 6px 12px; background: #fff7e0; border-bottom: 1px solid #d4c9a8;
@@ -457,7 +458,7 @@
     }
     .storage-note[hidden] { display: none; }
     .storage-note-close {
-      flex-shrink: 0; width: 24px; height: 24px; border: none; background: transparent;
+      flex-shrink: 0; width: 32px; height: 32px; margin: -6px -8px -6px 0; border: none; background: transparent;
       font-size: 18px; line-height: 1; color: #1a2e1c; cursor: pointer;
     }
 
@@ -2062,7 +2063,7 @@
     <!-- ======== MAIN AREA ======== -->
     <div class="main-area">
       <div id="storageNote" class="storage-note" role="status" hidden>
-        <span>Your browser is blocking storage, so you will need to enter the code on each visit.</span>
+        <span>Your browser is blocking storage, so you will need to enter the code and tick the box on each visit, and your work may not be saved on this device.</span>
         <button type="button" id="storageNoteClose" class="storage-note-close" aria-label="Dismiss storage notice">&times;</button>
       </div>
       <div class="topbar">
@@ -3589,7 +3590,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     // ─── Error Reporting ────────────────────────────
     // Reports carry only a short scrubbed message: no tokens, emails, file names, server bodies or stacks
     function scrubErrorText(value) {
-      return String(value ?? '')
+      const fileExt = /\.(?:pdf|docx?|pptx?|xlsx?|png|jpe?g|heic|txt|md|odt|pages|epub|csv)\b/i;
+      let text = String(value ?? '')
         .slice(0, 4000)
         .replace(/(Server responded \d{3}):[\s\S]*/i, '$1')
         .replace(/https?:\/\/\S+/gi, '[url]')
@@ -3597,10 +3599,12 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         .replace(/Bearer\s+[^\s"',;]+/gi, '[token]')
         .replace(/eyJ[\w\-]+\.[\w\-]+\.[\w\-]*/g, '[token]')
         .replace(/AIza[\w\-]{20,}/g, '[key]')
-        .replace(/[\w.+\-]{1,64}@[\w\-]{1,63}(?:\.[\w\-]{1,63}){1,5}/g, '[email]')
-        .replace(/[\p{L}\p{N}_.\-()\[\] ]{1,120}\.(?:pdf|docx?|pptx?|xlsx?|png|jpe?g|heic|txt|md|odt|pages|epub|csv)\b/giu, ' [file]')
-        .replace(/\b[\w\-]{25,}\b/g, '[id]')
-        .slice(0, 300);
+        .replace(/[^\s@"'<>()\[\],;:]{1,64}@[^\s@"'<>()\[\],;:]{1,253}/gu, '[email]');
+      // The file-name mask is the costly one, so only run it when an extension is present
+      if (fileExt.test(text)) {
+        text = text.replace(/[\p{L}\p{M}\p{N}_.\-()\[\]'’,&#+!~– ]{1,120}\.(?:pdf|docx?|pptx?|xlsx?|png|jpe?g|heic|txt|md|odt|pages|epub|csv)\b/giu, ' [file]');
+      }
+      return text.replace(/\b[\w\-]{25,}\b/g, '[id]').slice(0, 300);
     }
 
     // Errors that carry a file name keep it for on-screen use; reports send only safeMessage
@@ -5676,10 +5680,11 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       return requests;
     }
 
-    async function createGoogleDoc() {
+    // snap is the result captured when Export was tapped, so a later job or Start Over cannot change what is exported
+    async function createGoogleDoc(snap) {
       try {
-        const text = state.resultMode === 'transcribe' ? dom.resultTextarea.value : state.resultText;
-        const meta = MODE_META[state.resultMode];
+        const { mode, text } = snap;
+        const meta = MODE_META[mode];
         const title = `Student Tools Hub - ${meta.resultTitle} - ${new Date().toLocaleDateString('en-ZA')}`;
 
         const createRes = await fetch('https://docs.googleapis.com/v1/documents', {
@@ -5693,7 +5698,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${doc.documentId}:batchUpdate`, {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${state.googleAccessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ requests: ['template', 'reviewer'].includes(state.resultMode) ? markdownToDocsRequests(text) : [{ insertText: { location: { index: 1 }, text } }] }),
+          body: JSON.stringify({ requests: ['template', 'reviewer'].includes(mode) ? markdownToDocsRequests(text) : [{ insertText: { location: { index: 1 }, text } }] }),
         });
         if (!updateRes.ok) throw new Error(`Docs update failed: ${updateRes.status}`);
 
@@ -5704,7 +5709,14 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       }
     }
 
+    let mainExportPending = false;
+
     function triggerGoogleExport() {
+      const snap = { mode: state.resultMode, text: state.resultMode === 'transcribe' ? dom.resultTextarea.value : state.resultText };
+      if (!snap.mode || !snap.text) {
+        showToast('Nothing to export yet.', 'error');
+        return;
+      }
       if (!state.googleTokenClient) {
         initGoogleOAuth();
         if (!state.googleTokenClient) {
@@ -5712,11 +5724,17 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           return;
         }
       }
-      if (hasFreshGoogleToken()) return createGoogleDoc();
-      if (googleTokenInflight) return;
-      ensureGoogleToken().then(createGoogleDoc, err => {
+      if (mainExportPending) {
+        // Same export already under way: a later tap only re-focuses the sign-in window, never a second Doc
+        if (!hasFreshGoogleToken()) ensureGoogleToken().catch(() => {});
+        return;
+      }
+      // Another export started the sign-in: join it, so this tap is not dropped
+      if (googleTokenInflight) showToast('Finish signing in to Google and your export will continue.');
+      mainExportPending = true;
+      ensureGoogleToken().then(() => createGoogleDoc(snap), err => {
         if (!err.googleAuthHandled) handleAppError('Google sign-in was cancelled or failed.', err);
-      });
+      }).finally(() => { mainExportPending = false; });
     }
 
     // ─── Reusable Google Docs helpers ────────────────

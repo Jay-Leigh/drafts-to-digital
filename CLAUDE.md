@@ -25,17 +25,18 @@ Orchestrator (main session) = decision maker + architect. Delegates work to sub-
 ## Decisions
 - Public name: Student Tools Hub. Audience: 18+ only (Gemini API terms bar under-18 audiences). Contact and error emails: jayleigh.dev@gmail.com.
 - Gemini = paid Tier 1 project gen-lang-client-0679788985 (never delete). Vision/OAuth/Drive = project drafts-to-digital. n8n = self-hosted on Cloud Run (africa-south1).
-- OCR cache keeps no expiry (owner decision). No postal address published; not registered as Information Officer.
+- OCR cache: no expiry until PR-A3, then 30 days (owner decision). No postal address published; not registered as Information Officer.
 
 ## Roadmap
-1a. privacy.html + terms.html match current app (drafted, in review)
-1b. Verification hardening, before submitting to Google:
-  - Drive token stays in browser: client-side Drive download and .doc to PDF conversion, send bytes only; remove driveAccessToken from n8n requests
-  - Drop `documents` scope: create Docs with drive.file, "append to existing Doc" via Google Picker
-  - 18+ tick and terms acceptance on the access gate; public description plus privacy/terms links on the gate; one app name
-  - Webhook authentication; per-user (salted) cache keys; error emails to jayleigh.dev@gmail.com; error_callback on both GIS token clients; revoke Google access on sign-out
-  - Update privacy.html/terms.html to match, add Search Console meta tag
-  - Owner console tasks: rename consent screen, Branding URLs, declare drive.appdata/userinfo scopes, rotate API keys, Search Console property
+1a. DONE (PR #10): privacy.html + terms.html match the app as it was
+1b. Verification hardening, split into PRs (owner decisions in brackets):
+  - PR-A1 (PR #11): access gate (description, links, 18+/terms tick stored in browser), sign-in hardening (error_callback, include_granted_scopes false, revoke on sign-out, single-flight sign-in), scrubbed error reports, README (all rights reserved), legal text updated
+  - PR-A2: Drive token stays in the browser (client-side .doc conversion and Drive-only scans), drop `documents` scope (create Docs with drive.file; append only to Docs the app created), policies updated
+  - PR-A3: cache keys tied to a per-account secret kept in the sync file (HMAC on send), OCR/gemini-file cache 30-day expiry [owner: A], policies updated
+  - PR-C: Google Picker for appending to any Doc (preloaded, so iOS popups still work) [owner: add Picker]
+  - PR-B (n8n + client): webhook auth with n8n JWT Auth (owner creates JWT + Header Auth credentials), remove encrypted blob from the page, safe URL fetch for all three fetchers, escape/rate-limit error emails, execution data saving off for success and failure, set errorWorkflow, legacy path removed after a 72 h transition window, purge old ocr:* keys; owner keeps the current access code for now [deprioritised]
+  - Owner console tasks: rename consent screen, Branding URLs, declare drive.appdata/userinfo scopes (remove documents after PR-A2), rotate API keys, Search Console property (user-site repo jay-leigh.github.io with the verification tag), Gmail 90-day filters on both mailboxes
+  - Known follow-ups: with all browser storage blocked, tutor New chat and Knowledge Bay saves fail; no sign-out control when the sync row shows "Re-connect Google"; iOS Safari may block opening the exported Doc tab; Escape does not close the result modal
 2. background jobs (async n8n: respond with jobId, result in Redis, poll on return)
 3. error codes (D2D-NET-503 style) + loading states + global status banner
 4. Study Studio: mind map, quiz, infographic (HTML/SVG first, image model later), slide deck, flashcards last
