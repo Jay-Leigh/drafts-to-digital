@@ -524,7 +524,7 @@
     },
     {
       "parameters": {
-        "sendTo": "={{ \"jay-leigh.v@conversionscience.co.za\" }}",
+        "sendTo": "={{ \"jayleigh.dev@gmail.com\" }}",
         "subject": "={{ $json.subject }}",
         "message": "={{ $json.htmlBody }}",
         "options": {}
@@ -560,7 +560,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const error = $input.first().json;\n\nreturn {\n  json: {\n    to: 'jay-leigh.v@conversionscience.co.za',\n    subject: `[STH Workflow Error] ${error.workflow?.name || 'Unknown'} — ${new Date().toISOString()}`,\n    htmlBody: `\n      <h2>n8n Workflow Error — Student Tools Hub</h2>\n      <p><strong>Workflow:</strong> ${error.workflow?.name || 'N/A'}</p>\n      <p><strong>Node:</strong> ${error.execution?.lastNodeExecuted || 'N/A'}</p>\n      <p><strong>Error:</strong> ${error.execution?.error?.message || 'Unknown error'}</p>\n      <hr/>\n      <h3>Full Error</h3>\n      <pre style=\"background:#f4f4f4;padding:12px;border-radius:6px;font-size:13px;overflow-x:auto;\">${JSON.stringify(error, null, 2)}</pre>\n    `\n  }\n};"
+        "jsCode": "const error = $input.first().json;\n\nreturn {\n  json: {\n    to: 'jayleigh.dev@gmail.com',\n    subject: `[STH Workflow Error] ${error.workflow?.name || 'Unknown'} — ${new Date().toISOString()}`,\n    htmlBody: `\n      <h2>n8n Workflow Error — Student Tools Hub</h2>\n      <p><strong>Workflow:</strong> ${error.workflow?.name || 'N/A'}</p>\n      <p><strong>Node:</strong> ${error.execution?.lastNodeExecuted || 'N/A'}</p>\n      <p><strong>Error:</strong> ${error.execution?.error?.message || 'Unknown error'}</p>\n      <hr/>\n      <h3>Full Error</h3>\n      <pre style=\"background:#f4f4f4;padding:12px;border-radius:6px;font-size:13px;overflow-x:auto;\">${JSON.stringify(error, null, 2)}</pre>\n    `\n  }\n};"
       },
       "id": "867e8754-ef49-4583-8442-7c524f3b8b12",
       "name": "Format Workflow Error1",
@@ -573,7 +573,7 @@
     },
     {
       "parameters": {
-        "sendTo": "={{ \"jay-leigh.v@conversionscience.co.za\" }}",
+        "sendTo": "={{ \"jayleigh.dev@gmail.com\" }}",
         "subject": "={{ $json.subject }}",
         "message": "={{ $json.htmlBody }}",
         "options": {}
