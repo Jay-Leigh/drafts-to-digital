@@ -451,9 +451,14 @@
     }
     #loginForm.consent-only .login-input { display: none; }
     .storage-note {
-      position: fixed; right: 12px; bottom: 12px; z-index: 250; max-width: 300px;
-      padding: 8px 12px; border-radius: 10px; background: #fff7e0; border: 1px solid #d4c9a8;
+      display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 6px 12px; background: #fff7e0; border-bottom: 1px solid #d4c9a8;
       font-family: 'Outfit', sans-serif; font-size: 12px; line-height: 1.4; color: #1a2e1c;
+    }
+    .storage-note[hidden] { display: none; }
+    .storage-note-close {
+      flex-shrink: 0; width: 24px; height: 24px; border: none; background: transparent;
+      font-size: 18px; line-height: 1; color: #1a2e1c; cursor: pointer;
     }
 
     /* ───────── KNOWLEDGE BAY ───────── */
@@ -2056,6 +2061,10 @@
 
     <!-- ======== MAIN AREA ======== -->
     <div class="main-area">
+      <div id="storageNote" class="storage-note" role="status" hidden>
+        <span>Your browser is blocking storage, so you will need to enter the code on each visit.</span>
+        <button type="button" id="storageNoteClose" class="storage-note-close" aria-label="Dismiss storage notice">&times;</button>
+      </div>
       <div class="topbar">
         <div class="flex items-center gap-3">
           <button id="btnHamburger" class="hamburger-btn" aria-label="Toggle sidebar">
@@ -2645,7 +2654,6 @@
 
   <!-- Toast -->
   <div id="toast" class="toast"></div>
-  <div id="storageNote" class="storage-note" hidden>Your browser is blocking storage, so you will need to enter the code on each visit.</div>
   <div id="selectionTooltip" class="selection-tooltip">Quote selection</div>
 
   <!-- ============ EXPORT PICKER MODAL ============ -->
@@ -2836,12 +2844,13 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     function storageSet(key, value) { try { localStorage.setItem(key, value); return true; } catch { return false; } }
     function storageRemove(key) { try { localStorage.removeItem(key); } catch { /* storage blocked */ } }
 
+    let storageNoteDismissed = false;
     function showStorageNote() {
-      document.getElementById('storageNote').hidden = false;
+      if (!storageNoteDismissed) document.getElementById('storageNote').hidden = false;
     }
 
     // Everything behind the gate stays out of the tab order until unlock
-    const gateBehindEls = [...document.body.children].filter(el => !['loginOverlay', 'toast', 'storageNote'].includes(el.id) && el.tagName !== 'SCRIPT');
+    const gateBehindEls = [...document.body.children].filter(el => !['loginOverlay', 'toast'].includes(el.id) && el.tagName !== 'SCRIPT');
     gateBehindEls.forEach(el => el.setAttribute('inert', ''));
 
     // ─── Crypto helpers (Web Crypto API) ────────────
@@ -2879,8 +2888,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       return JSON.parse(new TextDecoder().decode(decrypted));
     }
 
-    async function unlockApp(password) {
-      const sensitive = await decryptConfig(password);
+    async function unlockApp(password, decrypted) {
+      const sensitive = decrypted || await decryptConfig(password);
       CONFIG = {
         googleScopes: 'https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.file',
         compression: { maxSizeMB: 0.8, maxWidthOrHeight: 1600, useWebWorker: true, fileType: 'image/jpeg' },
@@ -2917,6 +2926,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     }
 
     function saveConsent() {
+      if (hasValidConsent()) return;
       if (!storageSet(CONSENT_KEY, JSON.stringify({ acceptedAt: new Date().toISOString(), termsVersion: TERMS_VERSION }))) showStorageNote();
     }
 
@@ -2950,6 +2960,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       refsPendingExport: null,
       driveSyncToken: null,
       driveSyncClient: null,
+      driveSyncFileId: null,
+      driveSyncUser: null,
       driveSyncing: false,
       driveSyncTimer: null,
     };
@@ -3586,7 +3598,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         .replace(/eyJ[\w\-]+\.[\w\-]+\.[\w\-]*/g, '[token]')
         .replace(/AIza[\w\-]{20,}/g, '[key]')
         .replace(/[\w.+\-]{1,64}@[\w\-]{1,63}(?:\.[\w\-]{1,63}){1,5}/g, '[email]')
-        .replace(/[\w.\-]{1,100}\.(?:pdf|docx?|pptx?|xlsx?|png|jpe?g|heic|txt|md|odt|pages|epub|csv)\b/gi, '[file]')
+        .replace(/[\p{L}\p{N}_.\-()\[\] ]{1,120}\.(?:pdf|docx?|pptx?|xlsx?|png|jpe?g|heic|txt|md|odt|pages|epub|csv)\b/giu, ' [file]')
         .replace(/\b[\w\-]{25,}\b/g, '[id]')
         .slice(0, 300);
     }
@@ -3714,7 +3726,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
       async init() {
         this.store = localforage.createInstance({ name: 'sth_knowledge_bay', storeName: 'items' });
-        this.cache = (await this.store.getItem('knowledge_bay')) || [];
+        try { this.cache = (await this.store.getItem('knowledge_bay')) || []; }
+        catch (err) { console.error('[STH] Knowledge Bay storage unavailable:', err); this.cache = []; }
       },
 
       list() {
@@ -4608,7 +4621,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       btn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
       btn.title = (collapsed ? 'Expand' : 'Collapse') + ' sidebar (Ctrl+B)';
       floatTip.hide();
-      try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0'); } catch {}
+      storageSet(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
     }
     function isRailMode() {
       return dom.sidebar.classList.contains('collapsed') && window.matchMedia('(min-width: 901px)').matches;
@@ -5188,7 +5201,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         // Legacy .doc — no client-side parser. n8n converts it to PDF via the
         // user's own Google Drive, then hands it to Gemini like a scanned PDF.
         if (!state.driveSyncToken) {
-          throw fileError(`${fileObj.name} is a .doc file — connect Google Drive sync to convert it, or save it as .docx or PDF and re-upload.`, 'Legacy .doc file needs Drive sync to convert');
+          throw fileError(`${fileObj.name} is a .doc file — connect Google Drive sync to convert it, or save it as .docx or PDF and re-upload.`, 'Legacy Word file needs Drive sync to convert');
         }
         const contentHash = await sha256Hex(fileObj.file);
         return { role: fileObj.role, type: 'scanned_pdf_upload', originalFile: fileObj.file, contentHash, needsDocConversion: true, driveAccessToken: state.driveSyncToken, name: fileObj.name };
@@ -5521,6 +5534,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     // One sign-in at a time: ensureGoogleToken callers share googleTokenInflight and the fixed handlers settle googleAuthWaiter
     let googleAuthWaiter = null;
     let googleTokenInflight = null;
+    let googleTokenRequestedAt = 0;
 
     function settleGoogleAuthWaiter(err, token) {
       const waiter = googleAuthWaiter;
@@ -5537,7 +5551,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     }
 
     // Sign-in window problems: tell the user, never email an error report
-    function onGoogleAuthError(err) {
+    function showGoogleAuthToast(err) {
       if (err && err.type === 'popup_failed_to_open') {
         showToast('Your browser blocked the Google sign-in window. Allow pop-ups for this site and try again.', 'error');
       } else if (err && err.type === 'popup_closed') {
@@ -5545,6 +5559,10 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       } else {
         showToast('Google sign-in did not complete. Please try again.', 'error');
       }
+    }
+
+    function onGoogleAuthError(err) {
+      showGoogleAuthToast(err);
       settleGoogleAuthWaiter(handledGoogleAuthError(err && err.type ? err.type : 'google_auth_error'));
     }
 
@@ -5575,7 +5593,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         return;
       }
       storeGoogleToken(tokenResponse);
-      if (!settleGoogleAuthWaiter(null, tokenResponse.access_token)) createGoogleDoc();
+      if (!settleGoogleAuthWaiter(null, tokenResponse.access_token)) showToast('Signed in to Google. Tap export again.');
     }
 
     // ─── Markdown → Google Docs API requests ─────────
@@ -5694,17 +5712,28 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           return;
         }
       }
-      if (hasFreshGoogleToken()) createGoogleDoc();
-      else state.googleTokenClient.requestAccessToken();
+      if (hasFreshGoogleToken()) return createGoogleDoc();
+      if (googleTokenInflight) return;
+      ensureGoogleToken().then(createGoogleDoc, err => {
+        if (!err.googleAuthHandled) handleAppError('Google sign-in was cancelled or failed.', err);
+      });
     }
 
     // ─── Reusable Google Docs helpers ────────────────
     function ensureGoogleToken() {
       if (hasFreshGoogleToken()) return Promise.resolve(state.googleAccessToken);
-      if (googleTokenInflight) return googleTokenInflight;
+      if (googleTokenInflight) {
+        // A later tap asks again so the sign-in window comes back to the front; a quick double tap does not open a second one
+        if (Date.now() - googleTokenRequestedAt > 2000) {
+          googleTokenRequestedAt = Date.now();
+          try { state.googleTokenClient.requestAccessToken(); } catch { /* the first request is still pending */ }
+        }
+        return googleTokenInflight;
+      }
       if (!state.googleTokenClient) initGoogleOAuth();
       if (!state.googleTokenClient) return Promise.reject(new Error('Google services not loaded'));
       let timer;
+      googleTokenRequestedAt = Date.now();
       googleTokenInflight = new Promise((resolve, reject) => {
         googleAuthWaiter = { resolve, reject };
         // Never leave callers hanging if Google reports nothing back
@@ -5770,6 +5799,13 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     const SYNC_USER_KEY = 'sth_sync_user';
     const SYNC_FILE_KEY = 'sth_sync_file_id';
 
+    // The file id is also kept in memory so sync still works when storage is blocked
+    const getSyncFileId = () => state.driveSyncFileId || storageGet(SYNC_FILE_KEY);
+    function setSyncFileId(id) {
+      state.driveSyncFileId = id;
+      storageSet(SYNC_FILE_KEY, id);
+    }
+
     // ── Token client ────────────────────────────────
     function initDriveSyncClient() {
       if (typeof google === 'undefined' || !google.accounts) return;
@@ -5779,7 +5815,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         scope: SYNC_SCOPE,
         include_granted_scopes: false,
         callback: onDriveSyncToken,
-        error_callback: onGoogleAuthError,
+        error_callback: showGoogleAuthToast,
       });
     }
 
@@ -5820,13 +5856,17 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       state.googleTokenExpiresAt = 0;
       state.driveSyncClient = null;
       clearTimeout(state.driveSyncTimer);
+      state.driveSyncFileId = null;
+      state.driveSyncUser = null;
       storageRemove(SYNC_USER_KEY);
       storageRemove(SYNC_FILE_KEY);
       updateSyncUI('signed-out');
       Promise.all(tokens.map(revokeGoogleToken)).then(results => {
-        showToast(results.some(Boolean)
+        showToast(results.length && results.every(Boolean)
           ? 'Signed out and Google access removed.'
-          : "Signed out. To remove Google's access, visit myaccount.google.com/permissions.");
+          : results.some(Boolean)
+            ? 'Signed out. Some Google access may remain; check myaccount.google.com/connections.'
+            : "Signed out. To remove Google's access, visit myaccount.google.com/connections.");
       });
     }
 
@@ -5989,23 +6029,30 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     // ── Initial sync (merge + write) ─────────────────
     async function runInitialSync() {
       const token = state.driveSyncToken;
+      const signedOut = () => state.driveSyncToken !== token; // signed out while a request was in flight
       updateSyncUI('syncing');
       try {
         // 1 — Fetch user info
         const user = await driveFetchUserInfo(token);
-        if (user) localStorage.setItem(SYNC_USER_KEY, JSON.stringify(user));
+        if (signedOut()) return;
+        if (user) {
+          state.driveSyncUser = user;
+          storageSet(SYNC_USER_KEY, JSON.stringify(user));
+        }
 
         // 2 — Locate / read the Drive file
-        let fileId = localStorage.getItem(SYNC_FILE_KEY);
+        let fileId = getSyncFileId();
         let remote = { kbItems: [], tutorChats: [] };
 
         if (!fileId) {
           fileId = await driveListSyncFile(token);
-          if (fileId) localStorage.setItem(SYNC_FILE_KEY, fileId);
+          if (signedOut()) return;
+          if (fileId) setSyncFileId(fileId);
         }
         if (fileId) {
           try { remote = await driveReadSyncFile(token, fileId); }
           catch { /* corrupt / deleted — start fresh */ }
+          if (signedOut()) return;
         }
 
         // 3 — Merge local + remote
@@ -6015,26 +6062,32 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         // 4 — Persist merged data locally
         kb.cache = mergedKb;
         await kb.store.setItem('knowledge_bay', kb.cache);
+        if (signedOut()) return;
         renderKbGrid();
 
         tutor.chats = mergedChats;
         await kb.store.setItem('knowledge_bay', kb.cache); // belt-and-suspenders flush
+        if (signedOut()) return;
         await tutor.store.setItem('tutor_chats', tutor.chats);
+        if (signedOut()) return;
         tutor.renderSidebarList();
         if (tutor.currentId) tutor.renderChat?.();
 
         // 5 — Push any not-yet-uploaded scanned PDFs to Drive, then write
         // merged metadata back
         await ensureScannedPdfsUploadedToDrive();
+        if (signedOut()) return;
         const newFileId = await driveWriteSyncFile(token, fileId, {
           kbItems: kbItemsForDriveSync(kb.cache), tutorChats: mergedChats, syncedAt: Date.now()
         });
-        if (!fileId) localStorage.setItem(SYNC_FILE_KEY, newFileId);
+        if (signedOut()) return;
+        if (!fileId) setSyncFileId(newFileId);
 
         updateSyncUI('synced', user);
         showToast('✓ Synced — your data is up to date across all devices');
 
       } catch (err) {
+        if (signedOut()) return;
         console.error('[Sync]', err);
         showToast('Sync failed — will retry on next save', 'error');
         updateSyncUI('error');
@@ -6044,16 +6097,21 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     // ── Push current data to Drive (debounced) ────────
     async function pushToDrive() {
       if (!state.driveSyncToken || state.driveSyncing) return;
+      const token = state.driveSyncToken;
+      const signedOut = () => state.driveSyncToken !== token;
       state.driveSyncing = true;
       updateSyncUI('syncing');
       try {
         await ensureScannedPdfsUploadedToDrive();
-        let fileId = localStorage.getItem(SYNC_FILE_KEY);
+        if (signedOut()) return;
+        let fileId = getSyncFileId();
         const data = { kbItems: kbItemsForDriveSync(kb.cache), tutorChats: tutor.chats, syncedAt: Date.now() };
-        const newId = await driveWriteSyncFile(state.driveSyncToken, fileId, data);
-        if (!fileId) localStorage.setItem(SYNC_FILE_KEY, newId);
+        const newId = await driveWriteSyncFile(token, fileId, data);
+        if (signedOut()) return;
+        if (!fileId) setSyncFileId(newId);
         updateSyncUI('synced');
       } catch (err) {
+        if (signedOut()) return;
         console.error('[Sync push]', err);
         // Token expired → clear so button prompts re-auth
         if (String(err.message).includes('401') || String(err.message).includes('403')) {
@@ -6079,7 +6137,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       if (!syncSignedOut) return;
 
       const resolvedUser = user || (() => {
-        try { return JSON.parse(localStorage.getItem(SYNC_USER_KEY)); } catch { return null; }
+        try { return state.driveSyncUser || JSON.parse(storageGet(SYNC_USER_KEY)); } catch { return null; }
       })();
 
       if (status === 'signed-out' || status === 'expired') {
@@ -6176,7 +6234,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
       async init() {
         this.store = localforage.createInstance({ name: 'sth_tutor', storeName: 'chats' });
-        this.chats = (await this.store.getItem('tutor_chats')) || [];
+        try { this.chats = (await this.store.getItem('tutor_chats')) || []; }
+        catch (err) { console.error('[STH] Tutor storage unavailable:', err); this.chats = []; }
         this.renderSidebarList();
       },
 
@@ -7313,7 +7372,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
             this.results[i] = { sourceId: src.id, label: src.label, citation: citation || '(No citation returned.)' };
           } catch (err) {
             console.error('[refs] generate failed for source', src, err);
-            this.results[i] = { sourceId: src.id, label: src.label, error: err.message || 'Generation failed' };
+            this.results[i] = { sourceId: src.id, label: src.label, error: scrubErrorText(err.safeMessage || err.message) || 'Generation failed' };
           }
           this.render();
         }
@@ -7469,7 +7528,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     });
     dom.sidebarBackdrop.addEventListener('click', closeSidebar);
 
-    try { if (localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1') setSidebarCollapsed(true); } catch {}
+    if (storageGet(SIDEBAR_COLLAPSED_KEY) === '1') setSidebarCollapsed(true);
     document.getElementById('btnSidebarCollapse').addEventListener('click', () => {
       setSidebarCollapsed(!dom.sidebar.classList.contains('collapsed'));
     });
@@ -7840,8 +7899,11 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     const loginConsent = document.getElementById('loginConsent');
     const loginBtn = document.getElementById('loginBtn');
     let consentOnlyPwd = null;
+    let consentOnlyConfig = null;
 
     const TICK_MESSAGE = 'Please tick the box to continue.';
+    let gateBusy = false;
+    let authInitDone = false;
 
     // Keep the error line in step with the checkbox (also after the browser restores form state)
     function syncConsentUi() {
@@ -7849,55 +7911,95 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     }
     loginConsent.addEventListener('change', syncConsentUi);
 
+    // Clear first so a screen reader announces the message again on every attempt
+    function showTickMessage() {
+      loginError.textContent = '';
+      loginError.style.color = '#9b2226';
+      requestAnimationFrame(() => { if (!loginConsent.checked) loginError.textContent = TICK_MESSAGE; });
+      loginConsent.focus();
+    }
+
     // Valid session but no consent for the current TERMS_VERSION: ask only for the tick, then continue
-    function showConsentStep(savedPwd) {
+    function showConsentStep(savedPwd, config) {
       consentOnlyPwd = savedPwd;
+      consentOnlyConfig = config;
       loginForm.classList.add('consent-only');
       document.getElementById('loginSubtitle').textContent = 'Please confirm before you continue';
       loginBtn.textContent = 'Continue';
       loginConsent.focus();
     }
 
+    function showWrongCode() {
+      loginError.style.color = '#9b2226';
+      loginError.textContent = 'Incorrect access code. Please try again.';
+      loginInput.classList.add('shake');
+      setTimeout(() => loginInput.classList.remove('shake'), 600);
+      loginInput.value = '';
+      loginInput.focus();
+    }
+
+    // Only a failed decrypt means a wrong code; a startup problem after unlock never does
+    async function startApp() {
+      try {
+        await initAfterAuth();
+      } catch (err) {
+        console.error('[STH] Startup failed:', err);
+        if (!storageSet('sth_probe', '1')) showStorageNote();
+        else { storageRemove('sth_probe'); showToast('Something went wrong starting the app. Reload and try again.', 'error'); }
+        if (!location.hash) location.hash = '#home';
+        navigate();
+      }
+    }
+
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      if (!loginConsent.checked) {
-        loginError.style.color = '#9b2226';
-        loginError.textContent = TICK_MESSAGE;
-        loginConsent.focus();
-        return;
-      }
+      if (gateBusy) return;
+      if (!loginConsent.checked) { showTickMessage(); return; }
 
-      if (consentOnlyPwd) {
-        try {
-          await unlockApp(consentOnlyPwd);
-          saveConsent();
-          await initAfterAuth();
-        } catch {
-          storageRemove(SESSION_KEY);
-          location.reload();
-        }
-        return;
-      }
-
-      const pwd = loginInput.value;
-
+      gateBusy = true;
+      loginBtn.disabled = true;
+      loginBtn.textContent = consentOnlyPwd ? 'Continuing...' : 'Checking...';
       try {
+        if (consentOnlyPwd) {
+          try {
+            await unlockApp(consentOnlyPwd, consentOnlyConfig);
+          } catch {
+            // The saved code stopped working: back to the full gate
+            storageRemove(SESSION_KEY);
+            consentOnlyPwd = null;
+            consentOnlyConfig = null;
+            loginForm.classList.remove('consent-only');
+            document.getElementById('loginSubtitle').textContent = 'Enter your access code to continue';
+            showWrongCode();
+            return;
+          }
+          saveConsent();
+          await startApp();
+          return;
+        }
+
+        const pwd = loginInput.value;
         loginError.textContent = 'Verifying\u2026';
         loginError.style.color = '#6b8f71';
-        await unlockApp(pwd);
+        try {
+          await unlockApp(pwd);
+        } catch {
+          showWrongCode();
+          return;
+        }
         saveConsent();
-        await initAfterAuth();
-      } catch {
-        loginError.style.color = '#9b2226';
-        loginError.textContent = 'Incorrect access code. Please try again.';
-        loginInput.classList.add('shake');
-        setTimeout(() => loginInput.classList.remove('shake'), 600);
-        loginInput.value = '';
-        loginInput.focus();
+        await startApp();
+      } finally {
+        gateBusy = false;
+        loginBtn.disabled = false;
+        loginBtn.textContent = consentOnlyPwd ? 'Continue' : 'Unlock';
       }
     });
 
     async function initAfterAuth() {
+      if (authInitDone) return;
+      authInitDone = true;
+
       // Google OAuth init (deferred) — Docs export + Drive sync
       const gisInterval = setInterval(() => {
         if (typeof google !== 'undefined' && google.accounts) {
@@ -7965,20 +8067,34 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       if (hasValidConsent()) loginConsent.checked = true;
       syncConsentUi();
       if (savedPwd) {
-        try {
-          if (!hasValidConsent()) {
-            await decryptConfig(savedPwd);
-            showConsentStep(savedPwd);
+        if (!hasValidConsent()) {
+          try {
+            const config = await decryptConfig(savedPwd);
+            showConsentStep(savedPwd, config);
+            return;
+          } catch {
+            storageRemove(SESSION_KEY);
+          }
+        } else {
+          let unlocked = false;
+          try {
+            await unlockApp(savedPwd);
+            unlocked = true;
+          } catch {
+            storageRemove(SESSION_KEY);
+          }
+          if (unlocked) {
+            await startApp();
             return;
           }
-          await unlockApp(savedPwd);
-          await initAfterAuth();
-          return;
-        } catch {
-          storageRemove(SESSION_KEY);
         }
       }
       loginInput.focus();
+    });
+
+    document.getElementById('storageNoteClose').addEventListener('click', () => {
+      storageNoteDismissed = true;
+      document.getElementById('storageNote').hidden = true;
     });
 
   })();
