@@ -22,5 +22,21 @@ Orchestrator (main session) = decision maker + architect. Delegates work to sub-
 - Branch `claude/dazzling-turing-arvv2i`, one draft PR per step.
 - Stack: static `index.html` (GitHub Pages, no build) + n8n cloud workflow JSON in repo (user re-imports).
 
+## Decisions
+- Public name: Student Tools Hub. Audience: 18+ only (Gemini API terms bar under-18 audiences). Contact and error emails: jayleigh.dev@gmail.com.
+- Gemini = paid Tier 1 project gen-lang-client-0679788985 (never delete). Vision/OAuth/Drive = project drafts-to-digital. n8n = self-hosted on Cloud Run (africa-south1).
+- OCR cache keeps no expiry (owner decision). No postal address published; not registered as Information Officer.
+
 ## Roadmap
-1. privacy.html 2. terms.html 3. background jobs (async n8n + Redis) 4. error/loading states 5. Study Studio 6. iOS login fix + OAuth verification (parallel)
+1a. privacy.html + terms.html match current app (drafted, in review)
+1b. Verification hardening, before submitting to Google:
+  - Drive token stays in browser: client-side Drive download and .doc to PDF conversion, send bytes only; remove driveAccessToken from n8n requests
+  - Drop `documents` scope: create Docs with drive.file, "append to existing Doc" via Google Picker
+  - 18+ tick and terms acceptance on the access gate; public description plus privacy/terms links on the gate; one app name
+  - Webhook authentication; per-user (salted) cache keys; error emails to jayleigh.dev@gmail.com; error_callback on both GIS token clients; revoke Google access on sign-out
+  - Update privacy.html/terms.html to match, add Search Console meta tag
+  - Owner console tasks: rename consent screen, Branding URLs, declare drive.appdata/userinfo scopes, rotate API keys, Search Console property
+2. background jobs (async n8n: respond with jobId, result in Redis, poll on return)
+3. error codes (D2D-NET-503 style) + loading states + global status banner
+4. Study Studio: mind map, quiz, infographic (HTML/SVG first, image model later), slide deck, flashcards last
+5. OAuth verification submission and publish (parallel, after 1b)
