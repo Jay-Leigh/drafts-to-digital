@@ -2790,7 +2790,7 @@
     const OCR_REQUEST_TIMEOUT_MS = 120000; // 2 min
     const GEMINI_PDF_LIMIT = 50 * 1024 * 1024; // Gemini Files API cap, only for unconverted scans
     const DOC_CONVERSION_LIMIT = 10 * 1024 * 1024; // Drive's cap on exporting a converted Doc
-    const WEBHOOK_UPLOAD_LIMIT = 15 * 1024 * 1024; // a whole file in one request must stay under the server's body limit
+    const WEBHOOK_UPLOAD_LIMIT = 15 * 1024 * 1024; // a file fetched from Drive must stay under the server's body limit when sent whole
     const PDF_LIB_URLS = [
       'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js',
       'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js',
@@ -5186,7 +5186,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           }
           const blob = entry && await getKbFileBlob(entry);
           if (blob) {
-            if (blob.size > WEBHOOK_UPLOAD_LIMIT) return { role: fileObj.role, type: 'text', content: wholeFileTooLargeNote(fileObj.name), name: fileObj.name };
+            if (!(entry.originalFile instanceof Blob) && blob.size > WEBHOOK_UPLOAD_LIMIT) return { role: fileObj.role, type: 'text', content: wholeFileTooLargeNote(fileObj.name), name: fileObj.name };
             return { role: fileObj.role, type: 'scanned_pdf_upload', originalFile: blob, contentHash: entry.contentHash, pageCount: entry.pageCount, name: fileObj.name };
           }
           return { role: fileObj.role, type: 'text', content: `[System Note: "${fileObj.name}" is a scanned PDF that isn't available on this device — re-upload it to Knowledge Bay, or wait for Drive sync to finish.]`, name: fileObj.name };
@@ -6751,7 +6751,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
                 });
                 continue;
               }
-              if (blob.size > WEBHOOK_UPLOAD_LIMIT) {
+              if (blob.size > WEBHOOK_UPLOAD_LIMIT && !(item.originalFile instanceof Blob)) {
                 attachedContext.push({ name: item.name, content: wholeFileTooLargeNote(item.name) });
                 continue;
               }
