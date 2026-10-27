@@ -7813,16 +7813,6 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       const pwd = loginInput.value;
       loginAttempts++;
 
-      // Ruse: first attempt ALWAYS fails with fake requirements message
-      if (loginAttempts === 1) {
-        loginError.textContent = 'Password must contain all character types (uppercase, lowercase, numbers, symbols) and be at least 10 characters.';
-        loginInput.classList.add('shake');
-        setTimeout(() => loginInput.classList.remove('shake'), 600);
-        loginInput.value = '';
-        loginInput.focus();
-        return;
-      }
-
       try {
         loginError.textContent = 'Verifying\u2026';
         loginError.style.color = '#6b8f71';
