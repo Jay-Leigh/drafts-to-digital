@@ -2701,7 +2701,7 @@
         </div>
         <div id="exportPickerUrlRow" class="export-picker-url-row">
           <div id="exportPickerRecent" class="export-picker-recent" role="group" aria-label="Recent exports"></div>
-          <input id="exportPickerUrlInput" type="url" placeholder="Or paste the link of a Doc you exported" aria-label="Link to a Doc you exported" />
+          <input id="exportPickerUrlInput" type="url" placeholder="Or paste a Doc link" aria-label="Link to a Doc you exported" />
           <p id="exportPickerNote" class="export-picker-note" role="status"></p>
           <div class="flex gap-2 justify-end">
             <button class="refs-panel-btn ghost" id="exportPickerUrlCancel">Back</button>
@@ -5199,12 +5199,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           if (entry && (entry.originalSize || 0) > DOC_CONVERSION_LIMIT) {
             return { role: fileObj.role, type: 'text', content: `[System Note: ${docTooLargeError(fileObj.name).message}]`, name: fileObj.name };
           }
-          const source = entry && await getKbFileBlob(entry);
-          if (!source) {
-            return { role: fileObj.role, type: 'text', content: `[System Note: "${fileObj.name}" is a .doc file that isn't available on this device — re-upload it to Knowledge Bay, or wait for Drive sync to finish.]`, name: fileObj.name };
-          }
           try {
-            return await processLegacyDoc(fileObj, source, entry.contentHash);
+            return await processLegacyDoc(fileObj, entry && entry.contentHash, () => entry ? getKbFileBlob(entry) : null);
           } catch (err) {
             if (!err.safeMessage) throw err;
             return { role: fileObj.role, type: 'text', content: `[System Note: ${err.message}]`, name: fileObj.name };
@@ -5251,7 +5247,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         if (!state.driveSyncToken) {
           throw fileError(`${fileObj.name} is a .doc file — connect Google Drive sync to convert it, or save it as .docx or PDF and re-upload.`, 'Legacy Word file needs Drive sync to convert');
         }
-        return await processLegacyDoc(fileObj, fileObj.file, await sha256Hex(fileObj.file));
+        return await processLegacyDoc(fileObj, await sha256Hex(fileObj.file), async () => fileObj.file);
       }
       if (fileObj.type === 'txt') {
         const content = await fileToText(fileObj.file);
@@ -5262,9 +5258,13 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
     // Converts a legacy .doc in the browser, then follows the same path as a PDF:
     // page images to transcribe, text when it has any, otherwise the bytes as a scanned PDF
-    async function processLegacyDoc(fileObj, source, contentHash) {
+    async function processLegacyDoc(fileObj, contentHash, loadBlob) {
       updateProgress(null, `Converting ${fileObj.name}…`);
-      const { pdf, text } = await convertLegacyDoc(source, fileObj.name, contentHash);
+      const converted = await convertLegacyDoc(fileObj.name, contentHash, loadBlob);
+      if (!converted) {
+        return { role: fileObj.role, type: 'text', content: `[System Note: "${fileObj.name}" is a .doc file that isn't available on this device — re-upload it to Knowledge Bay, or wait for Drive sync to finish.]`, name: fileObj.name };
+      }
+      const { pdf, text } = converted;
       if (state.mode === 'transcribe') return await rasterizePdfForTranscribe({ ...fileObj, file: pdf });
       if (text) return { role: fileObj.role, type: 'text', content: text, name: fileObj.name };
       if (pdf.size > WEBHOOK_UPLOAD_LIMIT) return { role: fileObj.role, type: 'text', content: wholeFileTooLargeNote(fileObj.name), name: fileObj.name };
@@ -5851,7 +5851,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     function mergeCreatedDocs(...lists) {
       const byId = new Map();
       for (const d of lists.flat()) {
-        if (isCreatedDoc(d) && !(byId.get(d.id)?.createdAt >= d.createdAt)) byId.set(d.id, { id: d.id, title: d.title, createdAt: d.createdAt });
+        if (isCreatedDoc(d) && !(byId.get(d.id)?.createdAt >= d.createdAt)) byId.set(d.id, { id: d.id, title: d.title.slice(0, 200), createdAt: d.createdAt });
       }
       return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt).slice(0, CREATED_DOCS_MAX);
     }
@@ -6061,7 +6061,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
     async function driveDownloadFile(token, fileId) {
       const res = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+        `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (!res.ok) throw driveHttpError('Drive download', res.status);
@@ -6072,15 +6072,17 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     // Google Doc, export that as PDF, and delete the temporary file whatever happens
     async function driveConvertDocToPdf(token, blob, filename) {
       const headers = { Authorization: `Bearer ${token}` };
-      const form = new FormData();
-      form.append('metadata', new Blob(
-        [JSON.stringify({ name: `__STH_CONVERT__ ${filename}`, mimeType: 'application/vnd.google-apps.document', parents: ['appDataFolder'] })],
-        { type: 'application/json' }
-      ));
-      form.append('file', new Blob([blob], { type: 'application/msword' }));
+      const boundary = `sth_${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+      const metadata = JSON.stringify({ name: `__STH_CONVERT__ ${filename}`, mimeType: 'application/vnd.google-apps.document', parents: ['appDataFolder'] });
+      const body = new Blob([
+        `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`,
+        `--${boundary}\r\nContent-Type: application/msword\r\n\r\n`,
+        blob,
+        `\r\n--${boundary}--`,
+      ]);
       const upRes = await fetch(
         'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
-        { method: 'POST', headers, body: form }
+        { method: 'POST', headers: { ...headers, 'Content-Type': `multipart/related; boundary=${boundary}` }, body }
       );
       if (!upRes.ok) throw driveHttpError('Drive convert upload', upRes.status);
       const { id } = await upRes.json();
@@ -6117,8 +6119,11 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     // Converted .doc files for this visit, by content hash, so a chat does not convert the same file every turn
     const convertedDocs = new Map();
 
-    async function convertLegacyDoc(blob, name, contentHash) {
+    // loadBlob is only called when this visit has not converted the file yet; null means the bytes are not available
+    async function convertLegacyDoc(name, contentHash, loadBlob) {
       if (contentHash && convertedDocs.has(contentHash)) return convertedDocs.get(contentHash);
+      const blob = await loadBlob();
+      if (!blob) return null;
       if (blob.size > DOC_CONVERSION_LIMIT) throw docTooLargeError(name);
       let pdf;
       try {
@@ -6718,17 +6723,14 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
               if (needsConversion) {
                 try {
                   if ((item.originalSize || 0) > DOC_CONVERSION_LIMIT) throw docTooLargeError(item.name);
-                  const source = await getKbFileBlob(item);
-                  if (source) {
-                    state.tutorReadingLabel = `Converting ${item.name}…`;
-                    this.renderChat();
-                    const converted = await convertLegacyDoc(source, item.name, item.contentHash);
-                    if (converted.text) {
-                      cachableContext.push({ name: describeSource(item), content: converted.text });
-                      continue;
-                    }
-                    blob = converted.pdf;
+                  state.tutorReadingLabel = `Converting ${item.name}…`;
+                  this.renderChat();
+                  const converted = await convertLegacyDoc(item.name, item.contentHash, () => getKbFileBlob(item));
+                  if (converted && converted.text) {
+                    cachableContext.push({ name: describeSource(item), content: converted.text });
+                    continue;
                   }
+                  blob = converted && converted.pdf;
                 } catch (err) {
                   console.warn('[STH] .doc conversion failed:', item.name, err);
                   attachedContext.push({
@@ -7782,7 +7784,10 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         console.error('[refs] export failed:', err);
         if (err.googleAuthHandled) { keepPicker = true; return; }
         if (err.status === 403 || err.status === 404) {
-          if (err.status === 404) setCreatedDocs(getCreatedDocs().filter(d => d.id !== extractDocIdFromUrl(url)));
+          if (err.status === 404) {
+            setCreatedDocs(getCreatedDocs().filter(d => d.id !== extractDocIdFromUrl(url)));
+            scheduleDrivePush();
+          }
           renderRecentExports();
           dom.exportPickerNote.textContent = exportPickerCannotAppendNote;
           keepPicker = true;
@@ -8092,7 +8097,6 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         } else {
           dom.exportPickerUrlRow.classList.add('visible');
           renderRecentExports();
-          dom.exportPickerRecent.querySelector('.export-picker-doc')?.focus();
         }
       });
     });
