@@ -5918,14 +5918,24 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
     async function driveWriteSyncFile(token, fileId, data) {
       const bodyJson = JSON.stringify(data);
+      const patchFile = (id) => fetch(
+        `https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media`,
+        { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: bodyJson }
+      );
       if (fileId) {
-        const res = await fetch(
-          `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
-          { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: bodyJson }
-        );
+        const res = await patchFile(fileId);
         if (res.ok) return fileId;
-        // 404 = the stored id is stale (file deleted / other account): fall through and create a new file
+        // 404 = the stored id is stale (file deleted / other account)
         if (res.status !== 404) throw driveHttpError('Drive update', res.status);
+        // Look the file up by name first so a recovery never creates a duplicate
+        const foundId = await driveListSyncFile(token);
+        if (state.driveSyncToken !== token) throw new Error('Signed out during Drive write'); // no write after sign-out
+        if (foundId && foundId !== fileId) {
+          const foundRes = await patchFile(foundId);
+          if (foundRes.ok) return foundId;
+          if (foundRes.status !== 404) throw driveHttpError('Drive update', foundRes.status);
+        }
+        // nothing usable: fall through and create a new file
       }
       const form = new FormData();
       form.append('metadata', new Blob(
