@@ -912,7 +912,7 @@
     .quote-bar-text {
       font-size: 13px; color: rgba(26,46,28,0.65); font-style: italic;
       line-height: 1.4; overflow: hidden; display: -webkit-box;
-      -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3; -webkit-box-orient: vertical;
     }
     .quote-bar-label {
       font-size: 10.5px; font-weight: 600; font-style: normal;
@@ -1128,11 +1128,13 @@
     }
     .export-picker-option {
       display: flex; align-items: center; gap: 12px;
+      width: 100%; text-align: left; font: inherit; color: inherit;
       padding: 14px 16px; background: rgba(250,247,240,0.5);
       border: 1px solid rgba(212,201,168,0.5); border-radius: 10px;
       cursor: pointer; transition: all 0.15s;
     }
     .export-picker-option:hover { background: white; border-color: #2c5f2d; }
+    .export-picker-option span { display: block; }
     .export-picker-option svg { flex-shrink: 0; color: #2c5f2d; }
     .export-picker-option strong { display: block; font-size: 13.5px; color: #1a2e1c; }
     .export-picker-option small { font-size: 12px; color: rgba(26,46,28,0.55); }
@@ -1144,19 +1146,18 @@
       padding: 9px 12px; font-family: 'Outfit', sans-serif; font-size: 13px;
       border: 1px solid rgba(212,201,168,0.6); border-radius: 8px; outline: none;
     }
-    .export-picker-recent {
-      display: flex; flex-direction: column; gap: 6px;
-      max-height: 200px; overflow-y: auto;
-    }
+    .export-picker-recent { display: flex; flex-direction: column; gap: 6px; }
+    .export-picker-option:focus-visible, .export-picker-doc:focus-visible { outline: 2px solid #2c5f2d; outline-offset: 2px; }
+    .modal-foot[hidden] { display: none; }
     .export-picker-doc {
-      display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+      display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
       width: 100%; padding: 10px 12px; text-align: left; cursor: pointer;
       font-family: 'Outfit', sans-serif; font-size: 13px; color: #1a2e1c;
       background: rgba(250,247,240,0.5); border: 1px solid rgba(212,201,168,0.5); border-radius: 8px;
     }
     .export-picker-doc:hover, .export-picker-doc[aria-pressed="true"] { background: white; border-color: #2c5f2d; }
-    .export-picker-doc-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .export-picker-doc-date { flex-shrink: 0; font-size: 12px; color: rgba(26,46,28,0.55); }
+    .export-picker-doc-title { max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; word-break: break-word; }
+    .export-picker-doc-date { font-size: 12px; color: rgba(26,46,28,0.55); }
     .export-picker-empty, .export-picker-note { margin: 0; font-size: 13px; line-height: 1.5; color: rgba(26,46,28,0.65); }
     .export-picker-note:empty { display: none; }
     /* Selection-to-quote tooltip */
@@ -1805,7 +1806,7 @@
     .history-entry-date { font-size: 11px; color: rgba(26,46,28,0.38); margin-left: auto; }
     .history-entry-preview {
       font-size: 13px; color: rgba(26,46,28,0.65); line-height: 1.4;
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
       overflow: hidden;
     }
     .history-entry-meta { font-size: 11px; color: rgba(26,46,28,0.35); margin-top: 5px; }
@@ -2674,40 +2675,40 @@
 
   <!-- ============ EXPORT PICKER MODAL ============ -->
   <div id="exportPickerModal" class="modal-overlay">
-    <div class="modal-box" style="max-width:520px">
+    <div class="modal-box" style="max-width:520px" role="dialog" aria-modal="true" aria-labelledby="exportPickerTitle">
       <div class="modal-head">
         <div>
-          <h3 class="text-lg">Export to Google Docs</h3>
+          <h3 class="text-lg" id="exportPickerTitle">Export to Google Docs</h3>
           <p class="text-xs text-ink/45">Where should this go?</p>
         </div>
         <button class="btn-nav" id="exportPickerClose">Close</button>
       </div>
       <div class="modal-body">
         <div class="export-picker-choice">
-          <div class="export-picker-option" data-export-choice="new">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-            <div>
+          <button type="button" class="export-picker-option" data-export-choice="new">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+            <span>
               <strong>Create a new Google Doc</strong>
               <small>A fresh document in your Drive</small>
-            </div>
-          </div>
-          <div class="export-picker-option" data-export-choice="existing">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            <div>
+            </span>
+          </button>
+          <button type="button" class="export-picker-option" data-export-choice="existing">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <span>
               <strong>Add to a Doc you exported</strong>
               <small>Choose one of your recent exports</small>
-            </div>
-          </div>
+            </span>
+          </button>
         </div>
         <div id="exportPickerUrlRow" class="export-picker-url-row">
           <div id="exportPickerRecent" class="export-picker-recent" role="group" aria-label="Recent exports"></div>
           <input id="exportPickerUrlInput" type="url" placeholder="Or paste a Doc link" aria-label="Link to a Doc you exported" />
           <p id="exportPickerNote" class="export-picker-note" role="status"></p>
-          <div class="flex gap-2 justify-end">
-            <button class="refs-panel-btn ghost" id="exportPickerUrlCancel">Back</button>
-            <button class="refs-panel-btn primary" id="exportPickerUrlConfirm">Append</button>
-          </div>
         </div>
+      </div>
+      <div id="exportPickerFoot" class="modal-foot" hidden>
+        <button class="refs-panel-btn ghost" id="exportPickerUrlCancel">Back</button>
+        <button class="refs-panel-btn primary" id="exportPickerUrlConfirm">Append</button>
       </div>
     </div>
   </div>
@@ -2979,6 +2980,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       chatSearch: '',
       refsPendingExport: null,
       createdDocs: null,
+      removedDocs: null,
       driveSyncToken: null,
       driveSyncClient: null,
       driveSyncFileId: null,
@@ -3145,6 +3147,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       exportPickerUrlConfirm:   $('exportPickerUrlConfirm'),
       exportPickerRecent:       $('exportPickerRecent'),
       exportPickerNote:         $('exportPickerNote'),
+      exportPickerFoot:         $('exportPickerFoot'),
 
       // KB reader modal
       kbReaderModal:        $('kbReaderModal'),
@@ -3407,7 +3410,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       try {
         const token = await ensureGoogleToken();
         const meta  = MODE_META[entry.mode];
-        const title = `Student Tools Hub - ${meta?.resultTitle || entry.mode} - ${new Date(entry.timestamp).toLocaleDateString('en-ZA')}`;
+        const title = exportDocTitle(meta?.resultTitle || entry.mode, entry.timestamp);
         const createRes = await fetch('https://docs.googleapis.com/v1/documents', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -3498,6 +3501,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       const d = new Date(ts);
       return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     }
+
+    const formatDateTime = (ts) => new Date(ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
     // Lightweight scrape request — no retry, 20s timeout
     async function scrapeUrl(url) {
@@ -5184,6 +5189,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
             catch (err) { console.warn('[OCR] conversion failed, falling back to the PDF:', fileObj.name, err); }
             if (ocr.isConverted(entry)) return { role: fileObj.role, type: 'text', content: entry.ocrText, name: fileObj.name };
           }
+          if (entry && isDriveOnlyTooLarge(entry)) return { role: fileObj.role, type: 'text', content: wholeFileTooLargeNote(fileObj.name), name: fileObj.name };
           const blob = entry && await getKbFileBlob(entry);
           if (blob) {
             if (!(entry.originalFile instanceof Blob) && blob.size > WEBHOOK_UPLOAD_LIMIT) return { role: fileObj.role, type: 'text', content: wholeFileTooLargeNote(fileObj.name), name: fileObj.name };
@@ -5278,6 +5284,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     async function autoSaveToKb(fileObj, processedDoc) {
       try {
         if (kb.cache.some(k => k.name === fileObj.name)) return; // already stored
+        // A legacy .doc is stored like a Knowledge Bay upload, with its original bytes and fingerprint
+        if (fileObj.type === 'doc' && fileObj.file) { await kb.add(fileObj.file); return; }
         const content = processedDoc.type === 'text'
           ? processedDoc.content
           : (processedDoc.base64 || '');
@@ -5286,7 +5294,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         kb.cache.push({
           id: generateId(),
           name: fileObj.name,
-          type: fileObj.type === 'doc' && processedDoc.type === 'text' ? 'docx' : fileObj.type,
+          type: fileObj.type,
           mime: fileObj.mime,
           size: fileObj.size,
           timestamp: Date.now(),
@@ -5513,6 +5521,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           error
         );
       } finally {
+        driveBlobs.clear();
         stopLoadingMessages();
       }
     }
@@ -5734,7 +5743,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       try {
         const { mode, text } = snap;
         const meta = MODE_META[mode];
-        const title = `Student Tools Hub - ${meta.resultTitle} - ${new Date().toLocaleDateString('en-ZA')}`;
+        const title = exportDocTitle(meta.resultTitle);
 
         const createRes = await fetch('https://docs.googleapis.com/v1/documents', {
           method: 'POST',
@@ -5856,11 +5865,38 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt).slice(0, CREATED_DOCS_MAX);
     }
 
-    // The in-memory copy keeps the list working when storage is blocked
+    // Docs removed from the list (deleted or no longer reachable) stay recorded for 30 days so a sync does not bring them back
+    const REMOVED_DOCS_KEY = 'sth_removed_docs';
+    const REMOVED_DOCS_MAX = 50;
+    const REMOVED_DOCS_TTL = 30 * 24 * 60 * 60 * 1000;
+
+    function mergeRemovedDocs(...lists) {
+      const byId = new Map();
+      for (const r of lists.flat()) {
+        if (r && typeof r.id === 'string' && /^[\w-]+$/.test(r.id) && Number.isFinite(r.removedAt) && Date.now() - r.removedAt < REMOVED_DOCS_TTL && !(byId.get(r.id)?.removedAt >= r.removedAt)) {
+          byId.set(r.id, { id: r.id, removedAt: r.removedAt });
+        }
+      }
+      return [...byId.values()].sort((a, b) => b.removedAt - a.removedAt).slice(0, REMOVED_DOCS_MAX);
+    }
+
+    // The in-memory copies keep the lists working when storage is blocked
+    function getRemovedDocs() {
+      let stored = null;
+      try { stored = JSON.parse(storageGet(REMOVED_DOCS_KEY)); } catch { /* unreadable list */ }
+      return mergeRemovedDocs(stored, state.removedDocs);
+    }
+
+    function setRemovedDocs(list) {
+      state.removedDocs = mergeRemovedDocs(list);
+      storageSet(REMOVED_DOCS_KEY, JSON.stringify(state.removedDocs));
+    }
+
     function getCreatedDocs() {
       let stored = null;
       try { stored = JSON.parse(storageGet(CREATED_DOCS_KEY)); } catch { /* unreadable list */ }
-      return mergeCreatedDocs(stored, state.createdDocs);
+      const removed = new Set(getRemovedDocs().map(r => r.id));
+      return mergeCreatedDocs(stored, state.createdDocs).filter(d => !removed.has(d.id));
     }
 
     function setCreatedDocs(list) {
@@ -5871,6 +5907,27 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     function recordCreatedDoc(id, title) {
       setCreatedDocs([{ id, title, createdAt: Date.now() }, ...getCreatedDocs()]);
       scheduleDrivePush();
+    }
+
+    function removeCreatedDoc(id) {
+      setRemovedDocs([{ id, removedAt: Date.now() }, ...getRemovedDocs()]);
+      setCreatedDocs(getCreatedDocs().filter(d => d.id !== id));
+      scheduleDrivePush();
+    }
+
+    // This device's lists merged with the ones in the sync file
+    function mergeSyncedDocs(remote) {
+      const removed = mergeRemovedDocs(getRemovedDocs(), remote && remote.removedDocIds);
+      const gone = new Set(removed.map(r => r.id));
+      return { removed, docs: mergeCreatedDocs(getCreatedDocs(), remote && remote.createdDocs).filter(d => !gone.has(d.id)) };
+    }
+
+    // Export titles tell exports apart: kind, date and time
+    function exportDocTitle(kind, ts = Date.now()) {
+      const d = new Date(ts);
+      const date = d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
+      const time = d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: false });
+      return `Student Tools Hub - ${kind} - ${date} ${time}`;
     }
 
     const docsHttpError = (label, status) => Object.assign(new Error(`${label}: ${status}`), { status });
@@ -5891,13 +5948,13 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       });
       if (!updateRes.ok) throw docsHttpError('Docs update failed', updateRes.status);
       window.open(`https://docs.google.com/document/d/${docId}/edit`, '_blank');
-      return docId;
+      return { docId, title: docData.title };
     }
 
     // ═══════════════════════════════════════════════════════════
     // ─── GOOGLE DRIVE APP-DATA SYNC ────────────────────────────
     // ═══════════════════════════════════════════════════════════
-    const SYNC_SCOPE    = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
+    const SYNC_SCOPE    = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
     const SYNC_FILE     = 'sth-userdata-v1.json';
     const SYNC_USER_KEY = 'sth_sync_user';
     const SYNC_FILE_KEY = 'sth_sync_file_id';
@@ -5929,6 +5986,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         return;
       }
       state.driveSyncToken = resp.access_token;
+      failedDocs.clear();
       runInitialSync();
     }
 
@@ -5962,6 +6020,12 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       state.driveSyncFileId = null;
       state.driveSyncUser = null;
       convertedDocs.clear();
+      failedDocs.clear();
+      driveBlobs.clear();
+      state.createdDocs = null;
+      state.removedDocs = null;
+      storageRemove(CREATED_DOCS_KEY);
+      storageRemove(REMOVED_DOCS_KEY);
       storageRemove(SYNC_USER_KEY);
       storageRemove(SYNC_FILE_KEY);
       updateSyncUI('signed-out');
@@ -6068,12 +6132,22 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       return res.blob();
     }
 
-    // Converts a legacy .doc to PDF inside the user's own hidden Drive folder: import it as a
-    // Google Doc, export that as PDF, and delete the temporary file whatever happens
+    // The error body names the reason (for example exportSizeLimitExceeded or insufficientPermissions)
+    async function driveResponseError(label, res) {
+      const err = driveHttpError(label, res.status);
+      try {
+        const { error } = await res.json();
+        err.reason = [error?.errors?.[0]?.reason, ...(error?.details || []).map(d => d.reason), error?.status].filter(Boolean).join(' ');
+      } catch { /* no readable body */ }
+      return err;
+    }
+
+    // Converts a legacy .doc to PDF through the user's own Drive: import it as a temporary Google Doc in My Drive
+    // (files.export needs drive.file, which the sync token includes), export that as PDF, and delete the temporary Doc whatever happens
     async function driveConvertDocToPdf(token, blob, filename) {
       const headers = { Authorization: `Bearer ${token}` };
       const boundary = `sth_${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
-      const metadata = JSON.stringify({ name: `__STH_CONVERT__ ${filename}`, mimeType: 'application/vnd.google-apps.document', parents: ['appDataFolder'] });
+      const metadata = JSON.stringify({ name: `__STH_CONVERT__ ${filename}`, mimeType: 'application/vnd.google-apps.document' });
       const body = new Blob([
         `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`,
         `--${boundary}\r\nContent-Type: application/msword\r\n\r\n`,
@@ -6084,11 +6158,11 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
         { method: 'POST', headers: { ...headers, 'Content-Type': `multipart/related; boundary=${boundary}` }, body }
       );
-      if (!upRes.ok) throw driveHttpError('Drive convert upload', upRes.status);
+      if (!upRes.ok) throw await driveResponseError('Drive convert upload', upRes);
       const { id } = await upRes.json();
       try {
         const exportRes = await fetch(`https://www.googleapis.com/drive/v3/files/${id}/export?mimeType=application/pdf`, { headers });
-        if (!exportRes.ok) throw driveHttpError('Drive convert export', exportRes.status);
+        if (!exportRes.ok) throw await driveResponseError('Drive convert export', exportRes);
         return new Blob([await exportRes.blob()], { type: 'application/pdf' });
       } finally {
         await fetch(`https://www.googleapis.com/drive/v3/files/${id}`, { method: 'DELETE', headers }).catch(() => {});
@@ -6103,12 +6177,19 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       }
     }
 
+    // Files read from Drive while a request is prepared, so one file is not downloaded twice (dropped after 2 minutes or at the end of the request)
+    const driveBlobs = new Map();
+
     // A Knowledge Bay file's bytes: kept on this device, or read from the user's own hidden Drive folder
     async function getKbFileBlob(item) {
       if (item.originalFile instanceof Blob) return item.originalFile;
       if (!item.driveFileId || !state.driveSyncToken) return null;
+      if (driveBlobs.has(item.driveFileId)) return driveBlobs.get(item.driveFileId);
       try {
-        return await driveDownloadFile(state.driveSyncToken, item.driveFileId);
+        const blob = await driveDownloadFile(state.driveSyncToken, item.driveFileId);
+        driveBlobs.set(item.driveFileId, blob);
+        setTimeout(() => driveBlobs.delete(item.driveFileId), 120000);
+        return blob;
       } catch (err) {
         console.warn('[Drive] Could not read the file from Drive:', err);
         handleDriveTokenError(err);
@@ -6116,12 +6197,42 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       }
     }
 
+    // Known from the stored size, so a Drive-only file that cannot be sent whole is not downloaded again
+    const isDriveOnlyTooLarge = (item) => !(item.originalFile instanceof Blob) && (item.originalSize || 0) > WEBHOOK_UPLOAD_LIMIT;
+
     // Converted .doc files for this visit, by content hash, so a chat does not convert the same file every turn
     const convertedDocs = new Map();
+    // Permanent conversion failures for this visit, so a file is not uploaded again on every turn
+    const failedDocs = new Map();
+
+    function legacyDocConversionError(name, err) {
+      const reason = err.reason || '';
+      if (err.status === 403 && /exportSizeLimitExceeded/i.test(reason)) return Object.assign(docTooLargeError(name), { permanent: true });
+      if (err.status === 403 && /insufficient|scope/i.test(reason)) {
+        state.driveSyncToken = null;
+        updateSyncUI('expired');
+        return Object.assign(fileError('Google needs one more permission to convert .doc files. Disconnect and reconnect Google sync, then try again.', 'Legacy Word file conversion needs more Google permission'), { permanent: true });
+      }
+      if (err.status === 401) {
+        handleDriveTokenError(err);
+        return fileError(`${name} couldn't be converted because the Google Drive connection expired. Re-connect Drive sync and try again.`, 'Legacy Word file conversion failed');
+      }
+      const transient = !err.status || err.status === 408 || err.status === 429 || err.status >= 500 || /rateLimit/i.test(reason);
+      return Object.assign(
+        fileError(
+          transient
+            ? `${name} couldn't be converted. Try again, or save it as .docx or PDF and re-upload.`
+            : `${name} couldn't be converted. Save it as .docx or PDF and re-upload.`,
+          'Legacy Word file conversion failed'
+        ),
+        { permanent: !transient }
+      );
+    }
 
     // loadBlob is only called when this visit has not converted the file yet; null means the bytes are not available
     async function convertLegacyDoc(name, contentHash, loadBlob) {
       if (contentHash && convertedDocs.has(contentHash)) return convertedDocs.get(contentHash);
+      if (contentHash && failedDocs.has(contentHash)) throw failedDocs.get(contentHash);
       const blob = await loadBlob();
       if (!blob) return null;
       if (blob.size > DOC_CONVERSION_LIMIT) throw docTooLargeError(name);
@@ -6129,13 +6240,9 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       try {
         pdf = await driveConvertDocToPdf(state.driveSyncToken, blob, name);
       } catch (err) {
-        handleDriveTokenError(err);
-        throw fileError(
-          err.status === 401
-            ? `${name} couldn't be converted because the Google Drive connection expired. Re-connect Drive sync and try again.`
-            : `${name} couldn't be converted. Try again, or save it as .docx or PDF and re-upload.`,
-          'Legacy Word file conversion failed'
-        );
+        const failure = legacyDocConversionError(name, err);
+        if (contentHash && failure.permanent) failedDocs.set(contentHash, failure);
+        throw failure;
       }
       const converted = { pdf, text: await extractPdfText(pdf) };
       if (contentHash) convertedDocs.set(contentHash, converted);
@@ -6289,7 +6396,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         // 3 — Merge local + remote
         const mergedKb    = mergeKbItems(kb.cache,       remote.kbItems     || []);
         const mergedChats = mergeTutorChats(tutor.chats, remote.tutorChats  || []);
-        const mergedDocs  = mergeCreatedDocs(getCreatedDocs(), remote.createdDocs);
+        const { docs: mergedDocs, removed: mergedRemoved } = mergeSyncedDocs(remote);
 
         // 4 — Persist merged data locally
         kb.cache = mergedKb;
@@ -6298,6 +6405,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         renderKbGrid();
 
         tutor.chats = mergedChats;
+        setRemovedDocs(mergedRemoved);
         setCreatedDocs(mergedDocs);
         await kb.store.setItem('knowledge_bay', kb.cache); // belt-and-suspenders flush
         if (signedOut()) return;
@@ -6311,7 +6419,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         await ensureScannedPdfsUploadedToDrive();
         if (signedOut()) return;
         const newFileId = await driveWriteSyncFile(token, fileId, {
-          kbItems: kbItemsForDriveSync(kb.cache), tutorChats: mergedChats, createdDocs: mergedDocs, syncedAt: Date.now()
+          kbItems: kbItemsForDriveSync(kb.cache), tutorChats: mergedChats, createdDocs: mergedDocs, removedDocIds: mergedRemoved, syncedAt: Date.now()
         });
         if (signedOut()) return;
         if (newFileId !== fileId) setSyncFileId(newFileId);
@@ -6345,7 +6453,17 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         await ensureScannedPdfsUploadedToDrive();
         if (signedOut()) return;
         let fileId = getSyncFileId();
-        const data = { kbItems: kbItemsForDriveSync(kb.cache), tutorChats: tutor.chats, createdDocs: getCreatedDocs(), syncedAt: Date.now() };
+        // Docs created on another device must not be dropped: merge the file's lists before writing
+        let remote = null;
+        if (fileId) {
+          try { remote = await driveReadSyncFile(token, fileId); }
+          catch (err) { if (!(err instanceof SyntaxError) && err.status !== 404) throw err; }
+          if (signedOut()) return;
+        }
+        const { docs, removed } = mergeSyncedDocs(remote);
+        setRemovedDocs(removed);
+        setCreatedDocs(docs);
+        const data = { kbItems: kbItemsForDriveSync(kb.cache), tutorChats: tutor.chats, createdDocs: docs, removedDocIds: removed, syncedAt: Date.now() };
         const newId = await driveWriteSyncFile(token, fileId, data);
         if (signedOut()) return;
         if (newId !== fileId) setSyncFileId(newId);
@@ -6578,7 +6696,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
       async exportMessage(text) {
         const plain = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[#*`_~]/g, '').trim();
-        const title = `Tutor message — ${new Date().toLocaleString('en-ZA')}`;
+        const title = exportDocTitle('Tutor message');
         try {
           showToast('Creating Google Doc…');
           await createGoogleDocFromContent(title, plain);
@@ -6741,6 +6859,9 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
                 } finally {
                   state.tutorReadingLabel = null;
                 }
+              } else if (isDriveOnlyTooLarge(item)) {
+                attachedContext.push({ name: item.name, content: wholeFileTooLargeNote(item.name) });
+                continue;
               } else {
                 blob = await getKbFileBlob(item);
               }
@@ -6775,6 +6896,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           JSON.stringify(c.cachedKnowledgeIds || []) === JSON.stringify(knowledgeIds)
         );
 
+        driveBlobs.clear();
         const payload = {
           mode: 'tutor',
           systemPrompt: TUTOR_SYSTEM_PROMPT,
@@ -7740,56 +7862,72 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     // ═══════════════════════════════════════════════════════════
     // ─── Export picker (reference list + tutor) ────────────────
     // ═══════════════════════════════════════════════════════════
+    let exportPickerOpener = null;
+    let exportPickerInerted = [];
     function openExportPicker() {
-      dom.exportPickerUrlRow.classList.remove('visible');
+      exportPickerOpener = document.activeElement;
+      showAppendChoices(false);
       dom.exportPickerUrlInput.value = '';
       dom.exportPickerNote.textContent = '';
       renderRecentExports();
       dom.exportPickerModal.classList.add('open');
+      // The page behind stays out of the tab order while the dialog is open
+      exportPickerInerted = [...document.body.children].filter(el => el !== dom.exportPickerModal && el.id !== 'toast' && el.tagName !== 'SCRIPT' && !el.hasAttribute('inert'));
+      exportPickerInerted.forEach(el => el.setAttribute('inert', ''));
+      dom.exportPickerModal.querySelector('[data-export-choice]').focus();
     }
+    const showAppendChoices = (on) => {
+      dom.exportPickerUrlRow.classList.toggle('visible', on);
+      dom.exportPickerFoot.hidden = !on;
+    };
     function renderRecentExports() {
       const docs = getCreatedDocs();
       dom.exportPickerRecent.innerHTML = docs.length
-        ? docs.map(d => `<button type="button" class="export-picker-doc" data-doc-id="${escapeHtml(d.id)}" aria-pressed="false"><span class="export-picker-doc-title">${escapeHtml(d.title)}</span><span class="export-picker-doc-date">${formatDate(d.createdAt)}</span></button>`).join('')
+        ? docs.map(d => `<button type="button" class="export-picker-doc" data-doc-id="${escapeHtml(d.id)}" aria-pressed="false"><span class="export-picker-doc-title">${escapeHtml(d.title)}</span><span class="export-picker-doc-date">${formatDateTime(d.createdAt)}</span></button>`).join('')
         : '<p class="export-picker-empty">No recent exports yet. Create a new Doc first and it will show here.</p>';
+    }
+    function showExportPickerNote(text) {
+      dom.exportPickerNote.textContent = text;
+      dom.exportPickerNote.scrollIntoView({ block: 'nearest' });
     }
     const selectedExportDocId = () => dom.exportPickerRecent.querySelector('[aria-pressed="true"]')?.dataset.docId || '';
     const exportPickerCannotAppendNote = 'Student Tools Hub can only add to Docs it created. Choose one of your recent exports, or export to a new Doc.';
+    const exportPickerGoneNote = 'That Doc was deleted, or the app no longer has access to it.';
     function closeExportPicker() {
       dom.exportPickerModal.classList.remove('open');
       state.refsPendingExport = null;
+      exportPickerInerted.forEach(el => el.removeAttribute('inert'));
+      exportPickerInerted = [];
+      if (exportPickerOpener && exportPickerOpener.isConnected) exportPickerOpener.focus();
+      exportPickerOpener = null;
     }
     async function executePendingRefsExport(mode, url) {
       const text = state.refsPendingExport;
       if (!text) return;
       let keepPicker = false;
+      let docId = null;
+      let known = false;
       try {
         if (mode === 'new') {
           showToast('Creating Google Doc…');
-          await createGoogleDocFromContent(`References — ${new Date().toLocaleDateString('en-ZA')}`, text);
+          await createGoogleDocFromContent(exportDocTitle('References'), text);
           showToast('Exported to Google Docs!');
         } else {
-          const docId = extractDocIdFromUrl(url);
+          docId = extractDocIdFromUrl(url);
           if (!docId) { showToast('Choose one of your recent exports, or paste the link of one.', 'error'); keepPicker = true; return; }
-          if (!getCreatedDocs().some(d => d.id === docId)) {
-            dom.exportPickerNote.textContent = exportPickerCannotAppendNote;
-            keepPicker = true;
-            return;
-          }
+          known = getCreatedDocs().some(d => d.id === docId);
           showToast('Appending to Google Doc…');
-          await appendToGoogleDoc(docId, text);
+          const appended = await appendToGoogleDoc(docId, text);
+          if (!known) recordCreatedDoc(docId, appended.title || 'Google Doc');
           showToast('Appended to Google Doc!');
         }
       } catch (err) {
         console.error('[refs] export failed:', err);
         if (err.googleAuthHandled) { keepPicker = true; return; }
-        if (err.status === 403 || err.status === 404) {
-          if (err.status === 404) {
-            setCreatedDocs(getCreatedDocs().filter(d => d.id !== extractDocIdFromUrl(url)));
-            scheduleDrivePush();
-          }
+        if (mode === 'existing' && (err.status === 403 || err.status === 404)) {
+          if (known && err.status === 404) removeCreatedDoc(docId);
           renderRecentExports();
-          dom.exportPickerNote.textContent = exportPickerCannotAppendNote;
+          showExportPickerNote(known && err.status === 404 ? exportPickerGoneNote : exportPickerCannotAppendNote);
           keepPicker = true;
           return;
         }
@@ -8095,14 +8233,17 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         if (choice === 'new') {
           executePendingRefsExport('new');
         } else {
-          dom.exportPickerUrlRow.classList.add('visible');
+          showAppendChoices(true);
           renderRecentExports();
         }
       });
     });
     dom.exportPickerUrlCancel.addEventListener('click', () => {
-      dom.exportPickerUrlRow.classList.remove('visible');
+      showAppendChoices(false);
       dom.exportPickerNote.textContent = '';
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && dom.exportPickerModal.classList.contains('open')) closeExportPicker();
     });
     dom.exportPickerRecent.addEventListener('click', e => {
       const btn = e.target.closest('.export-picker-doc');
