@@ -3,7 +3,6 @@
 Student Tools Hub turns handwritten notes and study files into text and Google Docs, and offers an AI study tutor. For students aged 18 and over.
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-GitHub%20Pages-blue?style=for-the-badge&logo=github)](https://jay-leigh.github.io/drafts-to-digital/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
 
 - [Privacy Policy](privacy.html)
 - [Terms of Service](terms.html)
@@ -49,6 +48,6 @@ The webhook URL and Google client ID are stored encrypted inside `index.html` an
 
 ---
 
-## License
+## Legal
 
-MIT, Jay-Leigh. See [SECURITY.md](SECURITY.md) for reporting security issues.
+© 2026 Jay-Leigh Vergotine. All rights reserved. See [SECURITY.md](SECURITY.md) for reporting security issues.
