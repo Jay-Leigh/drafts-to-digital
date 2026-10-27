@@ -19,8 +19,6 @@
     --accent: #2c5f2d;
     --accent-deep: #1e4620;
     --mist: #eae5d6;
-    --flag-bg: #fff3c4;
-    --flag-ink: #5c4300;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -33,8 +31,6 @@
       --accent: #8fc592;
       --accent-deep: #a9d9ab;
       --mist: #223424;
-      --flag-bg: #4a3b00;
-      --flag-ink: #ffe9a3;
     }
   }
 
@@ -118,7 +114,6 @@
     }
   }
 
-  .confirm { background: var(--flag-bg); color: var(--flag-ink); padding: 0 4px; border-radius: 4px; font-weight: 500; }
 
   .limited-use {
     background: var(--mist);
@@ -191,7 +186,7 @@
           <td data-label="Data">Technical record of each request (the server's execution log). It can include what was sent, such as file contents and text, the replies, and the temporary Google access token described below</td>
           <td data-label="Why">Needed for the server to run, and to find faults</td>
           <td data-label="Where it goes">The app's own n8n server on Google Cloud Run</td>
-          <td data-label="How long">Deleted automatically after <span class="confirm">[CONFIRM: n8n execution retention days]</span> days</td>
+          <td data-label="How long">Deleted automatically, currently within about 2 days</td>
         </tr>
         <tr>
           <td data-label="Data">Short-lived Google access token (valid about 1 hour). Sent only when (a) a legacy <code>.doc</code> file is converted, or (b) a scanned PDF that is stored only in your Drive (not on this device) is processed. For about an hour the token gives access to the app's whole hidden Drive area (including your sync file) and your name and email. The server only uses it to fetch or convert the one file you are processing.</td>
@@ -422,7 +417,7 @@
   <p>You are welcome to raise a concern with me at <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a>. You do not have to contact me first. You can also complain to the Information Regulator (South Africa) at <a href="https://inforegulator.org.za">inforegulator.org.za</a>, or by email at <a href="mailto:POPIAComplaints@inforegulator.org.za">POPIAComplaints@inforegulator.org.za</a> (as published on inforegulator.org.za).</p>
 
   <h2 id="age">10. Age: 18 and over only</h2>
-  <p>Student Tools Hub is not for anyone under 18. This is because the Google Gemini API terms do not allow under-18 audiences. If I learn that someone under 18 is using the service, I will take appropriate, reasonable steps to stop their access (for example by changing the access code) and delete any data I hold that can be linked to them. A confirmation tick box in the app is planned but does not exist yet.</p>
+  <p>Student Tools Hub is not for anyone under 18. This is because the Google Gemini API terms do not allow under-18 audiences. If I learn that someone under 18 is using the service, I will take appropriate, reasonable steps to limit their access and delete any data I hold that can be linked to them. A confirmation tick box in the app is planned but does not exist yet.</p>
 
   <h2 id="pricing">11. Pricing</h2>
   <p>The service is free today and is expected to become paid later. You will not be charged without your agreement. Payment details are not collected now. Before any payment feature starts, this policy will be updated to say what is collected and who handles it. Changes will be announced on this page and, where I can, in the app, at least 14 days before they take effect.</p>
