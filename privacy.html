@@ -83,6 +83,7 @@
   table { border-collapse: collapse; width: 100%; font-size: 0.92rem; line-height: 1.5; }
   th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--warm); overflow-wrap: anywhere; }
   th { background: var(--mist); font-weight: 600; }
+  @media (min-width: 600px) { th { min-width: 6.5rem; } }
   tr:last-child td { border-bottom: none; }
 
   @media (max-width: 599px) {
@@ -140,11 +141,11 @@
       <li>The notes, PDFs, images and text you give the app are sent to Google's AI (Gemini and Cloud Vision) to be read and processed. Giving the app your files is your choice, but the features cannot work without them.</li>
       <li>Your information is not sold and not used to train AI. There are no ads, no analytics, and the site sets no cookies.</li>
       <li>The service is free today, and you will never be charged without agreeing first (<a href="#pricing">section 11</a>).</li>
-      <li>Your notes stay in your own browser and, if you connect Google, in a hidden sync file in your own Google Drive.</li>
-      <li>I can see error reports and server logs, and these may contain parts of what you uploaded (<a href="#data">section 2</a>).</li>
+      <li>Your notes stay in your own browser and, if you connect Google, in a hidden sync file in your own Google Drive. Short-lived copies are also kept on the app's services while it works: tutor chats for 3 hours, and file pointers for 47 hours. Error emails are kept for 90 days.</li>
+      <li>Error reports are sent to me automatically when something fails. I can see them and the server logs, and these may contain parts of what you uploaded (<a href="#data">section 2</a>).</li>
       <li>Text read from scanned PDFs is kept with no end date and is shared by anyone who uploads the same file. It is filed under the file's fingerprint, not your name, but the text itself may contain personal details.</li>
       <li>The service is for people aged 18 and over (<a href="#age">section 10</a>).</li>
-      <li>To see, correct or delete your information, email <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a> and follow the steps in <a href="#rights">section 8</a>.</li>
+      <li>Signing out of the app deletes nothing. To see, correct or delete your information, email <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a> and follow the steps in <a href="#rights">section 8</a>.</li>
     </ul>
   </div>
 
@@ -191,7 +192,7 @@
           <td data-label="How long">Deleted automatically, currently within about 2 days</td>
         </tr>
         <tr>
-          <td data-label="Data">Short-lived Google access token (valid about 1 hour). Sent only when (a) a legacy <code>.doc</code> file is converted, or (b) a scanned PDF that is stored only in your Drive (not on this device) is processed. For about an hour the token gives access to the app's whole hidden Drive area (including your sync file) and your name and email. Google adds permissions you granted earlier to new tokens, so if you have also allowed Docs access this token may cover your Google Docs too. The server only uses it to fetch or convert the one file you are processing.</td>
+          <td data-label="Data">Short-lived Google access token (valid about 1 hour). Sent only when (a) a legacy <code>.doc</code> file is converted, or (b) a scanned PDF that is stored only in your Drive (not on this device) is processed. For about an hour the token gives access to the app's whole hidden Drive area (including your sync file) and your name and email. Google adds permissions you granted earlier to new tokens, so if you have also allowed Docs access this token may also cover the Docs and Drive-file access you granted earlier. The server only uses it to fetch or convert the one file you are processing.</td>
           <td data-label="Why">So the server can fetch and convert that file in the app's hidden area of your Drive and normally delete the temporary copy</td>
           <td data-label="Where it goes">Your browser sends it to the server with the request. The server never stores your name or email on purpose, but during some requests it holds a temporary Google pass (about 1 hour) that could look them up, and it can end up in the server's log until the log is deleted. If a request fails, the token may also appear in the error email.</td>
           <td data-label="How long">Expires at Google after about 1 hour. Log copies follow the execution log retention above.</td>
@@ -211,7 +212,7 @@
         <tr>
           <td data-label="Data">Text read from scanned PDF pages (OCR, or text recognition, results), filed under a hash of the file and the page range. This text can include personal details that appear in your scans. Text recognition starts automatically in the background as soon as you add a scanned PDF to Knowledge Bay, and resumes when you reopen the app if it did not finish.</td>
           <td data-label="Why">So the same pages are not scanned twice</td>
-          <td data-label="Where it goes">Upstash Redis. Text recognised from scanned PDFs, including PDFs fetched from your Drive, is stored in a shared cache without your name and kept until removed by hand (<a href="#rights">section 8</a>).</td>
+          <td data-label="Where it goes">Upstash Redis. Text recognised from scanned PDFs is stored in a shared cache without your name and kept until removed by hand (<a href="#rights">section 8</a>).</td>
           <td data-label="How long"><strong>No expiry.</strong> Kept until removed by hand. To have an entry removed, email me the same PDF and I will find and remove its stored text (<a href="#rights">section 8</a>).</td>
         </tr>
         <tr>
@@ -260,7 +261,7 @@
     </table>
   </div>
 
-  <p>Files you process are normally saved automatically to Knowledge Bay (your saved study library in the app) in your browser (unless an item with the same name is already there), and to your Drive if sync is on. Very large inline images (over about 6 MB) are skipped. Saved items stay until you delete them. Only the History list expires, after 30 days. Browser storage also holds original scanned-PDF and <code>.doc</code> files and the full result text.</p>
+  <p>Files you process are normally saved automatically to Knowledge Bay (your saved study library in the app) in your browser (unless an item with the same name is already there), and to your Drive if sync is on. Very large images and PDFs (over roughly 4.5 MB) are not saved automatically. Saved items stay until you delete them. Only the History list expires, after 30 days. Browser storage also holds original scanned-PDF and <code>.doc</code> files and the full result text.</p>
   <p>Anyone who already has an identical file (or its hash) can get its cached text or file pointer.</p>
   <p>The app asks for a shared access code before it opens, and remembers it in your browser for a limited time (see <a href="#security">section 7</a> and <a href="#technical">section 14</a>).</p>
   <p>Please do not upload other people's sensitive details (ID numbers, health or financial records) unless you must. If your notes contain information about other people, you are responsible for having the right to share it (<a href="#why">section 3</a>).</p>
@@ -288,7 +289,7 @@
 
   <h2 id="others">5. Who else handles your information</h2>
   <h3 id="processors">Services that process data for me</h3>
-  <p>I decide what happens to your information. The companies that handle it for me (such as Google) work under their own terms. POPIA calls them 'operators'. In this policy 'I' always means Jay-Leigh Vergotine.</p>
+  <p>The companies that handle information for me (such as Google) work under their own terms. POPIA calls them "operators". In this policy "I" always means Jay-Leigh Vergotine.</p>
 
   <div class="table-wrap">
     <table>
@@ -425,7 +426,7 @@
   <p>The service is free today and is expected to become paid later. You will not be charged without your agreement. Payment details are not collected now. Before any payment feature starts, this policy will be updated to say what is collected and who handles it. Changes will be announced on this page and, where I can, in the app, at least 14 days before they take effect.</p>
 
   <h2 id="changes">12. Changes to this policy</h2>
-  <p>This policy will be updated when the app changes. Important changes are announced on this page and, where I can, in the app, at least 14 days before they take effect. If a change is urgent (for security or to follow the law), I may make it sooner and will tell you as soon as I can. The effective date at the top shows the current version. Your rights under POPIA and the Consumer Protection Act that cannot be limited are not affected by anything here. The law of South Africa applies.</p>
+  <p>This policy will be updated when the app changes. Important changes are announced on this page and, where I can, in the app, at least 14 days before they take effect. If a change is urgent (for security or to follow the law), I may make it sooner and will tell you as soon as I can. Price changes always get 14 days' notice. The effective date at the top shows the current version. Your rights under POPIA and the Consumer Protection Act that cannot be limited are not affected by anything here. The law of South Africa applies.</p>
 
   <h2 id="contact">13. Contact</h2>
   <p>Jay-Leigh Vergotine, South Africa<br />
