@@ -142,10 +142,10 @@
       <li>Your information is not sold and not used to train AI. There are no ads, no analytics, and the site sets no cookies.</li>
       <li>The service is free today, and you will never be charged without agreeing first (<a href="#pricing">section 11</a>).</li>
       <li>Your notes stay in your own browser and, if you connect Google, in a hidden sync file in your own Google Drive. Short-lived copies are also kept on the app's services while it works: tutor chats for 3 hours, and file pointers for 47 hours. Error emails are kept for 90 days.</li>
-      <li>Error reports are sent to me automatically when something fails. I can see them and the server logs, and these may contain parts of what you uploaded (<a href="#data">section 2</a>).</li>
+      <li>Error reports are sent to me automatically when something fails. The app's own reports hold only a short message with no file names, stack traces or server error text. When the server itself fails, its error record can contain parts of what you uploaded, and I can see the server logs too (<a href="#data">section 2</a>).</li>
       <li>Text read from scanned PDFs is kept with no end date and is shared by anyone who uploads the same file. It is filed under the file's fingerprint, not your name, but the text itself may contain personal details.</li>
-      <li>The service is for people aged 18 and over (<a href="#age">section 10</a>).</li>
-      <li>Signing out of the app deletes nothing. To see, correct or delete your information, email <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a> and follow the steps in <a href="#rights">section 8</a>.</li>
+      <li>The service is for people aged 18 and over, and the app asks you to confirm this with a tick box (<a href="#age">section 10</a>).</li>
+      <li>Signing out of sync removes the app's Google access but deletes none of your data. To see, correct or delete your information, email <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a> and follow the steps in <a href="#rights">section 8</a>.</li>
     </ul>
   </div>
 
@@ -234,7 +234,7 @@
           <td data-label="How long">Yours to keep or delete. I keep no copy.</td>
         </tr>
         <tr>
-          <td data-label="Data">Error reports, sent automatically when processing fails, without asking you first: time, your browser (user-agent text), the error message, stack and other technical detail, the names of files involved, and sometimes the server's own error text; when the server itself fails, the email contains the server's error record, which can include parts of the failed request.</td>
+          <td data-label="Data">Error reports, sent automatically when processing fails, without asking you first: time, your browser (user-agent text) and a short error message (cut to 300 characters, with email addresses, access tokens and file names removed). The app's own reports no longer include stack traces, file names or the server's error text. When the server itself fails, the email contains the server's error record, which can include parts of the failed request.</td>
           <td data-label="Why">To find and fix bugs</td>
           <td data-label="Where it goes">Emailed by the server through Gmail to my mailbox (jayleigh.dev@gmail.com). The sending Gmail account, which is another mailbox of mine, also keeps a copy in its Sent folder. It also passes through the server's execution log.</td>
           <td data-label="How long">Both copies are kept for 90 days, then deleted</td>
@@ -263,7 +263,7 @@
 
   <p>Files you process are normally saved automatically to Knowledge Bay (your saved study library in the app) in your browser (unless an item with the same name is already there), and to your Drive if sync is on. Very large images and PDFs (over roughly 4.5 MB) are not saved automatically. Saved items stay until you delete them. Only the History list expires, after 30 days. Browser storage also holds original scanned-PDF and <code>.doc</code> files and the full result text.</p>
   <p>Anyone who already has an identical file (or its hash) can get its cached text or file pointer.</p>
-  <p>The app asks for a shared access code before it opens, and remembers it in your browser for a limited time (see <a href="#security">section 7</a> and <a href="#technical">section 14</a>).</p>
+  <p>The app asks for a shared access code and a tick box (18 or older, and acceptance of the Terms of Service and this Privacy Policy) before it opens. It remembers the code in your browser for a limited time (see <a href="#security">section 7</a> and <a href="#technical">section 14</a>).</p>
   <p>Please do not upload other people's sensitive details (ID numbers, health or financial records) unless you must. If your notes contain information about other people, you are responsible for having the right to share it (<a href="#why">section 3</a>).</p>
 
   <h2 id="why">3. Why your information is used</h2>
@@ -409,8 +409,8 @@
   <h3 id="delete">How to delete your data</h3>
   <p>Nothing is deleted automatically from your browser, Drive or the OCR cache when you simply stop using the app.</p>
   <ul>
-    <li><strong>On your device:</strong> clear this site's data in your browser. Signing out of sync in the app clears only your sync details (your Google name, email and picture and the ID of your sync file). It does not clear the access code or anything else in your browser, and it does not revoke Google access.</li>
-    <li><strong>Stop Google access:</strong> go to <a href="https://myaccount.google.com/connections">myaccount.google.com/connections</a>, choose Student Tools Hub and remove its access. Syncing then stops; your hidden Drive data stays until you delete it as described below.</li>
+    <li><strong>On your device:</strong> clear this site's data in your browser. Signing out of sync in the app clears your sync details (your Google name, email and picture and the ID of your sync file) and removes the app's Google access. It does not clear the access code or anything else in your browser.</li>
+    <li><strong>Stop Google access:</strong> signing out of sync in the app does this for you. You can also go to <a href="https://myaccount.google.com/connections">myaccount.google.com/connections</a>, choose Student Tools Hub and remove its access. Syncing then stops; your hidden Drive data stays until you delete it as described below.</li>
     <li><strong>Your hidden Drive data:</strong> in Google Drive choose Settings &rarr; Manage apps &rarr; Student Tools Hub &rarr; Options &rarr; Delete hidden app data. Docs you exported are ordinary files in your Drive that you can delete.</li>
     <li><strong>On the server:</strong> tutor chats and Gemini file pointers expire by themselves. Execution logs and error emails are deleted on the schedule in <a href="#data">section 2</a>. You can ask me to delete a specific error email or log entry earlier: send the date and time. For the OCR cache (text recognition results), email me the same PDF and I will find and remove its stored text. Entries are filed under a digital fingerprint (hash) of the file and not under your name, so I find them from the PDF itself. If you no longer have the PDF, tell me what it was and when you used it and I will do what I reasonably can.</li>
     <li><strong>Not built yet:</strong> a "Delete my data" button in the app. This page will be updated if it is added.</li>
@@ -420,7 +420,7 @@
   <p>You are welcome to raise a concern with me at <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a>. You do not have to contact me first. You can also complain to the Information Regulator (South Africa) at <a href="https://inforegulator.org.za">inforegulator.org.za</a>, or by email at <a href="mailto:POPIAComplaints@inforegulator.org.za">POPIAComplaints@inforegulator.org.za</a> (as published on inforegulator.org.za).</p>
 
   <h2 id="age">10. Age: 18 and over only</h2>
-  <p>Student Tools Hub is not for anyone under 18. This is because the Google Gemini API terms do not allow under-18 audiences. If I learn that someone under 18 is using the service, I will take appropriate, reasonable steps to limit their access and delete any data I hold that can be linked to them. A confirmation tick box in the app is planned but does not exist yet.</p>
+  <p>Student Tools Hub is not for anyone under 18. This is because the Google Gemini API terms do not allow under-18 audiences. If I learn that someone under 18 is using the service, I will take appropriate, reasonable steps to limit their access and delete any data I hold that can be linked to them. To open the app you must tick a box saying you are 18 or older and accept the Terms of Service and this Privacy Policy. The app keeps a record of that tick (the date and the version of the terms) in your browser only. It is not sent to the server, and you are asked again if the terms change.</p>
 
   <h2 id="pricing">11. Pricing</h2>
   <p>The service is free today and is expected to become paid later. You will not be charged without your agreement. Payment details are not collected now. Before any payment feature starts, this policy will be updated to say what is collected and who handles it. Changes will be announced on this page and, where I can, in the app, at least 14 days before they take effect.</p>
@@ -464,10 +464,10 @@
   <h3 id="tech-browser">Browser storage</h3>
   <p>The site sets no cookies. Google Identity Services, Google Fonts and the other hosts in <a href="#others">section 5</a> may use their own storage under their own policies. The app itself uses:</p>
   <ul>
-    <li><strong>Local storage:</strong> the access code (base64-encoded, not encrypted) and when you unlocked (treated as valid for 24 hours after you enter it; the stored entry is removed the next time you open the app after that, or when you clear the site's data); your Google name, email and picture for sync; the ID of your Drive sync file (these two are what signing out of sync clears); whether the sidebar is collapsed.</li>
+    <li><strong>Local storage:</strong> the access code (base64-encoded, not encrypted) and when you unlocked (treated as valid for 24 hours after you enter it; the stored entry is removed the next time you open the app after that, or when you clear the site's data); your Google name, email and picture for sync; the ID of your Drive sync file (these two are what signing out of sync clears); the record that you ticked the 18-or-older and terms box (the date and the version of the terms, kept in your browser only); whether the sidebar is collapsed.</li>
     <li><strong>IndexedDB:</strong> your draft in progress, 30 days of history (the only part that expires), Knowledge Bay items (including images as base64, original scanned-PDF and <code>.doc</code> files, and full result text), scanned-PDF progress, and tutor chats.</li>
   </ul>
-  <p>Both stay on your device until you clear the site's data. Signing out of sync in the app clears only your Google name, email and picture and the ID of your sync file. It does not remove the access code or any other browser data, and it does not revoke Google access (the token stays valid for up to about an hour).</p>
+  <p>Both stay on your device until you clear the site's data. Signing out of sync in the app clears your Google name, email and picture and the ID of your sync file, and revokes the app's Google access. It does not remove the access code, your tick-box record or any other browser data.</p>
 
   <h3 id="tech-drive">Google Drive</h3>
   <p>The hidden sync file is <code>sth-userdata-v1.json</code> in the app data area (<code>drive.appdata</code>, a hidden folder only this app can open). It holds Knowledge Bay items (your saved study library in the app): extracted text, including scraped web pages and OCR text, and base64 images, plus tutor chats. Original scanned PDFs and legacy <code>.doc</code> files are saved as separate files in the same hidden folder under their original file names. During <code>.doc</code> conversion a temporary file named <code>__STH_CONVERT__ &lt;name&gt;</code> is created there and normally deleted straight after. If a conversion fails it can remain until you delete the hidden app data.</p>
