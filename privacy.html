@@ -54,6 +54,7 @@
   main { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
   a { color: var(--accent); }
   a:hover { color: var(--accent-deep); }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
 
   .back { display: inline-block; margin-bottom: 20px; font-weight: 500; text-decoration: none; }
   .back:hover { text-decoration: underline; }
@@ -142,7 +143,7 @@
     <ul>
       <li>The notes, PDFs, images and text you give the app are sent to Google's AI (Gemini and Cloud Vision) to be read and processed. Giving the app your files is your choice, but the features cannot work without them.</li>
       <li>Most of your saved work stays in your own browser. If you connect Google, a hidden sync file is kept in your own Google Drive.</li>
-      <li>Some short-lived copies, and some longer-lived caches, are kept on the app's server while you work. See <a href="#data">section 2</a> for what and for how long.</li>
+      <li>Some copies are kept by the app's services while you work, and the text read from scanned PDFs is kept with no end date (not linked to your name). See <a href="#data">section 2</a>.</li>
       <li>No ads, no analytics, and the site sets no cookies.</li>
       <li>The service is for people aged 18 and over (<a href="#age">section 10</a>).</li>
       <li>To see, correct or delete your information, email <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a> (<a href="#rights">section 8</a>).</li>
@@ -171,7 +172,7 @@
   <p>The only contact is <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a>. The web address of the app still contains its earlier name, "drafts-to-digital". It is the same service.</p>
 
   <h2 id="data">2. What is collected, why, and for how long</h2>
-  <p>Only what the features need. There is no user account database: the app does not keep a list of users or their documents.</p>
+  <p>Only what the features need. There is no user account database, and the server is not built to store your name or email. The one exception is a short-lived Google access token that can appear in server logs (see the token row below).</p>
 
   <div class="table-wrap">
     <table>
@@ -192,9 +193,9 @@
           <td data-label="How long">Deleted automatically after <span class="confirm">[CONFIRM: n8n execution retention days]</span> days</td>
         </tr>
         <tr>
-          <td data-label="Data">Short-lived Google access token (valid about 1 hour). Sent only when you process a scanned PDF or a legacy <code>.doc</code> file with Google connected</td>
+          <td data-label="Data">Short-lived Google access token (valid about 1 hour). Sent only when you process a scanned PDF or a legacy <code>.doc</code> file with Google connected. For about an hour the token gives access to the app's whole hidden Drive area (including your sync file) and your name and email. The server only uses it to fetch or convert the one file you are processing.</td>
           <td data-label="Why">So the server can fetch and convert that file in the app's hidden area of your Drive and delete the temporary copy</td>
-          <td data-label="Where it goes">Your browser sends it to the server with the request. It is not stored by design, but because it travels in the request it may sit in the execution log until that log is pruned.</td>
+          <td data-label="Where it goes">Your browser sends it to the server with the request. It is not stored by design, but because it travels in the request it may sit in the execution log until that log is deleted.</td>
           <td data-label="How long">Expires at Google after about 1 hour. Log copies follow the execution log retention above.</td>
         </tr>
         <tr>
@@ -210,7 +211,7 @@
           <td data-label="How long">Pointer deleted after 47 hours. Google deletes uploaded Gemini files after 48 hours.</td>
         </tr>
         <tr>
-          <td data-label="Data">Text read from scanned PDF pages (OCR results), filed under a hash of the file and the page range</td>
+          <td data-label="Data">Text read from scanned PDF pages (OCR results), filed under a hash of the file and the page range. This text can include personal details that appear in your scans.</td>
           <td data-label="Why">So the same pages are not scanned twice</td>
           <td data-label="Where it goes">Upstash Redis. Shared across users and not linked to any name or email.</td>
           <td data-label="How long"><strong>No expiry.</strong> Kept until removed by hand. To have an entry removed, I need the file or its hash (<a href="#rights">section 8</a>).</td>
@@ -234,15 +235,15 @@
           <td data-label="How long">Yours to keep or delete. The operator keeps no copy.</td>
         </tr>
         <tr>
-          <td data-label="Data">Error reports: time, your browser (user-agent text), the error message, stack and other technical detail, the names of files involved, and sometimes the server's own error text</td>
+          <td data-label="Data">Error reports: time, your browser (user-agent text), the error message, stack and other technical detail, the names of files involved, and sometimes the server's own error text; when the server itself fails, the email contains the server's error record, which can include parts of the failed request.</td>
           <td data-label="Why">To find and fix bugs</td>
-          <td data-label="Where it goes">Emailed by the server through Gmail to the operator's mailbox (jayleigh.dev@gmail.com)</td>
+          <td data-label="Where it goes">Emailed by the server through Gmail to the operator's mailbox (jayleigh.dev@gmail.com). It also passes through the server's execution log.</td>
           <td data-label="How long">Kept for 90 days, then deleted</td>
         </tr>
         <tr>
           <td data-label="Data">Web addresses you ask the app to read, and any DOI inside them</td>
           <td data-label="Why">To fetch the page and read it</td>
-          <td data-label="Where it goes">The server fetches the address (http and https both work). A DOI is also looked up at Crossref, Unpaywall and doi.org. The page text then goes to Gemini.</td>
+          <td data-label="Where it goes">The server fetches the address (http and https both work). A DOI may also be looked up at Crossref and Unpaywall. The page text then goes to Gemini.</td>
           <td data-label="How long">Not kept beyond the execution log above</td>
         </tr>
         <tr>
@@ -268,19 +269,19 @@
   <p>Your information is not sold, is not used for advertising, and is not used to build profiles of you.</p>
 
   <h2 id="google">4. Google permissions and the Limited Use rule</h2>
-  <p>When you connect Google, the app asks for the permissions below, and only uses them for the purpose shown.</p>
+  <p>When you connect Google, the app asks for the permissions below, and only uses them for the purpose shown. Export asks for Docs and Drive-file access; turning on sync asks for the hidden-folder, name and email access.</p>
   <ul>
     <li id="scope-documents"><strong>Google Docs (<code>documents</code>):</strong> to create a new Google Doc when you export. If you paste a link to one of your own Docs and choose to append, the app also reads that Doc to find where it ends and adds your text there. The app does not open any other Docs, and the contents of your Docs are not sent to the server.</li>
-    <li><strong>Drive files (<code>drive.file</code>):</strong> to work with files the app creates or that you open with it, such as the temporary copy made while converting a legacy <code>.doc</code> file. It does not give the app access to the rest of your Drive.</li>
-    <li><strong>Drive app data (<code>drive.appdata</code>):</strong> to keep the hidden sync file and copies of your scanned documents in your own Drive, so your work follows you between devices.</li>
+    <li><strong>Drive files (<code>drive.file</code>):</strong> requested together with Docs access when you export. It only covers files this app creates; the app does not use it to open any other file in your Drive.</li>
+    <li><strong>Drive app data (<code>drive.appdata</code>):</strong> to keep the hidden sync file and copies of your scanned documents in your own Drive, so your work follows you between devices. When you process a scanned PDF that is not on this device, or a legacy <code>.doc</code> file, the server also uses this access to fetch that file from the hidden area, or to convert it there and delete the temporary copy.</li>
     <li><strong>Profile and email (<code>userinfo.profile</code>, <code>userinfo.email</code>):</strong> to show your name and picture and to know which account is connected.</li>
   </ul>
-  <p>Google user data is used only to provide these features. It is not sold, not used for advertising, and not used to develop, improve or train generalised AI models. Nobody reads it except where you ask for support, where it is needed for security or to investigate an error report, or where the law requires it.</p>
+  <p>Google user data is used only to provide these features. It is not sold and not used for advertising. Information obtained through Google Workspace APIs (Docs and Drive) is not used to develop, improve or train generalised AI and/or ML models. Nobody reads it unless you give permission (for example, when you ask for help), where it is needed for security purposes such as investigating abuse, or where the law requires it.</p>
   <p class="limited-use">Student Tools Hub's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
 
   <h2 id="others">5. Who else handles your information</h2>
   <h3 id="processors">Services that process data for the operator</h3>
-  <p>These act as "operators" under POPIA: they process information on my behalf, under their own terms.</p>
+  <p>These are service providers that process information on my behalf (POPIA calls them 'operators'), under their own terms.</p>
 
   <div class="table-wrap">
     <table>
@@ -297,7 +298,7 @@
         <tr>
           <td data-label="Service"><strong>Google Cloud Vision</strong></td>
           <td data-label="What it does">Text recognition on scanned pages</td>
-          <td data-label="What it receives">Scanned page images from your PDFs</td>
+          <td data-label="What it receives">The scanned pages of your PDF, a few pages at a time</td>
           <td data-label="Where">Google; may be outside South Africa</td>
         </tr>
         <tr>
@@ -329,7 +330,7 @@
   </div>
 
   <h3 id="other-services">Other services your browser or the server contacts</h3>
-  <p>These are not operators acting for me. Each handles what it receives under its own policy.</p>
+  <p>These are not service providers acting for me. Each handles what it receives under its own policy.</p>
 
   <div class="table-wrap">
     <table>
@@ -348,7 +349,7 @@
           <td data-label="What it sees">Your IP address and browser details when the page loads</td>
         </tr>
         <tr>
-          <td data-label="Service"><strong>Crossref, Unpaywall, doi.org</strong></td>
+          <td data-label="Service"><strong>Crossref, Unpaywall</strong></td>
           <td data-label="Why it is contacted">Look up reference details for a DOI</td>
           <td data-label="What it sees">Only the DOI, requested by the server</td>
         </tr>
@@ -375,7 +376,7 @@
   <ul>
     <li>The app's pages and the Google services it uses are loaded over HTTPS. Web addresses you ask the server to read may start with <code>http://</code>, which is not encrypted.</li>
     <li>Google sign-in uses Google's own system, so the app never sees your Google password.</li>
-    <li>The access code is a shared code that works as a simple gate. It is not strong protection, and the server's webhook is not checked for each individual user.</li>
+    <li>The access code is a shared code that works as a simple gate. It is not strong protection, and the server does not check who is sending each request.</li>
     <li>Tutor sessions and Gemini file pointers expire on a timer (<a href="#data">section 2</a>). OCR text does not.</li>
     <li>Your synced data sits in your own Google Drive, protected by your Google account. Use a strong password and 2-step verification.</li>
   </ul>
@@ -402,10 +403,10 @@
   </ul>
 
   <h2 id="complaints">9. Complaints</h2>
-  <p>Please raise a concern with me first at <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a>. You can also complain to the Information Regulator (South Africa) at <a href="https://inforegulator.org.za">inforegulator.org.za</a>.</p>
+  <p>Please raise a concern with me first at <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a>. You can also complain to the Information Regulator (South Africa) at <a href="https://inforegulator.org.za">inforegulator.org.za</a>, or by email at <a href="mailto:POPIAComplaints@inforegulator.org.za">POPIAComplaints@inforegulator.org.za</a> (as published on inforegulator.org.za).</p>
 
   <h2 id="age">10. Age: 18 and over only</h2>
-  <p>Student Tools Hub is not for anyone under 18. This is because the Google Gemini API terms do not allow under-18 audiences. If the operator learns that someone under 18 is using the service, their access and data will be removed. A confirmation tick box in the app is planned but does not exist yet.</p>
+  <p>Student Tools Hub is not for anyone under 18. This is because the Google Gemini API terms do not allow under-18 audiences. If I learn that someone under 18 is using the service, I will take reasonable steps to stop their access (for example by changing the access code) and delete any data I hold that can be linked to them. A confirmation tick box in the app is planned but does not exist yet.</p>
 
   <h2 id="pricing">11. Free now, paid later</h2>
   <p>The service is free today and will become paid later. You will not be charged without your agreement. Payment details are not collected now. Before any payment feature starts, this policy will be updated to say what is collected and who handles it. Changes will be announced in the app and on this page at least 14 days before they take effect.</p>
