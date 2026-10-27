@@ -403,7 +403,7 @@
       position: fixed; inset: 0; z-index: 300;
       background: #f5f0e1;
       display: flex; align-items: center; justify-content: center;
-      overflow-y: auto;
+      overflow-y: auto; padding: 16px 0;
       transition: opacity 0.4s ease, visibility 0.4s ease;
     }
     .login-overlay.dismissed { opacity: 0; visibility: hidden; pointer-events: none; }
@@ -449,8 +449,12 @@
       display: flex; justify-content: center; gap: 18px; margin-top: 16px;
       font-family: 'Outfit', sans-serif; font-size: 12px;
     }
-    #loginBtn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
-    #loginForm.consent-only .login-input, #loginForm.consent-only .login-error { display: none; }
+    #loginForm.consent-only .login-input { display: none; }
+    .storage-note {
+      position: fixed; right: 12px; bottom: 12px; z-index: 250; max-width: 300px;
+      padding: 8px 12px; border-radius: 10px; background: #fff7e0; border: 1px solid #d4c9a8;
+      font-family: 'Outfit', sans-serif; font-size: 12px; line-height: 1.4; color: #1a2e1c;
+    }
 
     /* ───────── KNOWLEDGE BAY ───────── */
     .kb-grid {
@@ -1649,9 +1653,9 @@
     }
     .sync-sign-out-btn:hover { background: rgba(26,46,28,0.08); color: #1a2e1c; }
     .sidebar-legal {
-      flex-shrink: 0; padding: 0 14px 12px;
+      flex-shrink: 0; padding: 0 14px calc(12px + env(safe-area-inset-bottom));
       display: flex; justify-content: center; gap: 6px;
-      font-size: 11px; color: rgba(26,46,28,0.4);
+      font-size: 11px; color: rgba(26,46,28,0.72);
     }
     .sidebar-legal a:hover { color: #1a2e1c; text-decoration: underline; }
     .sync-syncing-dot {
@@ -1930,13 +1934,13 @@
       </div>
       <p class="login-about">Student Tools Hub turns handwritten notes and study files into text and Google Docs, and offers an AI study tutor. For students aged 18 and over.</p>
       <form id="loginForm" autocomplete="off">
-        <input type="password" id="loginInput" class="login-input" placeholder="Access code" autofocus />
-        <p id="loginError" class="login-error">&nbsp;</p>
+        <input type="password" id="loginInput" class="login-input" placeholder="Access code" aria-label="Access code" autofocus />
+        <p id="loginError" class="login-error" role="alert" aria-live="assertive">&nbsp;</p>
         <label class="login-consent">
           <input type="checkbox" id="loginConsent" />
           <span>I am 18 or older and I accept the <a href="terms.html" target="_blank" rel="noopener">Terms of Service</a> and <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a></span>
         </label>
-        <button type="submit" id="loginBtn" disabled
+        <button type="submit" id="loginBtn"
                 class="w-full mt-4 font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white py-3.5 rounded-xl transition shadow-lg shadow-accent/20">
           Unlock
         </button>
@@ -2641,6 +2645,7 @@
 
   <!-- Toast -->
   <div id="toast" class="toast"></div>
+  <div id="storageNote" class="storage-note" hidden>Your browser is blocking storage, so you will need to enter the code on each visit.</div>
   <div id="selectionTooltip" class="selection-tooltip">Quote selection</div>
 
   <!-- ============ EXPORT PICKER MODAL ============ -->
@@ -2821,10 +2826,23 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     const SESSION_KEY = 'sth_session';
     const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours
     const CONSENT_KEY = 'sth_consent';
+    // Bump whenever the effective date on privacy.html or terms.html changes: everyone is asked to accept again
     const TERMS_VERSION = '2026-10-27';
 
     let CONFIG = null;
-    let loginAttempts = 0;
+
+    // Storage can be blocked or full (private modes, policies): the app must still open for the visit
+    function storageGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
+    function storageSet(key, value) { try { localStorage.setItem(key, value); return true; } catch { return false; } }
+    function storageRemove(key) { try { localStorage.removeItem(key); } catch { /* storage blocked */ } }
+
+    function showStorageNote() {
+      document.getElementById('storageNote').hidden = false;
+    }
+
+    // Everything behind the gate stays out of the tab order until unlock
+    const gateBehindEls = [...document.body.children].filter(el => !['loginOverlay', 'toast', 'storageNote'].includes(el.id) && el.tagName !== 'SCRIPT');
+    gateBehindEls.forEach(el => el.setAttribute('inert', ''));
 
     // ─── Crypto helpers (Web Crypto API) ────────────
     function b64ToBytes(b64) {
@@ -2869,38 +2887,37 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         ...sensitive,
       };
 
-      // Save session
-      localStorage.setItem(SESSION_KEY, JSON.stringify({ ts: Date.now(), p: btoa(password) }));
+      // Save session (if storage is blocked the app still opens for this visit)
+      if (!storageSet(SESSION_KEY, JSON.stringify({ ts: Date.now(), p: btoa(password) }))) showStorageNote();
 
       // Show app
+      gateBehindEls.forEach(el => el.removeAttribute('inert'));
       document.getElementById('loginOverlay').classList.add('dismissed');
       document.getElementById('appContent').classList.add('unlocked');
     }
 
     function checkSession() {
       try {
-        const raw = localStorage.getItem(SESSION_KEY);
+        const raw = storageGet(SESSION_KEY);
         if (!raw) return null;
         const session = JSON.parse(raw);
         if (Date.now() - session.ts > SESSION_TTL) {
-          localStorage.removeItem(SESSION_KEY);
+          storageRemove(SESSION_KEY);
           return null;
         }
         return atob(session.p);
-      } catch { localStorage.removeItem(SESSION_KEY); return null; }
+      } catch { storageRemove(SESSION_KEY); return null; }
     }
 
     function hasValidConsent() {
       try {
-        const consent = JSON.parse(localStorage.getItem(CONSENT_KEY));
+        const consent = JSON.parse(storageGet(CONSENT_KEY));
         return !!consent && !!consent.acceptedAt && consent.termsVersion === TERMS_VERSION;
       } catch { return false; }
     }
 
     function saveConsent() {
-      try {
-        localStorage.setItem(CONSENT_KEY, JSON.stringify({ acceptedAt: new Date().toISOString(), termsVersion: TERMS_VERSION }));
-      } catch { /* storage unavailable: the gate asks again next visit */ }
+      if (!storageSet(CONSENT_KEY, JSON.stringify({ acceptedAt: new Date().toISOString(), termsVersion: TERMS_VERSION }))) showStorageNote();
     }
 
     // ─── State ──────────────────────────────────────
@@ -2932,7 +2949,6 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       chatSearch: '',
       refsPendingExport: null,
       driveSyncToken: null,
-      driveSyncTokenExpiresAt: 0,
       driveSyncClient: null,
       driveSyncing: false,
       driveSyncTimer: null,
@@ -3562,14 +3578,22 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     // Reports carry only a short scrubbed message: no tokens, emails, file names, server bodies or stacks
     function scrubErrorText(value) {
       return String(value ?? '')
+        .slice(0, 4000)
         .replace(/(Server responded \d{3}):[\s\S]*/i, '$1')
-        .slice(0, 1000)
+        .replace(/https?:\/\/\S+/gi, '[url]')
         .replace(/ya29\.[\w.\-]+/g, '[token]')
         .replace(/Bearer\s+[^\s"',;]+/gi, '[token]')
-        .replace(/[\w.+\-]+@[\w\-]+(?:\.[\w\-]+)+/g, '[email]')
-        .replace(/["'`\u2018\u2019\u201c\u201d][^"'`\u2018\u2019\u201c\u201d\n]{1,200}\.[A-Za-z0-9]{1,5}["'`\u2018\u2019\u201c\u201d]/g, '[file]')
-        .replace(/(?:[^\s"'`<>|:*?\\/]+\s+){0,6}[^\s"'`<>|:*?\\/]*\.(?:pdf|docx?|pptx?|xlsx?|csv|txt|md|rtf|png|jpe?g|gif|webp|heic|bmp|tiff?)\b/gi, '[file]')
+        .replace(/eyJ[\w\-]+\.[\w\-]+\.[\w\-]*/g, '[token]')
+        .replace(/AIza[\w\-]{20,}/g, '[key]')
+        .replace(/[\w.+\-]{1,64}@[\w\-]{1,63}(?:\.[\w\-]{1,63}){1,5}/g, '[email]')
+        .replace(/[\w.\-]{1,100}\.(?:pdf|docx?|pptx?|xlsx?|png|jpe?g|heic|txt|md|odt|pages|epub|csv)\b/gi, '[file]')
+        .replace(/\b[\w\-]{25,}\b/g, '[id]')
         .slice(0, 300);
+    }
+
+    // Errors that carry a file name keep it for on-screen use; reports send only safeMessage
+    function fileError(message, safeMessage) {
+      return Object.assign(new Error(message), { safeMessage });
     }
 
     async function reportErrorToDev(errorPayload) {
@@ -3594,7 +3618,9 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       dom.errorMessage.textContent = userMessage;
       showToolSection('sectionError');
       const detail = technicalDetail && typeof technicalDetail === 'object' ? technicalDetail : null;
-      const message = detail ? (detail.message || detail.error_description || detail.error) : technicalDetail;
+      const message = !detail ? technicalDetail
+        : detail instanceof SyntaxError ? 'Unexpected response from server'
+        : (detail.safeMessage || detail.message || detail.error_description || detail.error);
       const code = detail && [detail.code, detail.error].find(c => typeof c === 'string' && /^[\w.\-]{1,40}$/.test(c));
       reportErrorToDev({
         userMessage: scrubErrorText(userMessage),
@@ -3700,9 +3726,9 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       },
 
       async add(file) {
-        if (file.size > MAX_FILE_SIZE) throw new Error(`${file.name} exceeds the 100 MB limit`);
+        if (file.size > MAX_FILE_SIZE) throw fileError(`${file.name} exceeds the 100 MB limit`, 'File exceeds the 100 MB limit');
         const ft = getFileType(file);
-        if (!ft) throw new Error(`${file.name} is not a supported file type`);
+        if (!ft) throw fileError(`${file.name} is not a supported file type`, 'File is not a supported file type');
 
         const entry = {
           id: generateId(),
@@ -3767,10 +3793,10 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           entry.content = '';
         } else if (ft === 'xlsx') {
           entry.content = await extractXlsxText(file);
-          if (!entry.content) throw new Error(`${file.name} had no readable cells`);
+          if (!entry.content) throw fileError(`${file.name} had no readable cells`, 'Spreadsheet had no readable cells');
         } else if (ft === 'pptx') {
           entry.content = await extractPptxText(file);
-          if (!entry.content) throw new Error(`${file.name} had no extractable slide text`);
+          if (!entry.content) throw fileError(`${file.name} had no extractable slide text`, 'Slides had no extractable text');
         } else if (ft === 'txt' || ft === 'text') {
           entry.content = await fileToText(file);
         }
@@ -5162,7 +5188,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         // Legacy .doc — no client-side parser. n8n converts it to PDF via the
         // user's own Google Drive, then hands it to Gemini like a scanned PDF.
         if (!state.driveSyncToken) {
-          throw new Error(`${fileObj.name} is a .doc file — connect Google Drive sync to convert it, or save it as .docx or PDF and re-upload.`);
+          throw fileError(`${fileObj.name} is a .doc file — connect Google Drive sync to convert it, or save it as .docx or PDF and re-upload.`, 'Legacy .doc file needs Drive sync to convert');
         }
         const contentHash = await sha256Hex(fileObj.file);
         return { role: fileObj.role, type: 'scanned_pdf_upload', originalFile: fileObj.file, contentHash, needsDocConversion: true, driveAccessToken: state.driveSyncToken, name: fileObj.name };
@@ -5413,8 +5439,11 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         clearDraft();
 
       } catch (error) {
+        const unreachable = error instanceof TypeError && /fetch|network|load failed/i.test(error.message);
         handleAppError(
-          'We couldn\u2019t process your files right now. Our team has been notified \u2014 please try again shortly.',
+          unreachable
+            ? 'We could not reach the server. Check your connection and try again.'
+            : 'We couldn\u2019t process your files right now. Our team has been notified \u2014 please try again shortly.',
           error
         );
       } finally {
@@ -5489,6 +5518,24 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       });
     }
 
+    // One sign-in at a time: ensureGoogleToken callers share googleTokenInflight and the fixed handlers settle googleAuthWaiter
+    let googleAuthWaiter = null;
+    let googleTokenInflight = null;
+
+    function settleGoogleAuthWaiter(err, token) {
+      const waiter = googleAuthWaiter;
+      googleAuthWaiter = null;
+      if (!waiter) return false;
+      if (err) waiter.reject(err);
+      else waiter.resolve(token);
+      return true;
+    }
+
+    // Toast already shown, so callers must not show their own error
+    function handledGoogleAuthError(message) {
+      return Object.assign(new Error(message), { googleAuthHandled: true });
+    }
+
     // Sign-in window problems: tell the user, never email an error report
     function onGoogleAuthError(err) {
       if (err && err.type === 'popup_failed_to_open') {
@@ -5498,6 +5545,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       } else {
         showToast('Google sign-in did not complete. Please try again.', 'error');
       }
+      settleGoogleAuthWaiter(handledGoogleAuthError(err && err.type ? err.type : 'google_auth_error'));
     }
 
     const isGoogleAuthCancel = (resp) => resp.error === 'access_denied' || resp.error === 'user_cancel';
@@ -5511,12 +5559,23 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
     function onGoogleTokenResponse(tokenResponse) {
       if (tokenResponse.error) {
-        if (isGoogleAuthCancel(tokenResponse)) showToast('Google sign-in was cancelled.');
-        else handleAppError('Google sign-in was cancelled or failed.', tokenResponse);
+        if (isGoogleAuthCancel(tokenResponse)) {
+          showToast('Google sign-in was cancelled.');
+        } else {
+          // Unexpected code: keep the current view, toast, and report the scrubbed detail
+          showToast('Google sign-in did not complete. Please try again.', 'error');
+          console.error('[STH] Google sign-in error:', tokenResponse.error);
+          reportErrorToDev({
+            userMessage: 'Google sign-in was cancelled or failed.',
+            technicalDetail: scrubErrorText(tokenResponse.error_description || tokenResponse.error),
+            ...(/^[\w.\-]{1,40}$/.test(tokenResponse.error) && { code: tokenResponse.error }),
+          });
+        }
+        settleGoogleAuthWaiter(handledGoogleAuthError(tokenResponse.error));
         return;
       }
       storeGoogleToken(tokenResponse);
-      createGoogleDoc();
+      if (!settleGoogleAuthWaiter(null, tokenResponse.access_token)) createGoogleDoc();
     }
 
     // ─── Markdown → Google Docs API requests ─────────
@@ -5641,33 +5700,22 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
     // ─── Reusable Google Docs helpers ────────────────
     function ensureGoogleToken() {
-      return new Promise((resolve, reject) => {
-        if (hasFreshGoogleToken()) return resolve(state.googleAccessToken);
-        if (!state.googleTokenClient) initGoogleOAuth();
-        if (!state.googleTokenClient) return reject(new Error('Google services not loaded'));
-        const client = state.googleTokenClient;
-        const originalCallback = client.callback;
-        const originalErrorCallback = client.error_callback;
-        const restore = () => { client.callback = originalCallback; client.error_callback = originalErrorCallback; };
-        client.callback = (resp) => {
-          restore();
-          if (resp.error) {
-            const err = new Error(resp.error);
-            if (isGoogleAuthCancel(resp)) { err.googleAuthHandled = true; showToast('Google sign-in was cancelled.'); }
-            return reject(err);
-          }
-          storeGoogleToken(resp);
-          resolve(resp.access_token);
-        };
-        client.error_callback = (err) => {
-          restore();
-          onGoogleAuthError(err);
-          const authErr = new Error(err && err.type ? err.type : 'google_auth_error');
-          authErr.googleAuthHandled = true;
-          reject(authErr);
-        };
-        client.requestAccessToken();
-      });
+      if (hasFreshGoogleToken()) return Promise.resolve(state.googleAccessToken);
+      if (googleTokenInflight) return googleTokenInflight;
+      if (!state.googleTokenClient) initGoogleOAuth();
+      if (!state.googleTokenClient) return Promise.reject(new Error('Google services not loaded'));
+      let timer;
+      googleTokenInflight = new Promise((resolve, reject) => {
+        googleAuthWaiter = { resolve, reject };
+        // Never leave callers hanging if Google reports nothing back
+        timer = setTimeout(() => {
+          showToast('Google sign-in did not complete. Please try again.', 'error');
+          settleGoogleAuthWaiter(handledGoogleAuthError('google_auth_timeout'));
+        }, 3 * 60 * 1000);
+        try { state.googleTokenClient.requestAccessToken(); }
+        catch (err) { settleGoogleAuthWaiter(err); }
+      }).finally(() => { clearTimeout(timer); googleAuthWaiter = null; googleTokenInflight = null; });
+      return googleTokenInflight;
     }
 
     async function createGoogleDocFromContent(title, content) {
@@ -5737,12 +5785,11 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
     function onDriveSyncToken(resp) {
       if (resp.error) {
-        if (isGoogleAuthCancel(resp)) showToast('Google sign-in cancelled.', 'error');
+        if (isGoogleAuthCancel(resp)) showToast('Google sign-in was cancelled.');
         else showToast('Google sign-in did not complete. Please try again.', 'error');
         return;
       }
       state.driveSyncToken = resp.access_token;
-      state.driveSyncTokenExpiresAt = Date.now() + ((Number(resp.expires_in) || 3600) - 60) * 1000;
       runInitialSync();
     }
 
@@ -5757,21 +5804,30 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       state.driveSyncClient.requestAccessToken();
     }
 
+    function revokeGoogleToken(token) {
+      return new Promise(resolve => {
+        const timer = setTimeout(() => resolve(false), 5000);
+        try {
+          google.accounts.oauth2.revoke(token, (resp) => { clearTimeout(timer); resolve(!!(resp && resp.successful)); });
+        } catch { clearTimeout(timer); resolve(false); }
+      });
+    }
+
     function signOutSync() {
       const tokens = [state.driveSyncToken, state.googleAccessToken].filter(Boolean);
-      if (tokens.length && typeof google !== 'undefined' && google.accounts) {
-        tokens.forEach(token => google.accounts.oauth2.revoke(token, () => {}));
-      }
       state.driveSyncToken = null;
-      state.driveSyncTokenExpiresAt = 0;
       state.googleAccessToken = null;
       state.googleTokenExpiresAt = 0;
       state.driveSyncClient = null;
       clearTimeout(state.driveSyncTimer);
-      localStorage.removeItem(SYNC_USER_KEY);
-      localStorage.removeItem(SYNC_FILE_KEY);
+      storageRemove(SYNC_USER_KEY);
+      storageRemove(SYNC_FILE_KEY);
       updateSyncUI('signed-out');
-      showToast('Signed out and Google access removed.');
+      Promise.all(tokens.map(revokeGoogleToken)).then(results => {
+        showToast(results.some(Boolean)
+          ? 'Signed out and Google access removed.'
+          : "Signed out. To remove Google's access, visit myaccount.google.com/permissions.");
+      });
     }
 
     // ── Drive REST helpers ───────────────────────────
@@ -7375,6 +7431,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     async function executePendingRefsExport(mode, url) {
       const text = state.refsPendingExport;
       if (!text) return;
+      let keepPicker = false;
       try {
         if (mode === 'new') {
           showToast('Creating Google Doc…');
@@ -7389,11 +7446,11 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         }
       } catch (err) {
         console.error('[refs] export failed:', err);
-        if (err.googleAuthHandled) return;
+        if (err.googleAuthHandled) { keepPicker = true; return; }
         navigator.clipboard.writeText(text).catch(() => {});
         showToast('Export failed — copied to clipboard instead', 'error');
       } finally {
-        closeExportPicker();
+        if (!keepPicker) closeExportPicker();
       }
     }
 
@@ -7784,19 +7841,31 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     const loginBtn = document.getElementById('loginBtn');
     let consentOnlyPwd = null;
 
-    loginConsent.addEventListener('change', () => { loginBtn.disabled = !loginConsent.checked; });
+    const TICK_MESSAGE = 'Please tick the box to continue.';
+
+    // Keep the error line in step with the checkbox (also after the browser restores form state)
+    function syncConsentUi() {
+      if (loginConsent.checked && loginError.textContent === TICK_MESSAGE) loginError.textContent = '\u00a0';
+    }
+    loginConsent.addEventListener('change', syncConsentUi);
 
     // Valid session but no consent for the current TERMS_VERSION: ask only for the tick, then continue
     function showConsentStep(savedPwd) {
       consentOnlyPwd = savedPwd;
       loginForm.classList.add('consent-only');
       document.getElementById('loginSubtitle').textContent = 'Please confirm before you continue';
+      loginBtn.textContent = 'Continue';
       loginConsent.focus();
     }
 
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      if (!loginConsent.checked) return;
+      if (!loginConsent.checked) {
+        loginError.style.color = '#9b2226';
+        loginError.textContent = TICK_MESSAGE;
+        loginConsent.focus();
+        return;
+      }
 
       if (consentOnlyPwd) {
         try {
@@ -7804,14 +7873,13 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           saveConsent();
           await initAfterAuth();
         } catch {
-          localStorage.removeItem(SESSION_KEY);
+          storageRemove(SESSION_KEY);
           location.reload();
         }
         return;
       }
 
       const pwd = loginInput.value;
-      loginAttempts++;
 
       try {
         loginError.textContent = 'Verifying\u2026';
@@ -7841,7 +7909,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       setTimeout(() => clearInterval(gisInterval), 10000);
 
       // Restore sync UI from last session (token expired but show who was connected)
-      const storedUser = localStorage.getItem(SYNC_USER_KEY);
+      const storedUser = storageGet(SYNC_USER_KEY);
       if (storedUser) {
         try {
           const user = JSON.parse(storedUser);
@@ -7894,6 +7962,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     // ─── Init ───────────────────────────────────────
     window.addEventListener('load', async () => {
       const savedPwd = checkSession();
+      if (hasValidConsent()) loginConsent.checked = true;
+      syncConsentUi();
       if (savedPwd) {
         try {
           if (!hasValidConsent()) {
@@ -7905,7 +7975,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           await initAfterAuth();
           return;
         } catch {
-          localStorage.removeItem(SESSION_KEY);
+          storageRemove(SESSION_KEY);
         }
       }
       loginInput.focus();

@@ -45,7 +45,7 @@ Student Tools Hub turns handwritten notes and study files into text and Google D
 2. Import the workflow JSON into n8n and set its credentials.
 3. In Google Cloud Console, add the Pages origin (for example `https://jay-leigh.github.io`) as an authorised JavaScript origin for the OAuth client.
 
-The webhook URL, Google client ID and developer email are stored encrypted inside `index.html` and unlock with the access code.
+The webhook URL and Google client ID are stored encrypted inside `index.html` and unlock with the access code.
 
 ---
 
