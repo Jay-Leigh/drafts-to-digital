@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Privacy Policy - Drafts to Digital</title>
-<meta name="description" content="How Drafts to Digital (Student Tools Hub) collects, uses and protects your personal information." />
+<title>Privacy Policy - Student Tools Hub</title>
+<meta name="description" content="How Student Tools Hub collects, uses, shares and deletes your personal information, including data from your Google account." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -39,7 +39,7 @@
   }
 
   *, *::before, *::after { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
   body {
     margin: 0;
     font-family: 'Outfit', sans-serif;
@@ -48,6 +48,7 @@
     line-height: 1.7;
     color: var(--ink);
     background: var(--parchment);
+    overflow-wrap: break-word;
   }
   h1, h2, h3 { font-family: 'DM Serif Display', serif; font-weight: 400; line-height: 1.25; }
   main { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
@@ -59,12 +60,13 @@
 
   h1 { font-size: 2.1rem; margin: 0 0 4px; }
   .meta { color: var(--ink-soft); margin: 0 0 24px; }
-  h2 { font-size: 1.45rem; margin: 36px 0 8px; }
-  h3 { font-size: 1.1rem; margin: 20px 0 4px; }
+  h2 { font-size: 1.45rem; margin: 36px 0 8px; scroll-margin-top: 16px; }
+  h3 { font-size: 1.1rem; margin: 20px 0 4px; scroll-margin-top: 16px; }
   p, ul { margin: 0 0 12px; }
   ul { padding-left: 22px; }
   li { margin-bottom: 4px; }
   strong { font-weight: 600; }
+  code { background: var(--mist); padding: 1px 5px; border-radius: 4px; font-size: 0.88em; overflow-wrap: anywhere; }
 
   .summary {
     background: var(--card);
@@ -72,15 +74,47 @@
     border-left: 4px solid var(--accent);
     border-radius: 12px;
     padding: 16px 18px;
-    margin-bottom: 8px;
+    margin-bottom: 16px;
   }
   .summary ul { margin: 8px 0 0; }
 
-  .table-wrap { overflow-x: auto; margin: 0 0 16px; border: 1px solid var(--warm); border-radius: 12px; background: var(--card); }
-  table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 0.92rem; line-height: 1.5; }
-  th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--warm); }
+  .toc { margin: 0 0 8px; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.92rem; }
+  .toc li { margin: 0; }
+
+  .table-wrap { margin: 0 0 16px; border: 1px solid var(--warm); border-radius: 12px; background: var(--card); overflow: hidden; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.92rem; line-height: 1.5; }
+  th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--warm); overflow-wrap: break-word; }
   th { background: var(--mist); font-weight: 600; }
   tr:last-child td { border-bottom: none; }
+
+  @media (max-width: 599px) {
+    h1 { font-size: 1.75rem; }
+    .table-wrap { border: none; background: transparent; border-radius: 0; overflow: visible; }
+    table, thead, tbody, tr, th, td { display: block; width: 100%; }
+    thead {
+      position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+      overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+    }
+    tr {
+      background: var(--card);
+      border: 1px solid var(--warm);
+      border-radius: 12px;
+      padding: 4px 14px;
+      margin-bottom: 12px;
+    }
+    td { padding: 8px 0; border-bottom: 1px solid var(--warm); }
+    td:last-child, tr:last-child td:last-child { border-bottom: none; }
+    td::before {
+      content: attr(data-label);
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+      margin-bottom: 2px;
+    }
+  }
 
   .confirm { background: var(--flag-bg); color: var(--flag-ink); padding: 0 4px; border-radius: 4px; font-weight: 500; }
 
@@ -93,235 +127,338 @@
   }
 
   footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--warm); color: var(--ink-soft); font-size: 0.9rem; }
+  footer a + a::before { content: none; }
 </style>
 </head>
 <body>
 <main>
-  <a class="back" href="https://jay-leigh.github.io/drafts-to-digital/">&larr; Back to Drafts to Digital</a>
+  <a class="back" href="https://jay-leigh.github.io/drafts-to-digital/">&larr; Back to Student Tools Hub</a>
 
   <h1>Privacy Policy</h1>
-  <p class="meta">Drafts to Digital (also called Student Tools Hub) &middot; Effective 27 October 2026</p>
+  <p class="meta">Student Tools Hub &middot; Effective 27 October 2026</p>
 
-  <div class="summary">
-    <strong>The short version</strong>
+  <div class="summary" id="in-short">
+    <strong>In short</strong>
     <ul>
-      <li>The notes, PDFs and images you upload are sent to Google's AI (Gemini and Cloud Vision) so the app can read and process them.</li>
-      <li>If you connect Google, the app can create Google Docs for you and keep a hidden sync file in your own Google Drive.</li>
-      <li>Most of your saved work lives in your own browser. Some short-lived copies are kept on our servers while you work.</li>
-      <li>There are no ads and no third-party analytics.</li>
-      <li>If you are under 18, a parent or guardian must agree before you use the app.</li>
-      <li>You can ask us to show, fix or delete your information by emailing <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a>.</li>
+      <li>The notes, PDFs, images and text you give the app are sent to Google's AI (Gemini and Cloud Vision) to be read and processed. Giving the app your files is your choice, but the features cannot work without them.</li>
+      <li>Most of your saved work stays in your own browser. If you connect Google, a hidden sync file is kept in your own Google Drive.</li>
+      <li>Some short-lived copies, and some longer-lived caches, are kept on the app's server while you work. See <a href="#data">section 2</a> for what and for how long.</li>
+      <li>No ads, no analytics, and the site sets no cookies.</li>
+      <li>The service is for people aged 18 and over (<a href="#age">section 10</a>).</li>
+      <li>To see, correct or delete your information, email <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a> (<a href="#rights">section 8</a>).</li>
     </ul>
   </div>
 
-  <h2>1. Who we are</h2>
-  <p>The app is run by <strong>Jay-Leigh Vergotine</strong> in South Africa. Under the Protection of Personal Information Act 4 of 2013 (POPIA), she is the "responsible party": the person who decides why and how your personal information is used. In this policy, "we" and "us" mean her.</p>
-  <p>Contact: <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a></p>
+  <ul class="toc" aria-label="On this page">
+    <li><a href="#who">1. Who runs this</a></li>
+    <li><a href="#data">2. What is collected</a></li>
+    <li><a href="#why">3. Why</a></li>
+    <li><a href="#google">4. Google permissions</a></li>
+    <li><a href="#others">5. Who else handles it</a></li>
+    <li><a href="#transfers">6. Outside South Africa</a></li>
+    <li><a href="#security">7. Security and breaches</a></li>
+    <li><a href="#rights">8. Your rights and deleting</a></li>
+    <li><a href="#complaints">9. Complaints</a></li>
+    <li><a href="#age">10. Age</a></li>
+    <li><a href="#pricing">11. Free now, paid later</a></li>
+    <li><a href="#changes">12. Changes</a></li>
+    <li><a href="#contact">13. Contact</a></li>
+    <li><a href="#technical">14. Technical details</a></li>
+  </ul>
 
-  <h2>2. What we collect, why, and for how long</h2>
-  <p>The app is free today and will become a paid service later. We only collect what the features below need.</p>
+  <h2 id="who">1. Who runs this</h2>
+  <p>Student Tools Hub is run by <strong>Jay-Leigh Vergotine</strong>, an individual in South Africa. Under the Protection of Personal Information Act 4 of 2013 (POPIA), the operator is the "responsible party": the person who decides why and how your personal information is used. In this policy "I" and "the operator" mean Jay-Leigh Vergotine.</p>
+  <p>The only contact is <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a>. The web address of the app still contains its earlier name, "drafts-to-digital". It is the same service.</p>
+
+  <h2 id="data">2. What is collected, why, and for how long</h2>
+  <p>Only what the features need. There is no user account database: the app does not keep a list of users or their documents.</p>
 
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>Data</th><th>Why we use it</th><th>Where it is stored</th><th>How long</th></tr>
+        <tr><th>Data</th><th>Why</th><th>Where it goes</th><th>How long</th></tr>
       </thead>
       <tbody>
         <tr>
-          <td>Files and text you give the app: handwritten-note images, PDFs, Word/Excel/PowerPoint and text files, typed notes, links</td>
-          <td>To transcribe, summarise, review and answer questions about your material</td>
-          <td>Sent from your browser to our n8n Cloud workflow, then to Google Gemini and Google Cloud Vision. Copies are also kept in your browser (see below).</td>
-          <td>We do not keep the originals on our servers, except the short-lived copies in the rows below. Google's own retention is covered in section 4. <span class="confirm">[CONFIRM: n8n Cloud execution-log settings. By default n8n may keep a record of each run, including what was sent, for a period set by the n8n plan. Check the retention setting.]</span></td>
+          <td data-label="Data">Files and text you give the app: handwritten-note images, PDFs, Word, Excel, PowerPoint and text files, typed notes, web links</td>
+          <td data-label="Why">To transcribe, summarise, review and answer questions about your material</td>
+          <td data-label="Where it goes">Your browser sends it to the app's server (n8n, on Google Cloud in Johannesburg), which passes it to Google Gemini and Google Cloud Vision. Copies also stay in your browser.</td>
+          <td data-label="How long">The server does not keep originals as files, but each request is recorded in the server's execution log (next row). Google's handling is in <a href="#others">section 5</a>.</td>
         </tr>
         <tr>
-          <td>Tutor chat sessions: your messages, the AI's replies, names of attached documents, references to files already sent to Gemini</td>
-          <td>So the AI tutor remembers the conversation while you chat</td>
-          <td>Upstash Redis (key <code>session:&lt;chat id&gt;</code>)</td>
-          <td>Automatically deleted 3 hours after the last message in that chat</td>
+          <td data-label="Data">Technical record of each request (the server's execution log). It can include what was sent, such as file contents and text, the replies, and the temporary Google access token described below</td>
+          <td data-label="Why">Needed for the server to run, and to find faults</td>
+          <td data-label="Where it goes">The app's own n8n server on Google Cloud Run</td>
+          <td data-label="How long">Deleted automatically after <span class="confirm">[CONFIRM: n8n execution retention days]</span> days</td>
         </tr>
         <tr>
-          <td>Pointers to scanned PDFs already uploaded to Gemini (a file address and type, not the text)</td>
-          <td>So the same PDF is not uploaded again each time</td>
-          <td>Upstash Redis (key <code>gemini-file:&lt;file fingerprint&gt;</code>)</td>
-          <td>Automatically deleted after 47 hours. The uploaded file itself sits in Google's Gemini file storage, which Google says it clears after 48 hours. <span class="confirm">[CONFIRM: 48-hour Gemini Files API retention is current Google policy for your account]</span></td>
+          <td data-label="Data">Short-lived Google access token (valid about 1 hour). Sent only when you process a scanned PDF or a legacy <code>.doc</code> file with Google connected</td>
+          <td data-label="Why">So the server can fetch and convert that file in the app's hidden area of your Drive and delete the temporary copy</td>
+          <td data-label="Where it goes">Your browser sends it to the server with the request. It is not stored by design, but because it travels in the request it may sit in the execution log until that log is pruned.</td>
+          <td data-label="How long">Expires at Google after about 1 hour. Log copies follow the execution log retention above.</td>
         </tr>
         <tr>
-          <td>Text read from scanned PDF pages (OCR results), filed under a fingerprint of the PDF</td>
-          <td>So the same pages are not scanned twice, which saves time</td>
-          <td>Upstash Redis (key <code>ocr:&lt;file fingerprint&gt;:&lt;pages&gt;</code>)</td>
-          <td><span class="confirm">[CONFIRM: the workflow sets no expiry on these entries, so they stay until deleted. Decide on an expiry (for example 7 days) or state "kept until removed".]</span></td>
+          <td data-label="Data">Tutor chats: your messages, the AI's replies, names of attached documents, references to files already sent to Gemini</td>
+          <td data-label="Why">So the tutor remembers the conversation</td>
+          <td data-label="Where it goes">Upstash Redis</td>
+          <td data-label="How long">Deleted automatically 3 hours after the last message</td>
         </tr>
         <tr>
-          <td>Your Google name, email address and profile picture (only if you connect Google for sync)</td>
-          <td>To show who is connected and to run sync</td>
-          <td>Your browser only. We do not copy these to our servers.</td>
-          <td>Until you press sign-out in the app or clear your browser data</td>
+          <td data-label="Data">A pointer to a file already uploaded to Gemini, filed under a hash (digital fingerprint) of the file</td>
+          <td data-label="Why">So the same file is not uploaded again</td>
+          <td data-label="Where it goes">Upstash Redis. The entry is shared: anyone who uploads an identical file uses the same entry. The file itself sits in Gemini's file storage.</td>
+          <td data-label="How long">Pointer deleted after 47 hours. Google deletes uploaded Gemini files after 48 hours.</td>
         </tr>
         <tr>
-          <td>Sync file and stored documents in your Google Drive "app data" area: your saved Knowledge Bay items (including text read from your documents), tutor chats, and copies of your scanned PDFs/documents</td>
-          <td>To keep your work in step across your devices</td>
-          <td>Your own Google Drive, in a hidden area that only this app can open. We cannot see it without your sign-in.</td>
-          <td>Until you delete it (see section 7)</td>
+          <td data-label="Data">Text read from scanned PDF pages (OCR results), filed under a hash of the file and the page range</td>
+          <td data-label="Why">So the same pages are not scanned twice</td>
+          <td data-label="Where it goes">Upstash Redis. Shared across users and not linked to any name or email.</td>
+          <td data-label="How long"><strong>No expiry.</strong> Kept until removed by hand. To have an entry removed, I need the file or its hash (<a href="#rights">section 8</a>).</td>
         </tr>
         <tr>
-          <td>Google Docs you export</td>
-          <td>To create the document you asked for</td>
-          <td>Your own Google Drive</td>
-          <td>Yours to keep or delete. We do not keep a copy.</td>
+          <td data-label="Data">Your Google name, email address and profile picture, if you connect Google for sync</td>
+          <td data-label="Why">To show who is connected and to run sync</td>
+          <td data-label="Where it goes">Stored in your browser. The app does not send them to the server as such, but the access token above belongs to your Google account, so the server could use it to look them up while a request is running.</td>
+          <td data-label="How long">In your browser until you sign out in the app or clear site data</td>
         </tr>
         <tr>
-          <td>Error reports: time, your browser and device type (user-agent text), the error message the app showed, and technical details of the failure</td>
-          <td>To find and fix bugs and improve the system</td>
-          <td>Emailed from the n8n workflow to the developer's mailbox (Gmail)</td>
-          <td>Kept for diagnostics. We do not add your name or email to them and will anonymise or delete them where we can. <span class="confirm">[CONFIRM: retention period for the error-alert mailbox, and whether technical details or workflow error dumps can contain fragments of your notes or document text]</span></td>
+          <td data-label="Data">Sync file in your Google Drive "app data" area: saved Knowledge Bay items (including images and copies of scanned PDFs and documents) and tutor chats</td>
+          <td data-label="Why">To keep your work in step across your devices</td>
+          <td data-label="Where it goes">Your own Google Drive, in a hidden area meant for this app</td>
+          <td data-label="How long">Until you delete it (<a href="#rights">section 8</a>)</td>
         </tr>
         <tr>
-          <td>Web addresses you ask the app to read (for example for references or templates)</td>
-          <td>To fetch the page and read it</td>
-          <td>Our n8n workflow fetches the page. If the address contains a DOI, the DOI is also sent to Crossref and Unpaywall to look up the reference details. Page text is then sent to Gemini.</td>
-          <td>Not kept by us beyond the n8n run record mentioned above</td>
+          <td data-label="Data">Google Docs you export</td>
+          <td data-label="Why">To create the document you asked for</td>
+          <td data-label="Where it goes">Your own Google Drive</td>
+          <td data-label="How long">Yours to keep or delete. The operator keeps no copy.</td>
         </tr>
         <tr>
-          <td>Technical data your browser sends automatically (IP address, browser type) when it loads the page and the services below</td>
-          <td>Needed to deliver the page and the app's features</td>
-          <td>GitHub, Google, the script and font hosts in section 4, and n8n Cloud may log this under their own policies</td>
-          <td>Set by those providers</td>
+          <td data-label="Data">Error reports: time, your browser (user-agent text), the error message, stack and other technical detail, the names of files involved, and sometimes the server's own error text</td>
+          <td data-label="Why">To find and fix bugs</td>
+          <td data-label="Where it goes">Emailed by the server through Gmail to the operator's mailbox (jayleigh.dev@gmail.com)</td>
+          <td data-label="How long">Kept for 90 days, then deleted</td>
+        </tr>
+        <tr>
+          <td data-label="Data">Web addresses you ask the app to read, and any DOI inside them</td>
+          <td data-label="Why">To fetch the page and read it</td>
+          <td data-label="Where it goes">The server fetches the address (http and https both work). A DOI is also looked up at Crossref, Unpaywall and doi.org. The page text then goes to Gemini.</td>
+          <td data-label="How long">Not kept beyond the execution log above</td>
+        </tr>
+        <tr>
+          <td data-label="Data">IP address and browser details that your browser sends automatically</td>
+          <td data-label="Why">Needed to deliver pages and features</td>
+          <td data-label="Where it goes">GitHub, Google and the other hosts in <a href="#others">section 5</a>, under their own policies</td>
+          <td data-label="How long">Set by those providers</td>
         </tr>
       </tbody>
     </table>
   </div>
 
-  <p>The app asks for an access code before it opens. The code is not personal information about you, but it is kept in your browser (see section 6).</p>
-  <p>Please do not upload other people's sensitive details (such as ID numbers, health or financial records) unless you have to. If your notes contain information about other people, you are responsible for having the right to share it.</p>
+  <p>The app asks for a shared access code before it opens. The code is kept in your browser (<a href="#technical">section 14</a>).</p>
+  <p>Please do not upload other people's sensitive details (ID numbers, health or financial records) unless you must. If your notes contain information about other people, you are responsible for having the right to share it.</p>
 
-  <h2>3. Why we may use your information</h2>
+  <h2 id="why">3. Why your information is used</h2>
   <ul>
-    <li><strong>Your consent</strong> when you use the features and connect your Google account. You can withdraw it at any time (section 7). If you are under 18, we also need your parent or guardian's consent (section 8).</li>
-    <li><strong>Making the service work</strong>: processing your files and chats is the whole point of the app.</li>
-    <li><strong>Our legitimate interest</strong> in keeping the app working and secure, which is why we keep error reports.</li>
+    <li><strong>Supplying files is voluntary.</strong> Nobody has to use the app or upload anything. But the features work by processing what you supply, so without it they cannot work.</li>
+    <li><strong>To do what you ask:</strong> transcribing, summarising and tutoring cannot happen without processing your material.</li>
+    <li><strong>Your consent</strong> when you connect your Google account. You can withdraw it at any time (<a href="#rights">section 8</a>).</li>
+    <li><strong>Keeping the app working and secure,</strong> which is why error reports and server logs exist.</li>
   </ul>
-  <p>We do not sell your information, use it for advertising, or use it to build profiles of you.</p>
+  <p>Your information is not sold, is not used for advertising, and is not used to build profiles of you.</p>
 
-  <h2>4. Who else handles your information</h2>
-  <p>We use the providers below to run the app. Under POPIA they act as "operators" (they process information for us). They also have their own privacy policies.</p>
+  <h2 id="google">4. Google permissions and the Limited Use rule</h2>
+  <p>When you connect Google, the app asks for the permissions below, and only uses them for the purpose shown.</p>
+  <ul>
+    <li id="scope-documents"><strong>Google Docs (<code>documents</code>):</strong> to create a new Google Doc when you export. If you paste a link to one of your own Docs and choose to append, the app also reads that Doc to find where it ends and adds your text there. The app does not open any other Docs, and the contents of your Docs are not sent to the server.</li>
+    <li><strong>Drive files (<code>drive.file</code>):</strong> to work with files the app creates or that you open with it, such as the temporary copy made while converting a legacy <code>.doc</code> file. It does not give the app access to the rest of your Drive.</li>
+    <li><strong>Drive app data (<code>drive.appdata</code>):</strong> to keep the hidden sync file and copies of your scanned documents in your own Drive, so your work follows you between devices.</li>
+    <li><strong>Profile and email (<code>userinfo.profile</code>, <code>userinfo.email</code>):</strong> to show your name and picture and to know which account is connected.</li>
+  </ul>
+  <p>Google user data is used only to provide these features. It is not sold, not used for advertising, and not used to develop, improve or train generalised AI models. Nobody reads it except where you ask for support, where it is needed for security or to investigate an error report, or where the law requires it.</p>
+  <p class="limited-use">Student Tools Hub's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+
+  <h2 id="others">5. Who else handles your information</h2>
+  <h3 id="processors">Services that process data for the operator</h3>
+  <p>These act as "operators" under POPIA: they process information on my behalf, under their own terms.</p>
 
   <div class="table-wrap">
     <table>
       <thead>
-        <tr><th>Provider</th><th>What they do</th><th>What they receive</th></tr>
+        <tr><th>Service</th><th>What it does</th><th>What it receives</th><th>Where</th></tr>
       </thead>
       <tbody>
         <tr>
-          <td><strong>Google</strong> (Gemini API, Cloud Vision, Google Sign-In, Drive, Docs, Fonts)</td>
-          <td>AI reading, transcription, summaries and tutoring (model: gemini-2.5-flash, with gemini-2.5-flash-lite as a backup); text recognition on scanned pages; sign-in; saving to your Drive; loading fonts</td>
-          <td><strong>Your uploaded notes, PDFs, images and the text of your chats are sent to Google Gemini and Cloud Vision for processing.</strong> Google also sees your IP address when it serves sign-in and fonts. <span class="confirm">[CONFIRM: whether our Gemini API key is on a paid or free tier. On a free tier, Google may use prompts and responses to improve its models and a person may review them; on a paid tier Google says it does not. We will state which applies once confirmed.]</span></td>
+          <td data-label="Service"><strong>Google Gemini API</strong> (gemini-2.5-flash; gemini-2.5-flash-lite as tutor fallback)</td>
+          <td data-label="What it does">Reads, transcribes, summarises and tutors</td>
+          <td data-label="What it receives"><strong>Your uploaded files, images, text and chat messages.</strong> The project is on Google's paid tier, where Google says prompts and responses are not used to improve its products. Google logs prompts to detect abuse, so I cannot promise that no person at Google will ever see them.</td>
+          <td data-label="Where">Google; may be outside South Africa</td>
         </tr>
         <tr>
-          <td><strong>n8n Cloud</strong></td>
-          <td>Runs our back-end workflow that receives your requests and passes them on</td>
-          <td>Everything you send for processing passes through it, including (when you use Drive sync with scanned documents) a temporary Google access token so it can read or convert your file in your Drive</td>
+          <td data-label="Service"><strong>Google Cloud Vision</strong></td>
+          <td data-label="What it does">Text recognition on scanned pages</td>
+          <td data-label="What it receives">Scanned page images from your PDFs</td>
+          <td data-label="Where">Google; may be outside South Africa</td>
         </tr>
         <tr>
-          <td><strong>Upstash</strong> (Redis)</td>
-          <td>Short-term store for chat sessions and caches</td>
-          <td>Chat text, file pointers and scanned-page text, as described in the table above</td>
+          <td data-label="Service"><strong>Google Drive</strong></td>
+          <td data-label="What it does">Holds your sync file and the temporary conversion files</td>
+          <td data-label="What it receives">The sync file, copies of scanned documents, and temporary files during <code>.doc</code> conversion (deleted afterwards)</td>
+          <td data-label="Where">Google; may be outside South Africa</td>
         </tr>
         <tr>
-          <td><strong>GitHub</strong> (GitHub Pages)</td>
-          <td>Hosts the app's web pages</td>
-          <td>Your IP address and browser details when you load the site. It does not receive your files.</td>
+          <td data-label="Service"><strong>Google Cloud Run</strong></td>
+          <td data-label="What it does">Hosts the app's own n8n server</td>
+          <td data-label="What it receives">Every request you send for processing</td>
+          <td data-label="Where">africa-south1 (Johannesburg)</td>
         </tr>
         <tr>
-          <td><strong>Crossref and Unpaywall</strong></td>
-          <td>Look up reference details and open-access links for academic articles</td>
-          <td>Only the DOI from a link you give us</td>
+          <td data-label="Service"><strong>Upstash</strong> (Redis)</td>
+          <td data-label="What it does">Tutor chat sessions and file caches</td>
+          <td data-label="What it receives">Chat text, file pointers and scanned-page text, as listed in <a href="#data">section 2</a></td>
+          <td data-label="Where"><span class="confirm">[CONFIRM: Upstash region]</span></td>
         </tr>
         <tr>
-          <td><strong>Script and font hosts</strong>: Google Fonts, jsDelivr, cdnjs (Cloudflare), Tailwind CDN</td>
-          <td>Deliver fonts and code libraries the app needs</td>
-          <td>Your IP address and browser details when the page loads</td>
-        </tr>
-        <tr>
-          <td><strong>YouTube</strong></td>
-          <td>When you add a YouTube link, your browser asks YouTube for the video title and channel</td>
-          <td>The video link and your IP address</td>
+          <td data-label="Service"><strong>Gmail</strong> (Google)</td>
+          <td data-label="What it does">Delivers error reports to the operator</td>
+          <td data-label="What it receives">The error report contents listed in <a href="#data">section 2</a></td>
+          <td data-label="Where">Google; may be outside South Africa</td>
         </tr>
       </tbody>
     </table>
   </div>
-  <p>We do not use ad networks or third-party analytics tools. We do not share your information with anyone else, except where the law requires it.</p>
 
-  <h3>Google API Services User Data Policy</h3>
-  <p>The app asks for these Google permissions, and only when you choose to use the feature:</p>
+  <h3 id="other-services">Other services your browser or the server contacts</h3>
+  <p>These are not operators acting for me. Each handles what it receives under its own policy.</p>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Service</th><th>Why it is contacted</th><th>What it sees</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td data-label="Service"><strong>GitHub</strong> (GitHub Pages)</td>
+          <td data-label="Why it is contacted">Hosts the app's web pages</td>
+          <td data-label="What it sees">Your IP address and browser details when you load the site. It does not receive your files.</td>
+        </tr>
+        <tr>
+          <td data-label="Service"><strong>Google Fonts, Google Identity Services, jsDelivr, cdnjs, Tailwind CDN</strong></td>
+          <td data-label="Why it is contacted">Deliver fonts, sign-in and code libraries</td>
+          <td data-label="What it sees">Your IP address and browser details when the page loads</td>
+        </tr>
+        <tr>
+          <td data-label="Service"><strong>Crossref, Unpaywall, doi.org</strong></td>
+          <td data-label="Why it is contacted">Look up reference details for a DOI</td>
+          <td data-label="What it sees">Only the DOI, requested by the server</td>
+        </tr>
+        <tr>
+          <td data-label="Service"><strong>YouTube</strong></td>
+          <td data-label="Why it is contacted">Your browser asks YouTube's oEmbed service for a video's title and channel</td>
+          <td data-label="What it sees">The video link and your IP address</td>
+        </tr>
+        <tr>
+          <td data-label="Service"><strong>Websites you give the app</strong></td>
+          <td data-label="Why it is contacted">The server fetches the page you asked it to read</td>
+          <td data-label="What it sees">A request from the app's server, for that address</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>There are no ad networks and no third-party analytics. Information is not shared with anyone else except where the law requires it.</p>
+
+  <h2 id="transfers">6. Sending information outside South Africa</h2>
+  <p>The app's server runs in Johannesburg, but Google may process your files and chats (Gemini, Cloud Vision, Drive, Gmail) outside South Africa, and Upstash stores data in a region I still need to confirm: <span class="confirm">[CONFIRM: Upstash region]</span>. POPIA section 72 allows this where the receiving provider is bound by law, binding rules or an agreement that gives protection similar to POPIA. Google and Upstash publish data-protection terms. This policy does not treat your use of the app as consent to these transfers.</p>
+
+  <h2 id="security">7. Keeping your information safe, and breaches</h2>
+  <p>Reasonable steps are taken, but no online service is completely secure and I cannot promise it is.</p>
   <ul>
-    <li><strong>Google Docs (documents)</strong> and <strong>Drive (drive.file)</strong>: to create the Google Doc you export, and to open only files the app itself created.</li>
-    <li><strong>Drive app data (drive.appdata)</strong>: to keep a hidden sync file and copies of your scanned documents in your own Drive, so your work follows you between devices.</li>
-    <li><strong>Profile and email (userinfo.profile, userinfo.email)</strong>: to show your name and picture and to know which account is connected.</li>
-  </ul>
-  <p>We use Google data only to give you these features. We do not sell it, use it for advertising, or let people read it, except when you ask us for support, when it is needed for security, or when the law requires it.</p>
-  <p class="limited-use">Drafts to Digital's use and transfer to any other app of information received from Google APIs will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
-
-  <h3>Sending information outside South Africa</h3>
-  <p>Google, GitHub, n8n and Upstash run servers in other countries, so your information will leave South Africa when you use the app. POPIA section 72 allows this where the receiving provider is bound by rules or contracts that give protection similar to POPIA, or where you consent. By using the app, you consent to this transfer. Each provider has its own data-protection terms. <span class="confirm">[CONFIRM: the regions used for n8n Cloud and Upstash Redis, and whether data-processing terms are in place with each provider]</span></p>
-
-  <h2>5. Keeping your information safe</h2>
-  <p>We take reasonable steps, but no online service is completely secure and we cannot promise it is.</p>
-  <ul>
-    <li>All connections to the app and its providers use HTTPS.</li>
-    <li>The app is locked behind an access code, and its back-end addresses and keys are kept out of the page's readable code.</li>
-    <li>Google sign-in uses Google's own system, so we never see your Google password. The Google access token is kept in the page's memory and is not saved to your browser storage.</li>
-    <li>Chat sessions and file pointers are deleted automatically on a timer (section 2).</li>
+    <li>The app's pages and the Google services it uses are loaded over HTTPS. Web addresses you ask the server to read may start with <code>http://</code>, which is not encrypted.</li>
+    <li>Google sign-in uses Google's own system, so the app never sees your Google password.</li>
+    <li>The access code is a shared code that works as a simple gate. It is not strong protection, and the server's webhook is not checked for each individual user.</li>
+    <li>Tutor sessions and Gemini file pointers expire on a timer (<a href="#data">section 2</a>). OCR text does not.</li>
     <li>Your synced data sits in your own Google Drive, protected by your Google account. Use a strong password and 2-step verification.</li>
   </ul>
-  <p>Please be aware: the access code is stored in your browser for 24 hours so you stay unlocked, and it is not encrypted there. Do not use the app on a shared or public computer without signing out and clearing your browser data. <span class="confirm">[CONFIRM: owner to decide whether to keep this sentence or fix the storage method in the app]</span></p>
-  <p>If a security breach affects your information, we will tell you and the Information Regulator as POPIA requires.</p>
+  <p>The access code is stored in your browser for 24 hours, encoded but not encrypted. Do not use the app on a shared or public computer without signing out and clearing the site's data.</p>
+  <p><strong>If there is a breach</strong> that puts your information at risk, I will tell the Information Regulator. Because the app has no accounts and holds no contact list, affected people will be told through a notice in the app and a notice at the top of this page.</p>
 
-  <h2>6. Browser storage and cookies</h2>
-  <p>We do not use advertising or tracking cookies. The app keeps data in your browser's storage so it works without our servers holding your files:</p>
-  <ul>
-    <li><strong>Local storage</strong>: your access code and when you unlocked (24 hours); the name, email and picture of your connected Google account; the ID of your Drive sync file; whether the sidebar is collapsed.</li>
-    <li><strong>Browser database (IndexedDB)</strong>: your draft in progress, your recent history (kept for 30 days), your Knowledge Bay documents and text read from them, scanned-PDF progress, and your tutor chats.</li>
-  </ul>
-  <p>This stays on your device until you delete it, sign out of sync (which clears the Google account details), or clear your browser's site data. Google Sign-In, Google Fonts and the other hosts in section 4 may set their own cookies or storage under their own policies. <span class="confirm">[CONFIRM: check in a real browser session which cookies Google Sign-In sets, then list them here if needed]</span></p>
-
-  <h2>7. Your rights and how to use them</h2>
+  <h2 id="rights">8. Your rights and deleting your data</h2>
   <p>Under POPIA you can:</p>
   <ul>
-    <li><strong>Ask what we hold</strong> about you and get a copy (access).</li>
-    <li><strong>Ask us to correct</strong> anything that is wrong or out of date.</li>
-    <li><strong>Ask us to delete</strong> your information, or to stop using it.</li>
-    <li><strong>Object</strong> to us using your information, or <strong>withdraw your consent</strong>. Withdrawing does not undo what we already did lawfully before you withdrew.</li>
+    <li><strong>Ask what is held</strong> about you and get a copy.</li>
+    <li><strong>Ask for corrections</strong> to anything wrong or out of date.</li>
+    <li><strong>Ask for deletion,</strong> or for use to stop.</li>
+    <li><strong>Object</strong> to your information being used, or <strong>withdraw your consent.</strong> Withdrawing does not undo what was lawfully done before.</li>
   </ul>
-  <p>To use any of these, email <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a> from the address you use with the app and say what you want. We may ask you to prove who you are. We aim to reply within 30 days.</p>
+  <p>Email <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a> and say what you want. You may be asked to show who you are. I reply within 30 days.</p>
 
-  <h3>Deleting your data</h3>
+  <h3 id="delete">How to delete your data</h3>
   <ul>
-    <li><strong>Now, yourself:</strong> clear this site's data in your browser to remove everything stored on your device. In Google, go to your Google Account &rarr; Data &amp; privacy &rarr; third-party apps, remove Drafts to Digital, and delete its hidden app data. Google Docs you exported are ordinary Docs in your Drive that you can delete.</li>
-    <li><strong>On request:</strong> email us and we will delete the chat sessions and cached content we can find that relate to you in our systems. Because some cache entries are filed under a file fingerprint, not your name, we may need you to tell us which files you used.</li>
-    <li><strong>Planned:</strong> a "Delete my data" button inside the app is planned but does not exist yet. We will update this policy when it launches.</li>
-    <li><strong>What stays:</strong> error reports kept for diagnostics will be anonymised where possible rather than deleted one by one, because they do not carry your name or email.</li>
+    <li><strong>On your device:</strong> clear this site's data in your browser. Signing out in the app clears only your Google account details used for sync, not the rest.</li>
+    <li><strong>Stop Google access:</strong> go to <a href="https://myaccount.google.com/connections">myaccount.google.com/connections</a>, choose Student Tools Hub and remove its access.</li>
+    <li><strong>Your hidden Drive data:</strong> in Google Drive choose Settings &rarr; Manage apps &rarr; Student Tools Hub &rarr; Options &rarr; Delete hidden app data. Docs you exported are ordinary files in your Drive that you can delete.</li>
+    <li><strong>On the server:</strong> tutor chats and Gemini file pointers expire by themselves. Execution logs and error emails are deleted on the schedule in <a href="#data">section 2</a>. For the OCR cache, email me the file or its SHA-256 hash, because entries are filed under the hash and not under your name. I remove those keys by hand.</li>
+    <li><strong>Not built yet:</strong> a "Delete my data" button in the app. This page will be updated if it is added.</li>
   </ul>
 
-  <h3>Complaints</h3>
-  <p>If you think we have handled your information wrongly, please talk to us first. You can also complain to South Africa's Information Regulator at <a href="https://inforegulator.org.za">inforegulator.org.za</a>.</p>
+  <h2 id="complaints">9. Complaints</h2>
+  <p>Please raise a concern with me first at <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a>. You can also complain to the Information Regulator (South Africa) at <a href="https://inforegulator.org.za">inforegulator.org.za</a>.</p>
 
-  <h2>8. Children and teenagers</h2>
-  <p>The app is for students aged <strong>13 and older</strong>. If you are under 13, please do not use it.</p>
-  <p>Under POPIA, anyone <strong>under 18 is a child</strong>. If you are under 18, a parent or guardian must agree to you using the app and to your information being processed as described here before you start. By letting you use the app, your parent or guardian confirms they have read this policy. A parent or guardian can email us at any time to see, correct or delete their child's information or withdraw consent.</p>
-  <p>We do not knowingly use children's information for marketing. If we learn that someone under 13 has used the app, we will delete what we hold about them.</p>
+  <h2 id="age">10. Age: 18 and over only</h2>
+  <p>Student Tools Hub is not for anyone under 18. This is because the Google Gemini API terms do not allow under-18 audiences. If the operator learns that someone under 18 is using the service, their access and data will be removed. A confirmation tick box in the app is planned but does not exist yet.</p>
 
-  <h2>9. Free now, paid later</h2>
-  <p>The app is free today and will become a paid service later. We do not collect payment details now. Before any payment feature starts, we will update this policy to explain what payment information is collected and who handles it.</p>
+  <h2 id="pricing">11. Free now, paid later</h2>
+  <p>The service is free today and will become paid later. You will not be charged without your agreement. Payment details are not collected now. Before any payment feature starts, this policy will be updated to say what is collected and who handles it. Changes will be announced in the app and on this page at least 14 days before they take effect.</p>
 
-  <h2>10. Changes to this policy</h2>
-  <p>We will update this policy when the app changes, including when it becomes paid. We will tell you about important changes before they take effect, by a notice in the app, and by email where we hold your address. The effective date at the top always shows the current version.</p>
+  <h2 id="changes">12. Changes to this policy</h2>
+  <p>This policy will be updated when the app changes. Important changes are announced in the app and on this page at least 14 days before they take effect. The effective date at the top shows the current version. Your rights under POPIA and the Consumer Protection Act that cannot be limited are not affected by anything here. The law of South Africa applies.</p>
 
-  <h2>11. Contact</h2>
+  <h2 id="contact">13. Contact</h2>
   <p>Jay-Leigh Vergotine, South Africa<br />
   Email: <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a></p>
 
+  <h2 id="technical">14. Technical details</h2>
+  <p>For readers who want the exact names. Nothing here adds to the plain-language sections above.</p>
+
+  <h3 id="tech-redis">Upstash Redis keys</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Key</th><th>Holds</th><th>Lifetime</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td data-label="Key"><code>session:&lt;chatId&gt;</code></td>
+          <td data-label="Holds">Tutor history for one chat</td>
+          <td data-label="Lifetime">3 hours</td>
+        </tr>
+        <tr>
+          <td data-label="Key"><code>gemini-file:&lt;sha256&gt;</code></td>
+          <td data-label="Holds">Reference to a file uploaded to Gemini. Shared by anyone with an identical file.</td>
+          <td data-label="Lifetime">47 hours (Gemini deletes the file after 48 hours)</td>
+        </tr>
+        <tr>
+          <td data-label="Key"><code>ocr:&lt;sha256&gt;:&lt;start&gt;-&lt;end&gt;</code></td>
+          <td data-label="Holds">Text read from scanned PDF pages. Shared, not linked to name or email.</td>
+          <td data-label="Lifetime">No expiry; removed by hand</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 id="tech-browser">Browser storage</h3>
+  <p>The site sets no cookies. Google Identity Services, Google Fonts and the other hosts in <a href="#others">section 5</a> may use their own storage under their own policies. The app itself uses:</p>
+  <ul>
+    <li><strong>Local storage:</strong> the access code (base64-encoded) and when you unlocked, kept 24 hours; your Google name, email and picture for sync; the ID of your Drive sync file; whether the sidebar is collapsed.</li>
+    <li><strong>IndexedDB:</strong> your draft in progress, 30 days of history, Knowledge Bay items (including images as base64), scanned-PDF progress, and tutor chats.</li>
+  </ul>
+  <p>Both stay on your device until you clear the site's data. Signing out in the app clears only the Google account details.</p>
+
+  <h3 id="tech-drive">Google Drive</h3>
+  <p>The hidden sync file is <code>sth-userdata-v1.json</code> in the app data area (<code>drive.appdata</code>). It holds Knowledge Bay items, including base64 images and copies of scanned PDFs and documents, and tutor chats. During <code>.doc</code> conversion, temporary files are created in the app's hidden Drive area and deleted afterwards.</p>
+
   <footer>
-    <a href="https://jay-leigh.github.io/drafts-to-digital/">Back to Drafts to Digital</a>
+    <a href="terms.html">Terms of Service</a> &middot; <a href="https://jay-leigh.github.io/drafts-to-digital/">Student Tools Hub</a> &middot; <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a>
   </footer>
 </main>
 </body>
