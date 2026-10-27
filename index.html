@@ -6751,7 +6751,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
                 });
                 continue;
               }
-              if (blob.size > WEBHOOK_UPLOAD_LIMIT && !(item.originalFile instanceof Blob)) {
+              if (blob.size > WEBHOOK_UPLOAD_LIMIT && (needsConversion || !(item.originalFile instanceof Blob))) {
                 attachedContext.push({ name: item.name, content: wholeFileTooLargeNote(item.name) });
                 continue;
               }
