@@ -1200,6 +1200,8 @@
       cursor: pointer; transition: all 0.15s;
     }
     .export-picker-option:hover { background: white; border-color: #2c5f2d; }
+    .export-picker-option[hidden] { display: none; }
+    .export-picker-option:disabled { opacity: 0.6; cursor: progress; }
     .export-picker-option span { display: block; }
     .export-picker-option svg { flex-shrink: 0; color: #2c5f2d; }
     .export-picker-option strong { display: block; font-size: 13.5px; color: #1a2e1c; }
@@ -3116,12 +3118,19 @@
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
             <span>
               <strong>Add to a Doc you exported</strong>
-              <small>Choose one of your recent exports</small>
+              <small>Choose one of your recent exports, or pick a Doc from Drive</small>
             </span>
           </button>
         </div>
         <div id="exportPickerUrlRow" class="export-picker-url-row">
           <div id="exportPickerRecent" class="export-picker-recent" role="group" aria-label="Recent exports"></div>
+          <button type="button" class="export-picker-option" id="exportPickerDriveBtn" hidden>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span>
+              <strong>Choose a Doc from Drive…</strong>
+              <small>Opens Google's file picker</small>
+            </span>
+          </button>
           <input id="exportPickerUrlInput" type="url" placeholder="Or paste a Doc link" aria-label="Link to a Doc you exported" />
           <p id="exportPickerNote" class="export-picker-note" role="status"></p>
         </div>
@@ -3275,6 +3284,8 @@
       n8nWebhookUrl: 'https://n8n-67295956827.africa-south1.run.app/webhook/student-tools-v2',
       googleClientId: '730237345425-i08jvribm9k9rgm26ui0jq4gdvcjbplb.apps.googleusercontent.com',
       googleScopes: 'https://www.googleapis.com/auth/drive.file',
+      pickerApiKey: 'AIzaSyC-M93yy6270pQUZCmU6Plf7SGGFCluy9M',
+      pickerAppId: '730237345425',
       compression: { maxSizeMB: 0.8, maxWidthOrHeight: 1600, useWebWorker: true, fileType: 'image/jpeg' },
     };
 
@@ -3602,6 +3613,7 @@
       exportPickerUrlCancel:    $('exportPickerUrlCancel'),
       exportPickerUrlConfirm:   $('exportPickerUrlConfirm'),
       exportPickerRecent:       $('exportPickerRecent'),
+      exportPickerDriveBtn:     $('exportPickerDriveBtn'),
       exportPickerNote:         $('exportPickerNote'),
       exportPickerFoot:         $('exportPickerFoot'),
 
@@ -6751,7 +6763,7 @@
       return m ? m[1] : (url.match(/^[a-zA-Z0-9_-]{20,}$/) ? url : null);
     }
 
-    // drive.file only reaches Docs this app created, so appends are limited to the ones it recorded
+    // drive.file only reaches Docs this app created or that the user picked in Google's file picker, so appends are limited to the ones it recorded
     const CREATED_DOCS_KEY = 'sth_created_docs';
     const CREATED_DOCS_MAX = 20;
 
@@ -6796,8 +6808,8 @@
     function getCreatedDocs() {
       let stored = null;
       try { stored = JSON.parse(storageGet(CREATED_DOCS_KEY)); } catch { /* unreadable list */ }
-      const removed = new Set(getRemovedDocs().map(r => r.id));
-      return mergeCreatedDocs(stored, state.createdDocs).filter(d => !removed.has(d.id));
+      const removedAt = new Map(getRemovedDocs().map(r => [r.id, r.removedAt]));
+      return mergeCreatedDocs(stored, state.createdDocs).filter(d => !(removedAt.get(d.id) >= d.createdAt));
     }
 
     function setCreatedDocs(list) {
@@ -6819,8 +6831,8 @@
     // This device's lists merged with the ones in the sync file
     function mergeSyncedDocs(remote) {
       const removed = mergeRemovedDocs(getRemovedDocs(), remote && remote.removedDocIds);
-      const gone = new Set(removed.map(r => r.id));
-      return { removed, docs: mergeCreatedDocs(getCreatedDocs(), remote && remote.createdDocs).filter(d => !gone.has(d.id)) };
+      const removedAt = new Map(removed.map(r => [r.id, r.removedAt]));
+      return { removed, docs: mergeCreatedDocs(getCreatedDocs(), remote && remote.createdDocs).filter(d => !(removedAt.get(d.id) >= d.createdAt)) };
     }
 
     // Export titles tell exports apart: kind, date and time
@@ -8984,11 +8996,14 @@
       dom.exportPickerUrlInput.value = '';
       dom.exportPickerNote.textContent = '';
       renderRecentExports();
+      setBusy(dom.exportPickerDriveBtn, false);
+      dom.exportPickerDriveBtn.hidden = !pickerApiReady;
       dom.exportPickerModal.classList.add('open');
-      // The page behind stays out of the tab order while the dialog is open
-      exportPickerInerted = [...document.body.children].filter(el => el !== dom.exportPickerModal && el.id !== 'toast' && el.tagName !== 'SCRIPT' && !el.hasAttribute('inert'));
+      // The page behind stays out of the tab order while the dialog is open; Google's Picker overlay must stay reachable
+      exportPickerInerted = [...document.body.children].filter(el => el !== dom.exportPickerModal && el.id !== 'toast' && el.tagName !== 'SCRIPT' && !el.hasAttribute('inert') && !isPickerOverlay(el));
       exportPickerInerted.forEach(el => el.setAttribute('inert', ''));
       dom.exportPickerModal.querySelector('[data-export-choice]').focus();
+      if (!pickerApiReady) loadPickerApi().then(() => { dom.exportPickerDriveBtn.hidden = false; }, () => { /* the button stays hidden */ });
     }
     const showAppendChoices = (on) => {
       dom.exportPickerUrlRow.classList.toggle('visible', on);
@@ -9005,7 +9020,10 @@
       dom.exportPickerNote.scrollIntoView({ block: 'nearest' });
     }
     const selectedExportDocId = () => dom.exportPickerRecent.querySelector('[aria-pressed="true"]')?.dataset.docId || '';
-    const exportPickerCannotAppendNote = 'Student Tools Hub can only add to Docs it created. Choose one of your recent exports, or export to a new Doc.';
+    const exportPickerCannotAppendNote = () => pickerApiReady
+      ? 'Choose a Doc from Drive, pick one of your recent exports, or export to a new Doc.'
+      : 'Student Tools Hub can only add to Docs it created. Choose one of your recent exports, or export to a new Doc.';
+    const exportPickerNoEditNote = 'You don\u2019t have edit access to that Doc.';
     const exportPickerGoneNote = 'That Doc was deleted, or the app no longer has access to it.';
     function closeExportPicker() {
       dom.exportPickerModal.classList.remove('open');
@@ -9015,6 +9033,106 @@
       if (exportPickerOpener && exportPickerOpener.isConnected) exportPickerOpener.focus();
       exportPickerOpener = null;
     }
+    // Google's file picker: the script is fetched only when the export dialog opens; a picked Doc is granted to the app by Google (drive.file)
+    const PICKER_SCRIPT_URL = 'https://apis.google.com/js/api.js';
+    const GOOGLE_DOC_MIME = 'application/vnd.google-apps.document';
+    const pickedDocIds = new Set();
+    let pickerApiReady = false;
+    let pickerApiPromise = null;
+
+    const isPickerOverlay = (el) => [...el.classList].some(c => c === 'picker' || c.startsWith('picker-'));
+
+    function loadPickerApi() {
+      if (!CONFIG.pickerApiKey || !CONFIG.pickerAppId) return Promise.reject(new Error('picker_not_configured'));
+      if (pickerApiPromise) return pickerApiPromise;
+      pickerApiPromise = new Promise((resolve, reject) => {
+        const loadPicker = () => {
+          try { gapi.load('picker', { callback: resolve, onerror: () => reject(new Error('picker_load_failed')), timeout: 10000, ontimeout: () => reject(new Error('picker_load_timeout')) }); }
+          catch (err) { reject(err); }
+        };
+        if (window.gapi && gapi.load) { loadPicker(); return; }
+        const script = document.createElement('script');
+        script.src = PICKER_SCRIPT_URL;
+        script.async = true;
+        script.onload = loadPicker;
+        script.onerror = () => { script.remove(); reject(new Error('picker_script_failed')); };
+        document.head.appendChild(script);
+      }).then(() => { pickerApiReady = true; }, err => { pickerApiPromise = null; throw err; });
+      return pickerApiPromise;
+    }
+
+    // Resolves with the picked Doc ({ id, name, mimeType }) or null when the window is closed without a choice
+    function showDrivePicker(token) {
+      return new Promise((resolve, reject) => {
+        try {
+          const pk = google.picker;
+          const docsView = (label, ownedByMe) => {
+            const view = new pk.DocsView(pk.ViewId.DOCUMENTS);
+            view.setMimeTypes(GOOGLE_DOC_MIME);
+            view.setIncludeFolders(false);
+            view.setOwnedByMe(ownedByMe);
+            view.setLabel(label);
+            return view;
+          };
+          const picker = new pk.PickerBuilder()
+            .setOAuthToken(token)
+            .setDeveloperKey(CONFIG.pickerApiKey)
+            .setAppId(CONFIG.pickerAppId)
+            .setOrigin(window.location.origin)
+            .setTitle('Choose a Google Doc')
+            .addView(docsView('My Drive', true))
+            .addView(docsView('Shared with me', false))
+            .setCallback((data) => {
+              const action = data[pk.Response.ACTION];
+              if (action === pk.Action.CANCEL) resolve(null);
+              else if (action === pk.Action.ERROR) reject(new Error('picker_error'));
+              else if (action === pk.Action.PICKED) {
+                const doc = (data[pk.Response.DOCUMENTS] || [])[0] || {};
+                resolve({ id: doc[pk.Document.ID], name: doc[pk.Document.NAME], mimeType: doc[pk.Document.MIME_TYPE] });
+              }
+            })
+            .build();
+          picker.setVisible(true);
+        } catch (err) { reject(err); }
+      });
+    }
+
+    // The token request has to start inside the tap (ensureGoogleToken is the first call), so iOS lets Google's sign-in window open
+    async function chooseDocFromDrive() {
+      if (!state.googleTokenClient) {
+        initGoogleOAuth();
+        if (!state.googleTokenClient) { showToast('Google services still loading. Try again in a moment.', 'error'); return; }
+      }
+      let focusTarget = dom.exportPickerDriveBtn;
+      setBusy(dom.exportPickerDriveBtn, true);
+      dom.exportPickerNote.textContent = '';
+      try {
+        const token = await ensureGoogleToken();
+        if (!dom.exportPickerModal.classList.contains('open')) return;
+        const picked = await showDrivePicker(token);
+        if (!dom.exportPickerModal.classList.contains('open') || !picked) return;
+        if (picked.mimeType !== GOOGLE_DOC_MIME || typeof picked.id !== 'string' || !/^[\w-]+$/.test(picked.id)) {
+          showExportPickerNote('Choose a Google Doc.');
+          return;
+        }
+        pickedDocIds.add(picked.id);
+        recordCreatedDoc(picked.id, String(picked.name || 'Google Doc').slice(0, 200));
+        renderRecentExports();
+        dom.exportPickerRecent.querySelectorAll('.export-picker-doc').forEach(b => {
+          const on = b.dataset.docId === picked.id;
+          b.setAttribute('aria-pressed', String(on));
+          if (on) focusTarget = b;
+        });
+        dom.exportPickerUrlInput.value = '';
+      } catch (err) {
+        console.error('[refs] Drive picker failed:', err);
+        if (!err.googleAuthHandled) showExportPickerNote('Could not open the Google file picker. Try again, or choose one of your recent exports.');
+      } finally {
+        setBusy(dom.exportPickerDriveBtn, false);
+        if (dom.exportPickerModal.classList.contains('open')) focusTarget.focus();
+      }
+    }
+
     async function executePendingRefsExport(mode, url) {
       const text = state.refsPendingExport;
       if (!text) return;
@@ -9041,7 +9159,7 @@
         if (mode === 'existing' && (err.status === 403 || err.status === 404)) {
           if (known && err.status === 404) removeCreatedDoc(docId);
           renderRecentExports();
-          showExportPickerNote(known && err.status === 404 ? exportPickerGoneNote : exportPickerCannotAppendNote);
+          showExportPickerNote(known && err.status === 404 ? exportPickerGoneNote : err.status === 403 && pickedDocIds.has(docId) ? exportPickerNoEditNote : exportPickerCannotAppendNote());
           keepPicker = true;
           return;
         }
@@ -9366,6 +9484,7 @@
       dom.exportPickerUrlInput.value = '';
       dom.exportPickerNote.textContent = '';
     });
+    dom.exportPickerDriveBtn.addEventListener('click', chooseDocFromDrive);
     dom.exportPickerUrlInput.addEventListener('input', () => {
       dom.exportPickerRecent.querySelectorAll('.export-picker-doc').forEach(b => b.setAttribute('aria-pressed', 'false'));
       dom.exportPickerNote.textContent = '';
