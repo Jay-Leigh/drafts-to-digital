@@ -268,22 +268,22 @@
     /* Animations */
     @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
     .fade-up { animation: fadeUp 0.4s ease-out forwards; }
-    @keyframes softPulse { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
-    .pulse-text { animation: softPulse 2s ease-in-out infinite; }
+    @keyframes softPulse { 0%,100% { opacity:1; } 50% { opacity:0.7; } }
+    .pulse-text { animation: softPulse 2.4s ease-in-out infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
     .loading-spinner {
       width: 32px; height: 32px;
       border: 3px solid rgba(44,95,45,0.2);
       border-top-color: #2c5f2d;
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      animation: spin 1.1s linear infinite;
     }
     .mini-spinner {
       width: 14px; height: 14px;
       border: 2px solid rgba(44,95,45,0.25);
       border-top-color: #2c5f2d;
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      animation: spin 1.1s linear infinite;
       display: inline-block; vertical-align: -2px;
     }
     .zone-enter { animation: fadeUp 0.35s ease-out forwards; opacity: 0; }
@@ -680,7 +680,7 @@
       border: 2px solid rgba(44,95,45,0.2);
       border-top-color: #2c5f2d;
       will-change: transform;
-      animation: spin 0.8s linear infinite; flex-shrink: 0;
+      animation: spin 1.1s linear infinite; flex-shrink: 0;
     }
 
     /* ───────── CONFIRM DIALOG ───────── */
@@ -923,7 +923,7 @@
       width: 7px; height: 7px; border-radius: 50%;
       background: #2c5f2d;
       will-change: transform, opacity;
-      animation: typingWave 1.3s infinite cubic-bezier(0.45,0,0.55,1);
+      animation: typingWave 1.8s infinite cubic-bezier(0.45,0,0.55,1);
     }
     .chat-bubble.typing span:nth-child(2) { animation-delay: 0.16s; }
     .chat-bubble.typing span:nth-child(3) { animation-delay: 0.32s; }
@@ -970,7 +970,7 @@
     .quote-bar-text {
       font-size: 13px; color: rgba(26,46,28,0.65); font-style: italic;
       line-height: 1.4; overflow: hidden; display: -webkit-box;
-      -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3; -webkit-box-orient: vertical;
     }
     .quote-bar-label {
       font-size: 10.5px; font-weight: 600; font-style: normal;
@@ -1186,11 +1186,13 @@
     }
     .export-picker-option {
       display: flex; align-items: center; gap: 12px;
+      width: 100%; text-align: left; font: inherit; color: inherit;
       padding: 14px 16px; background: rgba(250,247,240,0.5);
       border: 1px solid rgba(212,201,168,0.5); border-radius: 10px;
       cursor: pointer; transition: all 0.15s;
     }
     .export-picker-option:hover { background: white; border-color: #2c5f2d; }
+    .export-picker-option span { display: block; }
     .export-picker-option svg { flex-shrink: 0; color: #2c5f2d; }
     .export-picker-option strong { display: block; font-size: 13.5px; color: #1a2e1c; }
     .export-picker-option small { font-size: 12px; color: rgba(26,46,28,0.55); }
@@ -1202,6 +1204,20 @@
       padding: 9px 12px; font-family: 'Outfit', sans-serif; font-size: 13px;
       border: 1px solid rgba(212,201,168,0.6); border-radius: 8px; outline: none;
     }
+    .export-picker-recent { display: flex; flex-direction: column; gap: 6px; }
+    .export-picker-option:focus-visible, .export-picker-doc:focus-visible { outline: 2px solid #2c5f2d; outline-offset: 2px; }
+    .modal-foot[hidden] { display: none; }
+    .export-picker-doc {
+      display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+      width: 100%; padding: 10px 12px; text-align: left; cursor: pointer;
+      font-family: 'Outfit', sans-serif; font-size: 13px; color: #1a2e1c;
+      background: rgba(250,247,240,0.5); border: 1px solid rgba(212,201,168,0.5); border-radius: 8px;
+    }
+    .export-picker-doc:hover, .export-picker-doc[aria-pressed="true"] { background: white; border-color: #2c5f2d; }
+    .export-picker-doc-title { max-width: 100%; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; word-break: break-word; }
+    .export-picker-doc-date { font-size: 12px; color: rgba(26,46,28,0.55); }
+    .export-picker-empty, .export-picker-note { margin: 0; font-size: 13px; line-height: 1.5; color: rgba(26,46,28,0.65); }
+    .export-picker-note:empty { display: none; }
     /* Selection-to-quote tooltip */
     .selection-tooltip {
       position: fixed; z-index: 9999; background: #1a2e1c; color: white;
@@ -1344,7 +1360,7 @@
       width: 11px; height: 11px; flex-shrink: 0;
       border: 2px solid rgba(44,95,45,0.2); border-top-color: #2c5f2d;
       border-radius: 50%;
-      animation: spin 0.7s linear infinite;
+      animation: spin 1.1s linear infinite;
     }
 
     .tutor-nudge {
@@ -1725,9 +1741,9 @@
     .sync-syncing-dot {
       width: 7px; height: 7px; border-radius: 50%;
       background: #2c5f2d; display: inline-block;
-      animation: sync-pulse 1.2s ease-in-out infinite;
+      animation: sync-pulse 2.4s ease-in-out infinite;
     }
-    @keyframes sync-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+    @keyframes sync-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
 
     /* ───────── TOAST — action variant ───────── */
     .toast-persistent { pointer-events: auto !important; }
@@ -1848,7 +1864,7 @@
     .history-entry-date { font-size: 11px; color: rgba(26,46,28,0.38); margin-left: auto; }
     .history-entry-preview {
       font-size: 13px; color: rgba(26,46,28,0.65); line-height: 1.4;
-      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
       overflow: hidden;
     }
     .history-entry-meta { font-size: 11px; color: rgba(26,46,28,0.35); margin-top: 5px; }
@@ -1979,6 +1995,347 @@
     .home-recent .tutor-landing-results { max-width: none; display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
     .home-recent .tutor-landing-results-heading { display: none; }
     .home-recent .tutor-landing-card { padding: 14px 16px; }
+  </style>
+
+  <style id="ux-refresh">
+    /* ═════ UX REFRESH: floating panels, shared bar height, soft corners, mobile ═════ */
+    :root { --bar-h: 68px; --gap: 12px; --r-lg: 20px; --r-md: 14px; --line: rgba(212,201,168,0.55); --rail-w: 76px; }
+    html { height: 100%; -webkit-text-size-adjust: 100%; }
+    body { overscroll-behavior-y: none; }
+    .app-content.unlocked { min-height: 100vh; min-height: 100dvh; }
+
+    /* floating sidebar panel */
+    .sidebar {
+      top: var(--gap); height: calc(100vh - 2 * var(--gap)); height: calc(100dvh - 2 * var(--gap));
+      margin: var(--gap) 0 var(--gap) var(--gap);
+      border: 1px solid var(--line); border-radius: var(--r-lg);
+      box-shadow: 0 6px 24px rgba(26,46,28,0.06);
+      overflow: hidden;
+    }
+    .sidebar-header { height: var(--bar-h); padding: 0 14px 0 18px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+    .sidebar-title-box { width: 40px; height: 40px; border-radius: 14px; }
+    .sidebar-collapse-btn { width: 40px; height: 40px; border-radius: 12px; }
+    .sidebar-nav { padding: 12px 10px 8px; gap: 2px; flex: 0 1 auto; min-height: 0; }
+    .sidebar-nav-section { padding: 14px 12px 6px; }
+    .nav-link { padding: 10px 12px; border-left: 0; border-radius: var(--r-md); margin: 0; min-height: 42px; }
+    .nav-link.active { background: rgba(44,95,45,0.12); }
+    .sidebar-tutor-chats { border-top: 0; margin: 4px 10px 0; padding: 10px 4px 8px; border-top: 1px solid var(--line); flex: 1 1 140px; min-height: 120px; }
+    .chat-item { border-radius: 12px; padding: 9px 12px; }
+    .new-chat-btn { border-radius: 999px; padding: 10px 14px; margin: 0 2px 8px; min-height: 40px; }
+    .sync-section { border-top: 1px solid var(--line); margin: 0 10px; padding: 12px 4px 8px; flex-shrink: 0; }
+    .sync-btn { border-radius: 999px !important; min-height: 42px; }
+    .sidebar-legal { padding: 4px 12px 14px; flex-shrink: 0; }
+
+    /* floating top bar, same height + baseline as sidebar header */
+    .topbar {
+      top: var(--gap); height: var(--bar-h); padding: 0 18px;
+      margin: var(--gap) var(--gap) 0;
+      background: #fff; backdrop-filter: none; -webkit-backdrop-filter: none;
+      border: 1px solid var(--line); border-radius: var(--r-lg);
+      box-shadow: 0 6px 24px rgba(26,46,28,0.05);
+    }
+    .hamburger-btn { width: 44px; height: 44px; border-radius: 14px; }
+    .history-topbar-btn { border-radius: 999px !important; min-height: 40px; }
+    .content { padding: 24px 24px 56px; }
+    .view-header .btn-nav { border-radius: 999px; padding: 9px 16px; }
+    .mode-card, .file-card, .dropzone { border-radius: 18px !important; }
+
+    /* tutor shell: one rounded card, no double hairline */
+    .tutor-shell { border-radius: var(--r-lg); }
+    .main-area.tutor-mode .tutor-shell {
+      border: 1px solid var(--line) !important; border-radius: var(--r-lg) !important;
+      margin: var(--gap); flex: 1 1 0; box-shadow: 0 6px 24px rgba(26,46,28,0.05);
+    }
+    .main-area.tutor-mode .tutor-landing.active { margin: var(--gap); }
+    body.tutor-fullscreen .main-area { overflow: hidden; height: 100dvh; }
+    .tutor-messages { border-radius: 0; }
+    .chat-bubble { border-radius: 18px !important; }
+    .tutor-input, .tutor-composer-row textarea { border-radius: 22px !important; }
+    .composer-attach { border-radius: 50% !important; }
+
+    /* chat bookmarks: ticks + floating index card (no blur) */
+    .tutor-scroll-rail { width: 28px; }
+    .rail-btn { width: 28px; height: 28px; box-shadow: 0 1px 4px rgba(26,46,28,0.12); }
+    .tutor-bookmarks { gap: 6px; padding: 8px 0; cursor: pointer; width: 28px; justify-content: center; }
+    .tutor-bookmarks:not([data-many]) { visibility: hidden; pointer-events: none; }
+    .bookmark-dot::after { inset: -3px -6px; }
+    .bookmark-dot { width: 12px; height: 4px; border-radius: 4px; background: rgba(26,46,28,0.18); position: relative; }
+    .bookmark-dot::after { content: ""; position: absolute; inset: -6px -6px; }
+    .bookmark-dot.bookmark-user { width: 18px; background: rgba(44,95,45,0.4); }
+    .bookmark-dot.bookmark-tutor { width: 12px; background: rgba(26,46,28,0.2); }
+    .bookmark-dot:hover, .bookmark-dot:focus-visible, .bookmark-dot.tooltip-visible { background: #2c5f2d; transform: none; }
+    .bookmark-dot.current { background: #2c5f2d; box-shadow: none; width: 22px; }
+    .bookmark-dot.highlight-pulse { background: #2c5f2d; transform: none; }
+    body.bm-open .float-tip { display: none; }
+    .bm-card {
+      position: fixed; top: 0; left: 0; z-index: 420; width: min(300px, calc(100vw - 72px));
+      max-height: min(60vh, 440px); overflow-y: auto; overscroll-behavior: contain;
+      background: #fff; border: 1px solid var(--line); border-radius: 18px;
+      box-shadow: 0 14px 40px rgba(26,46,28,0.16); padding: 8px;
+      opacity: 0; pointer-events: none; transform-origin: right center;
+      transition: opacity 0.16s ease; scrollbar-width: thin;
+    }
+    .bm-card.show { opacity: 1; pointer-events: auto; }
+    .bm-head { padding: 6px 10px 8px; font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: rgba(26,46,28,0.4); }
+    .bm-item { display: flex; gap: 10px; align-items: flex-start; width: 100%; text-align: left; background: transparent; border: 0; border-radius: 12px; padding: 8px 10px; cursor: pointer; font-family: 'Outfit', sans-serif; color: #1a2e1c; min-height: 44px; }
+    .bm-item:hover, .bm-item:focus-visible { background: rgba(44,95,45,0.07); outline: none; }
+    .bm-item.current { background: rgba(44,95,45,0.13); }
+    .bm-tick { flex-shrink: 0; margin-top: 8px; height: 4px; width: 14px; border-radius: 4px; background: rgba(26,46,28,0.25); }
+    .bm-item.user .bm-tick { width: 18px; background: #2c5f2d; }
+    .bm-role { display: block; font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgba(26,46,28,0.45); }
+    .bm-text { display: block; font-size: 13px; line-height: 1.35; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+
+    /* collapsed icon rail — same elements, clipped + faded, so open/close animates */
+    :root { --ease-soft: cubic-bezier(0.22,1,0.36,1); }
+    .sidebar { transition: width 380ms var(--ease-soft), transform 380ms var(--ease-soft); }
+    .sidebar-header, .sidebar-nav, .sidebar-tutor-chats, .sync-section, .sidebar-header { transition: padding 380ms var(--ease-soft), margin 380ms var(--ease-soft), gap 380ms var(--ease-soft); }
+    .sidebar-title { transition: opacity 220ms ease, flex-basis 380ms var(--ease-soft); }
+    .nav-link, .new-chat-btn, .sync-btn { overflow: hidden; white-space: nowrap; transition: background 0.2s ease, color 0.2s ease; }
+    .nav-label { transition: opacity 200ms ease; }
+    .sidebar-backdrop { display: block; visibility: hidden; opacity: 0; pointer-events: none; transition: opacity 320ms ease, visibility 0s linear 320ms; }
+    .sidebar-backdrop.open { visibility: visible; opacity: 1; pointer-events: auto; transition-delay: 0s; }
+    .topbar-badge { display: none !important; }
+    @media (min-width: 901px) {
+      .sidebar.collapsed { width: var(--rail-w); }
+      .sidebar.collapsed .sidebar-header { padding: 0; gap: 0; justify-content: center; }
+      .sidebar.collapsed .sidebar-title { flex: 0 0 0; opacity: 0; }
+      .sidebar.collapsed .sidebar-nav { padding: 12px 16px 8px; }
+      .sidebar.collapsed .sidebar-nav-section { height: 10px; padding: 0; margin: 0; background: transparent; overflow: hidden; font-size: 0; }
+      .sidebar.collapsed .nav-label { opacity: 0; }
+      .sidebar.collapsed .sidebar-tutor-chats { justify-content: flex-end; border-top-color: transparent; margin: 0 16px; padding: 0 0 8px; min-height: 0; }
+      .sidebar.collapsed .sidebar-tutor-chats > :not(.new-chat-btn) { display: none !important; }
+      .sidebar.collapsed .new-chat-btn { margin: 0; padding: 0 0 0 13px; height: 42px; border-radius: 999px; justify-content: flex-start; gap: 12px; }
+      .sidebar.collapsed .new-chat-btn .nav-label { display: inline; }
+      .sidebar.collapsed .sync-section { border-top-color: transparent; margin: 0 16px; padding: 0 0 12px; }
+      .sidebar.collapsed .sync-btn { padding: 0 0 0 13px !important; height: 42px; justify-content: flex-start; gap: 12px; }
+      .sidebar.collapsed .sync-hint, .sidebar.collapsed .sync-user-info, .sidebar.collapsed .sync-sign-out-btn { display: none; }
+      .sidebar.collapsed .sync-user-row { justify-content: center; }
+      .sidebar.collapsed .sidebar-legal { display: none; }
+    }
+
+    /* tablets & phones */
+    @media (max-width: 900px) {
+      :root { --bar-h: 60px; --gap: 8px; }
+      .sidebar {
+        position: fixed; top: 0; left: 0; margin: 0; width: min(86vw, 320px);
+        height: 100vh; height: 100dvh; border-radius: 0 var(--r-lg) var(--r-lg) 0; border-left: 0;
+        box-shadow: 0 0 48px rgba(26,46,28,0.22); padding-bottom: env(safe-area-inset-bottom);
+      }
+      .sidebar-backdrop { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(26,46,28,0.4); }
+      body:has(.sidebar.open) { overflow: hidden; }
+      .topbar { padding: 0 8px 0 8px; }
+      .topbar-badge { display: none; }
+      .topbar .topbar-title { font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 48vw; }
+      .content { padding: 16px 12px 48px; }
+      .main-area.tutor-mode .tutor-shell { margin: var(--gap); }
+      .tutor-composer { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+    }
+    @media (max-width: 600px) {
+      .view-header .view-title-block h2 { font-size: 20px; }
+      .content { padding: 12px 10px 40px; }
+      .lightbox-nav.prev { left: 6px; } .lightbox-nav.next { right: 6px; }
+    }
+    @media (max-width: 480px) {
+      .history-topbar-btn { font-size: 0 !important; gap: 0 !important; width: 44px; padding: 0 !important; justify-content: center; position: relative; }
+      .history-topbar-btn svg { width: 18px; height: 18px; }
+      .tutor-messages { padding: 14px 40px 14px 10px; }
+      .chat-bubble { max-width: 90%; }
+    }
+    @media (max-width: 340px) {
+      :root { --gap: 6px; }
+      .topbar .topbar-title { max-width: 40vw; font-size: 14px; }
+      .tutor-messages { padding: 12px 36px 12px 8px; }
+      .sidebar { width: 88vw; }
+    }
+    @media (max-height: 520px) and (orientation: landscape) {
+      :root { --bar-h: 52px; --gap: 6px; }
+      .sidebar-legal { display: none; }
+      .tutor-head { padding-top: 6px; padding-bottom: 6px; }
+      .main-area.tutor-mode .tutor-shell { margin: var(--gap); }
+    }
+
+    /* softer page entrance */
+    @keyframes pageIn { from { opacity: 0; transform: translateY(22px) scale(0.985); } to { opacity: 1; transform: none; } }
+    @keyframes pageItemIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+    .view.view-enter { animation: pageIn 520ms cubic-bezier(0.16,1,0.3,1) both; transform-origin: 50% 0; }
+    .view.view-exit { transition: opacity 200ms ease, transform 200ms ease; }
+    .view.view-enter > * { animation: pageItemIn 560ms cubic-bezier(0.16,1,0.3,1) both; }
+    .view.view-enter > *:nth-child(2) { animation-delay: 60ms; }
+    .view.view-enter > *:nth-child(3) { animation-delay: 120ms; }
+    .view.view-enter > *:nth-child(4) { animation-delay: 180ms; }
+    .view.view-enter > *:nth-child(n+5) { animation-delay: 240ms; }
+    @media (prefers-reduced-motion: reduce) { .view.view-enter, .view.view-enter > * { animation: none !important; } }
+    /* no top bar: floating menu + History only */
+    .topbar { position: relative; top: 0; height: 0; min-height: 0; margin: 0; padding: 0; background: none; border: 0; box-shadow: none; border-radius: 0; display: block; z-index: 30; overflow: visible; }
+    .topbar .topbar-title, .topbar .topbar-chat-title, .topbar.show-chat-title .topbar-chat-title { display: none !important; }
+    .topbar .history-topbar-btn { position: absolute; top: calc(var(--gap) + (var(--bar-h) - 44px) / 2); right: 20px; height: 44px; padding: 0 18px; background: #fff; border: 1px solid var(--line); box-shadow: 0 6px 24px rgba(26,46,28,0.06); }
+    .topbar .hamburger-btn { position: absolute; top: var(--gap); left: var(--gap); background: #fff; box-shadow: 0 6px 24px rgba(26,46,28,0.08); z-index: 31; }
+    .main-area:not(.tutor-mode) .content { padding-top: calc(var(--gap) + var(--bar-h) + 8px); }
+    .main-area.tutor-mode .history-topbar-btn { display: none; }
+    @media (max-width: 900px) {
+      .topbar { position: sticky; top: 0; }
+      .topbar .history-topbar-btn { right: var(--gap); top: var(--gap); }
+      .main-area:not(.tutor-mode) .content { padding-top: 68px; }
+      .main-area.tutor-mode .tutor-shell, .main-area.tutor-mode .tutor-landing.active { margin-top: 64px; }
+    }
+    @media (max-height: 520px) and (orientation: landscape) { .main-area.tutor-mode .tutor-shell, .main-area.tutor-mode .tutor-landing.active { margin-top: 58px; } }
+  </style>
+  <style id="ux-fix">
+    /* header never changes height while scrolling: shadow only */
+    .tutor-head { transition: box-shadow 0.25s ease; flex-shrink: 0; position: relative; z-index: 2; }
+    .tutor-shell.head-fused .tutor-head { max-height: 140px; opacity: 1; padding-top: 14px; padding-bottom: 14px; border-bottom-color: rgba(212,201,168,0.4); box-shadow: 0 8px 18px -12px rgba(26,46,28,0.28); }
+    @media (max-width: 430px) { .tutor-shell.head-fused .tutor-head { padding-top: 10px; padding-bottom: 10px; } }
+    .tutor-messages { overflow-anchor: auto; }
+
+    /* typing indicator: wave + glow + shimmering label */
+    .chat-bubble.typing { position: relative; width: auto; }
+    .chat-bubble.typing::after { content: ""; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; animation: bubbleGlow 2.4s ease-in-out infinite; }
+    @keyframes bubbleGlow { 0% { box-shadow: 0 0 0 0 rgba(44,95,45,0.28); } 70%,100% { box-shadow: 0 0 0 9px rgba(44,95,45,0); } }
+    .typing-label { font-style: normal; font-size: 13px; font-weight: 500; margin-left: 6px; color: rgba(26,46,28,0.35);
+      background: linear-gradient(100deg, rgba(26,46,28,0.35) 30%, #2c5f2d 50%, rgba(26,46,28,0.35) 70%) 200% 0 / 220% 100% no-repeat;
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: labelShimmer 2.2s linear infinite; }
+    @keyframes labelShimmer { to { background-position: -100% 0; } }
+
+    /* reduce-motion: keep indicators alive but gentle (fades, slow turns, no travel) */
+    @keyframes dotFade { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
+    @keyframes softFade { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+    @media (prefers-reduced-motion: reduce) {
+      .loading-spinner, .mini-spinner, .reading-link-spinner, [class*="spinner"] { animation: spin 1.8s linear infinite !important; }
+      .chat-bubble.typing span { animation: dotFade 1.8s ease-in-out infinite !important; transform: none !important; }
+      .chat-bubble.typing span:nth-child(2) { animation-delay: 0.2s !important; }
+      .chat-bubble.typing span:nth-child(3) { animation-delay: 0.4s !important; }
+      .chat-bubble.typing::after { animation: softFade 2.4s ease-in-out infinite !important; box-shadow: 0 0 0 3px rgba(44,95,45,0.12); }
+      .typing-label { animation: softFade 2.4s ease-in-out infinite !important; background: none; -webkit-text-fill-color: rgba(26,46,28,0.55); }
+      .pulse-text, .sync-syncing-dot { animation: softFade 2.4s ease-in-out infinite !important; }
+    }
+  </style>
+  <style id="ux-scroll">
+    :root { --sb-thumb: rgba(107,143,113,0.5); --sb-thumb-hover: rgba(44,95,45,0.8); }
+    html { scrollbar-gutter: stable; }
+    .tutor-messages, .sidebar-tutor-chats, .bm-card, .modal-box { scrollbar-gutter: stable; }
+    * { scrollbar-width: thin; scrollbar-color: var(--sb-thumb) transparent; }
+    @media (hover: hover) and (pointer: fine) {
+      *::-webkit-scrollbar { width: 12px; height: 12px; background: transparent; }
+      *::-webkit-scrollbar-track, *::-webkit-scrollbar-corner { background: transparent; }
+      *::-webkit-scrollbar-thumb { background: var(--sb-thumb); background-clip: padding-box; border: 3px solid transparent; border-radius: 999px; min-height: 40px; min-width: 40px; transition: background 0.2s ease; }
+      *::-webkit-scrollbar-thumb:hover { background: var(--sb-thumb-hover); background-clip: padding-box; border-width: 2px; }
+      *::-webkit-scrollbar-thumb:active { background: var(--sb-thumb-hover); background-clip: padding-box; border-width: 2px; }
+    }
+    @supports (-moz-appearance: none) { * { scrollbar-width: thin; } }
+    /* kept hidden */
+    .tutor-bookmarks, .sidebar-nav { scrollbar-width: none; }
+    .tutor-bookmarks::-webkit-scrollbar, .sidebar-nav::-webkit-scrollbar { display: none; width: 0; }
+  </style>
+  <style id="ux-brand">
+    .sidebar-title-box, .sidebar-title p { display: none !important; }
+    .sidebar-title h1 { font-size: 18px; }
+  </style>
+  <style id="ux-soft-bg">
+    body { background-color: #f5f0e1; background-image:
+      radial-gradient(1100px 700px at 8% -10%, rgba(255,252,242,0.9), transparent 70%),
+      radial-gradient(900px 700px at 100% 0%, rgba(107,143,113,0.14), transparent 70%),
+      radial-gradient(1000px 800px at 90% 110%, rgba(212,201,168,0.35), transparent 70%);
+      background-attachment: fixed; }
+    .sidebar { box-shadow: 0 2px 6px rgba(26,46,28,0.03), 0 12px 40px -8px rgba(26,46,28,0.10); }
+    .main-area.tutor-mode .tutor-shell { box-shadow: 0 2px 6px rgba(26,46,28,0.03), 0 16px 48px -12px rgba(26,46,28,0.10); }
+    .topbar .history-topbar-btn { box-shadow: 0 2px 6px rgba(26,46,28,0.03), 0 10px 28px -8px rgba(26,46,28,0.10); }
+    .tutor-messages { background: linear-gradient(180deg, #fcfaf5 0%, #f8f4ea 100%);
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%);
+      mask-image: linear-gradient(to bottom, transparent 0, #000 22px, #000 calc(100% - 22px), transparent 100%); }
+    .tutor-shell { background: #fff; }
+    .sidebar-backdrop, .modal-overlay { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+    .sidebar-backdrop { background: radial-gradient(120% 90% at 0% 50%, rgba(44,95,45,0.30), rgba(107,143,113,0.18)); }
+    @media (max-width: 900px) { .sidebar-backdrop { background: radial-gradient(120% 90% at 0% 50%, rgba(44,95,45,0.30), rgba(107,143,113,0.18)); } }
+  </style>
+  <style id="ux-nobar">
+    .tutor-shell, .main-area.tutor-mode .tutor-shell { background: linear-gradient(180deg, #fcfaf5 0%, #f8f4ea 100%); }
+    .tutor-head, .tutor-composer { background: transparent !important; border-color: transparent !important; }
+    .tutor-messages { background: transparent; -webkit-mask-image: none; mask-image: none; }
+    .tutor-shell.head-fused .tutor-head { border-bottom-color: transparent; box-shadow: none; }
+    .tutor-messages-wrap { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%); }
+  </style>
+  <style id="ux-gutter">
+    html { scrollbar-gutter: auto; }
+    *::-webkit-scrollbar-button { display: none; width: 0; height: 0; }
+  </style>
+  <style id="ux-autohide">
+    @property --sb-c { syntax: "<color>"; inherits: false; initial-value: rgba(107,143,113,0); }
+    .sidebar-tutor-chats { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 10px, #000 calc(100% - 10px), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 10px, #000 calc(100% - 10px), transparent 100%); }
+    .bm-card { -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 8px, #000 calc(100% - 8px), transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 8px, #000 calc(100% - 8px), transparent 100%); }
+    @media (hover: hover) and (pointer: fine) {
+      * { scrollbar-width: auto; scrollbar-color: auto; }
+      @supports not selector(::-webkit-scrollbar) { * { scrollbar-width: thin; scrollbar-color: transparent transparent; } .sb-on { scrollbar-color: rgba(107,143,113,0.6) transparent; } }
+      .tutor-bookmarks, .sidebar-nav { scrollbar-width: none; }
+      *::-webkit-scrollbar-thumb, *::-webkit-scrollbar-thumb:hover, *::-webkit-scrollbar-thumb:active { background-color: rgba(107,143,113,0); background-clip: padding-box; transition: background-color 400ms ease; }
+      .sb-on::-webkit-scrollbar-thumb, .sb-on::-webkit-scrollbar-thumb:hover { background-color: rgba(107,143,113,0.6); transition-duration: 120ms; }
+    }
+  </style>
+  <style id="ux-chatlist">
+    .sidebar-tutor-chats { overflow: hidden !important; -webkit-mask-image: none !important; mask-image: none !important; gap: 0; }
+    .sidebar-tutor-chats > .section-row, .sidebar-tutor-chats > .chat-search-wrap, .sidebar-tutor-chats > .new-chat-btn { flex-shrink: 0; }
+    #tutorChatList { position: relative; flex: 1 1 0; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding: 8px 0;
+      -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%);
+      mask-image: linear-gradient(to bottom, transparent 0, #000 12px, #000 calc(100% - 12px), transparent 100%); }
+    #tutorChatList > * { flex-shrink: 0; }
+  </style>
+  <style id="ux-mobile2">
+    #btnTutorSend { min-width: 104px; justify-content: center; }
+    @media (max-width: 900px) {
+      /* no page scroll in tutor: lock to visible screen */
+      html:has(body.tutor-fullscreen) { height: 100%; overflow: hidden; }
+      body.tutor-fullscreen { position: fixed; inset: 0; width: 100%; overflow: hidden; }
+      body.tutor-fullscreen .app-content { height: 100%; }
+
+      /* fixed controls */
+      .topbar { position: static; }
+      .topbar .hamburger-btn { position: fixed; top: calc(var(--gap) + env(safe-area-inset-top, 0px)); left: var(--gap); z-index: 60; }
+      .topbar .history-topbar-btn { position: fixed; top: calc(var(--gap) + env(safe-area-inset-top, 0px)); right: var(--gap); z-index: 60; width: 44px; min-width: 44px; height: 44px; padding: 0 !important; border-radius: 50% !important; display: inline-flex; align-items: center; justify-content: center; }
+      .topbar .history-topbar-btn svg { width: 20px; height: 20px; flex: 0 0 20px; }
+      .topbar .history-topbar-btn { font-size: 0 !important; gap: 0 !important; overflow: visible; }
+      .topbar .history-topbar-btn .hist-dot { position: absolute; top: 8px; right: 8px; width: 11px; height: 11px; border: 2px solid #fff; box-sizing: border-box; }
+
+      /* tutor chat: burger lives inside the chat header */
+      .main-area.tutor-mode:has(#tutorShell:not([style*="none"])) .tutor-shell { margin-top: var(--gap); }
+      .main-area.tutor-mode:has(#tutorShell:not([style*="none"])) .tutor-head { padding-left: 66px; }
+      .main-area.tutor-mode:has(#tutorShell:not([style*="none"])) .topbar .hamburger-btn { top: calc(var(--gap) + 12px + env(safe-area-inset-top, 0px)); left: calc(var(--gap) + 10px); box-shadow: none; border: 1px solid var(--line); }
+
+      /* drawer: compact 2-column nav, chats get the rest */
+      .sidebar-nav { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 10px 10px 6px; overflow: visible; flex: 0 0 auto; }
+      .sidebar-nav .sidebar-nav-section { display: none; }
+      .sidebar-nav .nav-link { padding: 0 10px; min-height: 44px; font-size: 13px; gap: 8px; min-width: 0; }
+      .sidebar-nav .nav-link .nav-label { overflow: hidden; text-overflow: ellipsis; }
+      .sidebar-tutor-chats { flex: 1 1 0; min-height: 0; }
+    }
+    @media (max-width: 900px) and (max-height: 720px) { .sync-hint, .sidebar-legal { display: none; } }
+    @media (max-width: 340px) { .sidebar-nav .nav-link { font-size: 12px; padding: 0 8px; } }
+  </style>
+  <style id="ux-home-compact">
+    @media (max-width: 639px) {
+      #viewHome > div:first-child { margin-bottom: 16px !important; padding-top: 0 !important; }
+      #viewHome > div:first-child h2 { font-size: 22px; line-height: 1.2; margin-bottom: 4px !important; }
+      #viewHome > div:first-child p { font-size: 13.5px; line-height: 1.4; }
+      #viewHome .grid:has(> .mode-card) { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+      #viewHome .mode-card { padding: 14px 8px 12px !important; border-width: 1px !important; border-radius: 16px !important; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 0; }
+      #viewHome .mode-card .mode-icon { width: 40px; height: 40px; border-radius: 14px; }
+      #viewHome .mode-card .mode-icon svg { width: 22px; height: 22px; }
+      #viewHome .mode-card h3 { font-size: 14px; line-height: 1.2; margin-top: 8px; text-wrap: balance; }
+      #viewHome .mode-card p { display: none; }
+      .home-recent { margin-top: 22px; }
+      .home-recent-head { margin-bottom: 8px; }
+      .home-recent-head h3 { font-size: 18px; }
+      .home-recent .tutor-landing-results { gap: 8px; grid-template-columns: 1fr; }
+      .home-recent .tutor-landing-card { padding: 10px 14px; border-radius: 14px; gap: 2px; }
+      .home-recent .tutor-landing-card-snippet { display: none; }
+    }
+  </style>
+  <style id="ux-home-icons">
+    @media (max-width: 360px) {
+      #viewHome .grid:has(> .mode-card) { gap: 8px !important; }
+      #viewHome .mode-card { height: 76px; padding: 0 !important; justify-content: center; }
+      #viewHome .mode-card .mode-icon { width: 44px; height: 44px; margin: 0 auto; }
+      #viewHome .mode-card .mode-icon svg { width: 26px; height: 26px; }
+      #viewHome .mode-card h3 { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+    }
   </style>
 </head>
 
@@ -2729,38 +3086,40 @@
 
   <!-- ============ EXPORT PICKER MODAL ============ -->
   <div id="exportPickerModal" class="modal-overlay">
-    <div class="modal-box" style="max-width:520px">
+    <div class="modal-box" style="max-width:520px" role="dialog" aria-modal="true" aria-labelledby="exportPickerTitle">
       <div class="modal-head">
         <div>
-          <h3 class="text-lg">Export to Google Docs</h3>
+          <h3 class="text-lg" id="exportPickerTitle">Export to Google Docs</h3>
           <p class="text-xs text-ink/45">Where should this go?</p>
         </div>
         <button class="btn-nav" id="exportPickerClose">Close</button>
       </div>
       <div class="modal-body">
         <div class="export-picker-choice">
-          <div class="export-picker-option" data-export-choice="new">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-            <div>
+          <button type="button" class="export-picker-option" data-export-choice="new">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+            <span>
               <strong>Create a new Google Doc</strong>
               <small>A fresh document in your Drive</small>
-            </div>
-          </div>
-          <div class="export-picker-option" data-export-choice="existing">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            <div>
-              <strong>Append to an existing doc</strong>
-              <small>Paste the Google Docs URL below</small>
-            </div>
-          </div>
+            </span>
+          </button>
+          <button type="button" class="export-picker-option" data-export-choice="existing">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <span>
+              <strong>Add to a Doc you exported</strong>
+              <small>Choose one of your recent exports</small>
+            </span>
+          </button>
         </div>
         <div id="exportPickerUrlRow" class="export-picker-url-row">
-          <input id="exportPickerUrlInput" type="url" placeholder="https://docs.google.com/document/d/..." />
-          <div class="flex gap-2 justify-end">
-            <button class="refs-panel-btn ghost" id="exportPickerUrlCancel">Back</button>
-            <button class="refs-panel-btn primary" id="exportPickerUrlConfirm">Append</button>
-          </div>
+          <div id="exportPickerRecent" class="export-picker-recent" role="group" aria-label="Recent exports"></div>
+          <input id="exportPickerUrlInput" type="url" placeholder="Or paste a Doc link" aria-label="Link to a Doc you exported" />
+          <p id="exportPickerNote" class="export-picker-note" role="status"></p>
         </div>
+      </div>
+      <div id="exportPickerFoot" class="modal-foot" hidden>
+        <button class="refs-panel-btn ghost" id="exportPickerUrlCancel">Back</button>
+        <button class="refs-panel-btn primary" id="exportPickerUrlConfirm">Append</button>
       </div>
     </div>
   </div>
@@ -2849,6 +3208,8 @@
     const OCR_PAGES_PER_REQUEST = 5;
     const OCR_REQUEST_TIMEOUT_MS = 120000; // 2 min
     const GEMINI_PDF_LIMIT = 50 * 1024 * 1024; // Gemini Files API cap, only for unconverted scans
+    const DOC_CONVERSION_LIMIT = 10 * 1024 * 1024; // Drive's cap on exporting a converted Doc
+    const WEBHOOK_UPLOAD_LIMIT = 15 * 1024 * 1024; // a file fetched from Drive must stay under the server's body limit when sent whole
     const PDF_LIB_URLS = [
       'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js',
       'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js',
@@ -2969,9 +3330,9 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     async function unlockApp(password, decrypted) {
       const sensitive = decrypted || await decryptConfig(password);
       CONFIG = {
-        googleScopes: 'https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/drive.file',
         compression: { maxSizeMB: 0.8, maxWidthOrHeight: 1600, useWebWorker: true, fileType: 'image/jpeg' },
         ...sensitive,
+        googleScopes: 'https://www.googleapis.com/auth/drive.file',
       };
 
       // Save session (if storage is blocked the app still opens for this visit)
@@ -3036,6 +3397,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       sidebarSearch: '',
       chatSearch: '',
       refsPendingExport: null,
+      createdDocs: null,
+      removedDocs: null,
       driveSyncToken: null,
       driveSyncClient: null,
       driveSyncFileId: null,
@@ -3210,6 +3573,9 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       exportPickerUrlInput:     $('exportPickerUrlInput'),
       exportPickerUrlCancel:    $('exportPickerUrlCancel'),
       exportPickerUrlConfirm:   $('exportPickerUrlConfirm'),
+      exportPickerRecent:       $('exportPickerRecent'),
+      exportPickerNote:         $('exportPickerNote'),
+      exportPickerFoot:         $('exportPickerFoot'),
 
       // KB reader modal
       kbReaderModal:        $('kbReaderModal'),
@@ -3484,7 +3850,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       try {
         const token = await ensureGoogleToken();
         const meta  = MODE_META[entry.mode];
-        const title = `Student Tools Hub - ${meta?.resultTitle || entry.mode} - ${new Date(entry.timestamp).toLocaleDateString('en-ZA')}`;
+        const title = exportDocTitle(meta?.resultTitle || entry.mode, entry.timestamp);
         const createRes = await fetch('https://docs.googleapis.com/v1/documents', {
           method: 'POST',
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -3492,6 +3858,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         });
         if (!createRes.ok) throw driveHttpError('Docs create failed', createRes.status);
         const doc = await createRes.json();
+        recordCreatedDoc(doc.documentId, title);
         const requests = ['template', 'reviewer'].includes(entry.mode)
           ? markdownToDocsRequests(entry.resultText)
           : [{ insertText: { location: { index: 1 }, text: entry.resultText } }];
@@ -3581,6 +3948,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       const d = new Date(ts);
       return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
     }
+
+    const formatDateTime = (ts) => new Date(ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
     // Lightweight scrape request — no retry, 20s timeout
     async function scrapeUrl(url) {
@@ -4235,10 +4604,9 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           entry.content = result.value;
         } else if (ft === 'doc') {
           // Legacy .doc — no client-side parser for the old binary Word
-          // format. Store the original bytes; n8n converts to PDF via the
-          // user's own Google Drive on first use with the tutor/template/
-          // reviewer, then reuses the converted result exactly like a
-          // scanned PDF (same contentHash-keyed Gemini file registry).
+          // format. Store the original bytes; the browser converts to PDF
+          // via the user's own Google Drive on first use with the tutor/
+          // template/reviewer (see convertLegacyDoc).
           entry.type = 'doc';
           entry.mime = 'application/msword';
           entry.schemaVersion = 2;
@@ -4369,10 +4737,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       async convert(item, listeners) {
         if (!item.contentHash) return false;
         let source = null;
-        if (item.originalFile instanceof Blob) {
-          await loadScriptOnce(PDF_LIB_URLS[0]).catch(() => loadScriptOnce(PDF_LIB_URLS[1]));
-          source = await PDFLib.PDFDocument.load(await item.originalFile.arrayBuffer(), { ignoreEncryption: true });
-        }
+        if (item.originalFile instanceof Blob) source = await this.loadSource(item.originalFile);
         const total = source ? source.getPageCount() : item.pageCount;
         if (!total) return false;
 
@@ -4389,7 +4754,16 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           listeners.forEach(fn => fn(start - 1, total));
           const payload = { mode: 'ocr', contentHash: item.contentHash, startPage: start, endPage: end };
           if (source) payload.pdfBase64 = await this.extractPages(source, start, end);
-          const result = await this.request(payload);
+          let result = await this.request(payload);
+          if (result.missing && !source) {
+            // Not converted anywhere yet: read the file from the user's own Drive and send the pieces from here.
+            const blob = await getKbFileBlob(item);
+            if (blob) {
+              source = await this.loadSource(blob);
+              payload.pdfBase64 = await this.extractPages(source, start, end);
+              result = await this.request(payload);
+            }
+          }
           // Not converted anywhere yet, and this device has no bytes to send.
           if (result.missing) return false;
           for (const page of result.pages) pages[page.page] = page.text;
@@ -4406,6 +4780,11 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         await this.progressStore().removeItem(item.contentHash);
         scheduleDrivePush();
         return true;
+      },
+
+      async loadSource(blob) {
+        await loadScriptOnce(PDF_LIB_URLS[0]).catch(() => loadScriptOnce(PDF_LIB_URLS[1]));
+        return PDFLib.PDFDocument.load(await blob.arrayBuffer(), { ignoreEncryption: true });
       },
 
       async extractPages(source, start, end) {
@@ -5564,19 +5943,25 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           if (state.mode === 'transcribe') {
             // Handwriting OCR needs page images either way — reuse the same
             // rasterization path as a fresh upload, fed from the stored bytes.
-            if (entry && entry.originalFile instanceof Blob) {
-              return await rasterizePdfForTranscribe({ ...fileObj, file: entry.originalFile });
-            }
+            const blob = entry && await getKbFileBlob(entry);
+            if (blob) return await rasterizePdfForTranscribe({ ...fileObj, file: blob });
             return { role: fileObj.role, type: 'text', content: `[System Note: "${fileObj.name}" isn't available on this device for transcription — re-upload it to Knowledge Bay.]`, name: fileObj.name };
           }
           if (ocr.isConverted(entry)) {
             return { role: fileObj.role, type: 'text', content: entry.ocrText, name: fileObj.name };
           }
-          if (entry && entry.originalFile instanceof Blob) {
-            return { role: fileObj.role, type: 'scanned_pdf_upload', originalFile: entry.originalFile, contentHash: entry.contentHash, pageCount: entry.pageCount, name: fileObj.name };
+          if (entry && entry.driveFileId && state.driveSyncToken && !(entry.originalFile instanceof Blob)) {
+            // Stored only in Drive: read it in small pieces rather than sending the whole file
+            updateProgress(null, `Reading ${fileObj.name}…`);
+            try { await ocr.ensure(entry, (done, total) => updateProgress(null, `Reading ${fileObj.name}… ${done}/${total} pages`)); }
+            catch (err) { console.warn('[OCR] conversion failed, falling back to the PDF:', fileObj.name, err); }
+            if (ocr.isConverted(entry)) return { role: fileObj.role, type: 'text', content: entry.ocrText, name: fileObj.name };
           }
-          if (entry && entry.driveFileId && state.driveSyncToken) {
-            return { role: fileObj.role, type: 'scanned_pdf_upload', driveFileId: entry.driveFileId, driveAccessToken: state.driveSyncToken, contentHash: entry.contentHash, pageCount: entry.pageCount, name: fileObj.name };
+          if (entry && isDriveOnlyTooLarge(entry)) return { role: fileObj.role, type: 'text', content: wholeFileTooLargeNote(fileObj.name), name: fileObj.name };
+          const blob = entry && await getKbFileBlob(entry);
+          if (blob) {
+            if (!(entry.originalFile instanceof Blob) && blob.size > WEBHOOK_UPLOAD_LIMIT) return { role: fileObj.role, type: 'text', content: wholeFileTooLargeNote(fileObj.name), name: fileObj.name };
+            return { role: fileObj.role, type: 'scanned_pdf_upload', originalFile: blob, contentHash: entry.contentHash, pageCount: entry.pageCount, name: fileObj.name };
           }
           return { role: fileObj.role, type: 'text', content: `[System Note: "${fileObj.name}" is a scanned PDF that isn't available on this device — re-upload it to Knowledge Bay, or wait for Drive sync to finish.]`, name: fileObj.name };
         }
@@ -5585,13 +5970,15 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           if (!state.driveSyncToken) {
             return { role: fileObj.role, type: 'text', content: `[System Note: "${fileObj.name}" is a .doc file, which needs Google Drive connected to convert it. Ask the user to connect Drive sync, or save it as .docx or PDF and re-upload.]`, name: fileObj.name };
           }
-          if (entry && entry.originalFile instanceof Blob) {
-            return { role: fileObj.role, type: 'scanned_pdf_upload', originalFile: entry.originalFile, contentHash: entry.contentHash, pageCount: entry.pageCount, needsDocConversion: true, driveAccessToken: state.driveSyncToken, name: fileObj.name };
+          if (entry && (entry.originalSize || 0) > DOC_CONVERSION_LIMIT) {
+            return { role: fileObj.role, type: 'text', content: `[System Note: ${docTooLargeError(fileObj.name).message}]`, name: fileObj.name };
           }
-          if (entry && entry.driveFileId) {
-            return { role: fileObj.role, type: 'scanned_pdf_upload', driveFileId: entry.driveFileId, driveAccessToken: state.driveSyncToken, contentHash: entry.contentHash, pageCount: entry.pageCount, needsDocConversion: true, name: fileObj.name };
+          try {
+            return await processLegacyDoc(fileObj, entry && entry.contentHash, () => entry ? getKbFileBlob(entry) : null);
+          } catch (err) {
+            if (!err.safeMessage) throw err;
+            return { role: fileObj.role, type: 'text', content: `[System Note: ${err.message}]`, name: fileObj.name };
           }
-          return { role: fileObj.role, type: 'text', content: `[System Note: "${fileObj.name}" is a .doc file that isn't available on this device — re-upload it to Knowledge Bay, or wait for Drive sync to finish.]`, name: fileObj.name };
         }
         return { role: fileObj.role, type: 'text', content: fileObj.kbContent, name: fileObj.name };
       }
@@ -5629,19 +6016,33 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         return { role: fileObj.role, type: 'text', content: result.value, name: fileObj.name };
       }
       if (fileObj.type === 'doc') {
-        // Legacy .doc — no client-side parser. n8n converts it to PDF via the
-        // user's own Google Drive, then hands it to Gemini like a scanned PDF.
+        // Legacy .doc — no client-side parser. The browser converts it to PDF
+        // through the user's own Google Drive, then handles it like any PDF.
         if (!state.driveSyncToken) {
           throw fileError(`${fileObj.name} is a .doc file — connect Google Drive sync to convert it, or save it as .docx or PDF and re-upload.`, 'Legacy Word file needs Drive sync to convert');
         }
-        const contentHash = await sha256Hex(fileObj.file);
-        return { role: fileObj.role, type: 'scanned_pdf_upload', originalFile: fileObj.file, contentHash, needsDocConversion: true, driveAccessToken: state.driveSyncToken, name: fileObj.name };
+        return await processLegacyDoc(fileObj, await sha256Hex(fileObj.file), async () => fileObj.file);
       }
       if (fileObj.type === 'txt') {
         const content = await fileToText(fileObj.file);
         return { role: fileObj.role, type: 'text', content, name: fileObj.name };
       }
       throw new Error(`Unsupported file type: ${fileObj.type}`);
+    }
+
+    // Converts a legacy .doc in the browser, then follows the same path as a PDF:
+    // page images to transcribe, text when it has any, otherwise the bytes as a scanned PDF
+    async function processLegacyDoc(fileObj, contentHash, loadBlob) {
+      updateProgress(null, `Converting ${fileObj.name}…`);
+      const converted = await convertLegacyDoc(fileObj.name, contentHash, loadBlob);
+      if (!converted) {
+        return { role: fileObj.role, type: 'text', content: `[System Note: "${fileObj.name}" is a .doc file that isn't available on this device — re-upload it to Knowledge Bay, or wait for Drive sync to finish.]`, name: fileObj.name };
+      }
+      const { pdf, text } = converted;
+      if (state.mode === 'transcribe') return await rasterizePdfForTranscribe({ ...fileObj, file: pdf });
+      if (text) return { role: fileObj.role, type: 'text', content: text, name: fileObj.name };
+      if (pdf.size > WEBHOOK_UPLOAD_LIMIT) return { role: fileObj.role, type: 'text', content: wholeFileTooLargeNote(fileObj.name), name: fileObj.name };
+      return { role: fileObj.role, type: 'scanned_pdf_upload', originalFile: pdf, contentHash, name: fileObj.name };
     }
 
     // ─── Knowledge Bay Auto-Save ─────────────────────
@@ -5651,6 +6052,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     async function autoSaveToKb(fileObj, processedDoc) {
       try {
         if (kb.cache.some(k => k.name === fileObj.name)) return; // already stored
+        // A legacy .doc is stored like a Knowledge Bay upload, with its original bytes and fingerprint
+        if (fileObj.type === 'doc' && fileObj.file) { await kb.add(fileObj.file); return; }
         const content = processedDoc.type === 'text'
           ? processedDoc.content
           : (processedDoc.base64 || '');
@@ -5807,15 +6210,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
             for (const page of doc) documents.push(page);
           } else if (doc && doc.type === 'scanned_pdf_upload') {
             const meta = { name: doc.name, role: doc.role, pageCount: doc.pageCount || null, contentHash: doc.contentHash || null };
-            if (doc.needsDocConversion) meta.needsDocConversion = true;
-            if (doc.originalFile instanceof Blob) {
-              meta.fieldName = `scanned_${binaryFiles.length}`;
-              binaryFiles.push({ fieldName: meta.fieldName, blob: doc.originalFile, filename: doc.name });
-              if (doc.needsDocConversion) meta.driveAccessToken = doc.driveAccessToken;
-            } else if (doc.driveFileId) {
-              meta.driveFileId = doc.driveFileId;
-              meta.driveAccessToken = doc.driveAccessToken;
-            }
+            meta.fieldName = `scanned_${binaryFiles.length}`;
+            binaryFiles.push({ fieldName: meta.fieldName, blob: doc.originalFile, filename: doc.name });
             scannedPdfDocs.push(meta);
           } else {
             documents.push(doc);
@@ -5916,8 +6312,9 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         clearDraft();
 
       } catch (error) {
-        handleAppError(null, error);
+        handleAppError(error && error.safeMessage && !(error instanceof AppError) ? error.message : null, error);
       } finally {
+        driveBlobs.clear();
         stopLoadingMessages();
         processRunning = false;
         setBusy(dom.btnAction, false);
@@ -6142,7 +6539,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       try {
         const { mode, text } = snap;
         const meta = MODE_META[mode];
-        const title = `Student Tools Hub - ${meta.resultTitle} - ${new Date().toLocaleDateString('en-ZA')}`;
+        const title = exportDocTitle(meta.resultTitle);
 
         const createRes = await fetch('https://docs.googleapis.com/v1/documents', {
           method: 'POST',
@@ -6151,6 +6548,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         });
         if (!createRes.ok) throw driveHttpError('Docs create failed', createRes.status);
         const doc = await createRes.json();
+        recordCreatedDoc(doc.documentId, title);
 
         const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${doc.documentId}:batchUpdate`, {
           method: 'POST',
@@ -6232,6 +6630,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       });
       if (!createRes.ok) throw driveHttpError('Docs create failed', createRes.status);
       const doc = await createRes.json();
+      recordCreatedDoc(doc.documentId, title);
       const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${doc.documentId}:batchUpdate`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
@@ -6248,12 +6647,94 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       return m ? m[1] : (url.match(/^[a-zA-Z0-9_-]{20,}$/) ? url : null);
     }
 
+    // drive.file only reaches Docs this app created, so appends are limited to the ones it recorded
+    const CREATED_DOCS_KEY = 'sth_created_docs';
+    const CREATED_DOCS_MAX = 20;
+
+    const isCreatedDoc = (d) => !!d && typeof d.id === 'string' && /^[\w-]+$/.test(d.id) && typeof d.title === 'string' && Number.isFinite(d.createdAt);
+
+    // Merges by id, newest first, capped; entries of the wrong shape are dropped
+    function mergeCreatedDocs(...lists) {
+      const byId = new Map();
+      for (const d of lists.flat()) {
+        if (isCreatedDoc(d) && !(byId.get(d.id)?.createdAt >= d.createdAt)) byId.set(d.id, { id: d.id, title: d.title.slice(0, 200), createdAt: d.createdAt });
+      }
+      return [...byId.values()].sort((a, b) => b.createdAt - a.createdAt).slice(0, CREATED_DOCS_MAX);
+    }
+
+    // Docs removed from the list (deleted or no longer reachable) stay recorded for 30 days so a sync does not bring them back
+    const REMOVED_DOCS_KEY = 'sth_removed_docs';
+    const REMOVED_DOCS_MAX = 50;
+    const REMOVED_DOCS_TTL = 30 * 24 * 60 * 60 * 1000;
+
+    function mergeRemovedDocs(...lists) {
+      const byId = new Map();
+      for (const r of lists.flat()) {
+        if (r && typeof r.id === 'string' && /^[\w-]+$/.test(r.id) && Number.isFinite(r.removedAt) && Date.now() - r.removedAt < REMOVED_DOCS_TTL && !(byId.get(r.id)?.removedAt >= r.removedAt)) {
+          byId.set(r.id, { id: r.id, removedAt: r.removedAt });
+        }
+      }
+      return [...byId.values()].sort((a, b) => b.removedAt - a.removedAt).slice(0, REMOVED_DOCS_MAX);
+    }
+
+    // The in-memory copies keep the lists working when storage is blocked
+    function getRemovedDocs() {
+      let stored = null;
+      try { stored = JSON.parse(storageGet(REMOVED_DOCS_KEY)); } catch { /* unreadable list */ }
+      return mergeRemovedDocs(stored, state.removedDocs);
+    }
+
+    function setRemovedDocs(list) {
+      state.removedDocs = mergeRemovedDocs(list);
+      storageSet(REMOVED_DOCS_KEY, JSON.stringify(state.removedDocs));
+    }
+
+    function getCreatedDocs() {
+      let stored = null;
+      try { stored = JSON.parse(storageGet(CREATED_DOCS_KEY)); } catch { /* unreadable list */ }
+      const removed = new Set(getRemovedDocs().map(r => r.id));
+      return mergeCreatedDocs(stored, state.createdDocs).filter(d => !removed.has(d.id));
+    }
+
+    function setCreatedDocs(list) {
+      state.createdDocs = mergeCreatedDocs(list);
+      storageSet(CREATED_DOCS_KEY, JSON.stringify(state.createdDocs));
+    }
+
+    function recordCreatedDoc(id, title) {
+      setCreatedDocs([{ id, title, createdAt: Date.now() }, ...getCreatedDocs()]);
+      scheduleDrivePush();
+    }
+
+    function removeCreatedDoc(id) {
+      setRemovedDocs([{ id, removedAt: Date.now() }, ...getRemovedDocs()]);
+      setCreatedDocs(getCreatedDocs().filter(d => d.id !== id));
+      scheduleDrivePush();
+    }
+
+    // This device's lists merged with the ones in the sync file
+    function mergeSyncedDocs(remote) {
+      const removed = mergeRemovedDocs(getRemovedDocs(), remote && remote.removedDocIds);
+      const gone = new Set(removed.map(r => r.id));
+      return { removed, docs: mergeCreatedDocs(getCreatedDocs(), remote && remote.createdDocs).filter(d => !gone.has(d.id)) };
+    }
+
+    // Export titles tell exports apart: kind, date and time
+    function exportDocTitle(kind, ts = Date.now()) {
+      const d = new Date(ts);
+      const date = d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
+      const time = d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit', hour12: false });
+      return `Student Tools Hub - ${kind} - ${date} ${time}`;
+    }
+
+    const docsHttpError = (label, status) => driveHttpError(label, status);
+
     async function appendToGoogleDoc(docId, content) {
       const token = await ensureGoogleToken();
       const getRes = await fetch(`https://docs.googleapis.com/v1/documents/${docId}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      if (!getRes.ok) throw driveHttpError('Docs get failed', getRes.status);
+      if (!getRes.ok) throw docsHttpError('Docs get failed', getRes.status);
       const docData = await getRes.json();
       const body = docData.body.content;
       const endIndex = body[body.length - 1].endIndex - 1;
@@ -6262,15 +6743,15 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ requests: [{ insertText: { location: { index: endIndex }, text: `\n\n${content}` } }] }),
       });
-      if (!updateRes.ok) throw driveHttpError('Docs update failed', updateRes.status);
+      if (!updateRes.ok) throw docsHttpError('Docs update failed', updateRes.status);
       window.open(`https://docs.google.com/document/d/${docId}/edit`, '_blank');
-      return docId;
+      return { docId, title: docData.title };
     }
 
     // ═══════════════════════════════════════════════════════════
     // ─── GOOGLE DRIVE APP-DATA SYNC ────────────────────────────
     // ═══════════════════════════════════════════════════════════
-    const SYNC_SCOPE    = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
+    const SYNC_SCOPE    = 'https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email';
     const SYNC_FILE     = 'sth-userdata-v1.json';
     const SYNC_USER_KEY = 'sth_sync_user';
     const SYNC_FILE_KEY = 'sth_sync_file_id';
@@ -6309,6 +6790,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         return;
       }
       state.driveSyncToken = resp.access_token;
+      failedDocs.clear();
       runInitialSync();
     }
 
@@ -6343,6 +6825,13 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       clearTimeout(state.driveSyncTimer);
       state.driveSyncFileId = null;
       state.driveSyncUser = null;
+      convertedDocs.clear();
+      failedDocs.clear();
+      driveBlobs.clear();
+      state.createdDocs = null;
+      state.removedDocs = null;
+      storageRemove(CREATED_DOCS_KEY);
+      storageRemove(REMOVED_DOCS_KEY);
       storageRemove(SYNC_USER_KEY);
       storageRemove(SYNC_FILE_KEY);
       updateSyncUI('signed-out');
@@ -6441,6 +6930,139 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       const file = await res.json();
       return file.id;
     }
+
+    async function driveDownloadFile(token, fileId) {
+      const res = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) throw driveHttpError('Drive download', res.status);
+      return res.blob();
+    }
+
+    // The error body names the reason (for example exportSizeLimitExceeded or insufficientPermissions)
+    async function driveResponseError(label, res) {
+      const err = driveHttpError(label, res.status);
+      try {
+        const { error } = await res.json();
+        err.reason = [error?.errors?.[0]?.reason, ...(error?.details || []).map(d => d.reason), error?.status].filter(Boolean).join(' ');
+      } catch { /* no readable body */ }
+      return err;
+    }
+
+    // Converts a legacy .doc to PDF through the user's own Drive: import it as a temporary Google Doc in My Drive
+    // (files.export needs drive.file, which the sync token includes), export that as PDF, and delete the temporary Doc whatever happens
+    async function driveConvertDocToPdf(token, blob, filename) {
+      const headers = { Authorization: `Bearer ${token}` };
+      const boundary = `sth_${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+      const metadata = JSON.stringify({ name: `__STH_CONVERT__ ${filename}`, mimeType: 'application/vnd.google-apps.document' });
+      const body = new Blob([
+        `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n`,
+        `--${boundary}\r\nContent-Type: application/msword\r\n\r\n`,
+        blob,
+        `\r\n--${boundary}--`,
+      ]);
+      const upRes = await fetch(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+        { method: 'POST', headers: { ...headers, 'Content-Type': `multipart/related; boundary=${boundary}` }, body }
+      );
+      if (!upRes.ok) throw await driveResponseError('Drive convert upload', upRes);
+      const { id } = await upRes.json();
+      try {
+        const exportRes = await fetch(`https://www.googleapis.com/drive/v3/files/${id}/export?mimeType=application/pdf`, { headers });
+        if (!exportRes.ok) throw await driveResponseError('Drive convert export', exportRes);
+        return new Blob([await exportRes.blob()], { type: 'application/pdf' });
+      } finally {
+        await fetch(`https://www.googleapis.com/drive/v3/files/${id}`, { method: 'DELETE', headers }).catch(() => {});
+      }
+    }
+
+    // An expired sync token shows as "Re-connect Google", like a failed push
+    function handleDriveTokenError(err) {
+      if (err && err.status === 401 && state.driveSyncToken) {
+        state.driveSyncToken = null;
+        updateSyncUI('expired');
+      }
+    }
+
+    // Files read from Drive while a request is prepared, so one file is not downloaded twice (dropped after 2 minutes or at the end of the request)
+    const driveBlobs = new Map();
+
+    // A Knowledge Bay file's bytes: kept on this device, or read from the user's own hidden Drive folder
+    async function getKbFileBlob(item) {
+      if (item.originalFile instanceof Blob) return item.originalFile;
+      if (!item.driveFileId || !state.driveSyncToken) return null;
+      if (driveBlobs.has(item.driveFileId)) return driveBlobs.get(item.driveFileId);
+      try {
+        const blob = await driveDownloadFile(state.driveSyncToken, item.driveFileId);
+        driveBlobs.set(item.driveFileId, blob);
+        setTimeout(() => driveBlobs.delete(item.driveFileId), 120000);
+        return blob;
+      } catch (err) {
+        console.warn('[Drive] Could not read the file from Drive:', err);
+        handleDriveTokenError(err);
+        return null;
+      }
+    }
+
+    // Known from the stored size, so a Drive-only file that cannot be sent whole is not downloaded again
+    const isDriveOnlyTooLarge = (item) => !(item.originalFile instanceof Blob) && (item.originalSize || 0) > WEBHOOK_UPLOAD_LIMIT;
+
+    // Converted .doc files for this visit, by content hash, so a chat does not convert the same file every turn
+    const convertedDocs = new Map();
+    // Permanent conversion failures for this visit, so a file is not uploaded again on every turn
+    const failedDocs = new Map();
+
+    function legacyDocConversionError(name, err) {
+      const reason = err.reason || '';
+      if (err.status === 403 && /exportSizeLimitExceeded/i.test(reason)) return Object.assign(docTooLargeError(name), { permanent: true });
+      if (err.status === 403 && /insufficient|scope/i.test(reason)) {
+        state.driveSyncToken = null;
+        updateSyncUI('expired');
+        return Object.assign(fileError('Google needs one more permission to convert .doc files. Disconnect and reconnect Google sync, then try again.', 'Legacy Word file conversion needs more Google permission'), { permanent: true });
+      }
+      if (err.status === 401) {
+        handleDriveTokenError(err);
+        return fileError(`${name} couldn't be converted because the Google Drive connection expired. Re-connect Drive sync and try again.`, 'Legacy Word file conversion failed');
+      }
+      const transient = !err.status || err.status === 408 || err.status === 429 || err.status >= 500 || /rateLimit/i.test(reason);
+      return Object.assign(
+        fileError(
+          transient
+            ? `${name} couldn't be converted. Try again, or save it as .docx or PDF and re-upload.`
+            : `${name} couldn't be converted. Save it as .docx or PDF and re-upload.`,
+          'Legacy Word file conversion failed'
+        ),
+        { permanent: !transient }
+      );
+    }
+
+    // loadBlob is only called when this visit has not converted the file yet; null means the bytes are not available
+    async function convertLegacyDoc(name, contentHash, loadBlob) {
+      if (contentHash && convertedDocs.has(contentHash)) return convertedDocs.get(contentHash);
+      if (contentHash && failedDocs.has(contentHash)) throw failedDocs.get(contentHash);
+      const blob = await loadBlob();
+      if (!blob) return null;
+      if (blob.size > DOC_CONVERSION_LIMIT) throw docTooLargeError(name);
+      let pdf;
+      try {
+        pdf = await driveConvertDocToPdf(state.driveSyncToken, blob, name);
+      } catch (err) {
+        const failure = legacyDocConversionError(name, err);
+        if (contentHash && failure.permanent) failedDocs.set(contentHash, failure);
+        throw failure;
+      }
+      const converted = { pdf, text: await extractPdfText(pdf) };
+      if (contentHash) convertedDocs.set(contentHash, converted);
+      return converted;
+    }
+
+    const docTooLargeError = (name) => fileError(
+      `${name} is over 10 MB, which is too large to convert. Save it as .docx or PDF and re-upload.`,
+      'Legacy Word file too large to convert'
+    );
+
+    const wholeFileTooLargeNote = (name) => `[System Note: "${name}" is too large to send in one piece (over 15 MB), and its text couldn't be read just now. Try again in a moment, or use the device that holds the file.]`;
 
     // Sweeps Knowledge Bay for scanned PDFs that exist locally (originalFile)
     // but haven't been pushed to Drive yet — new items, or items created
@@ -6582,6 +7204,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         // 3 — Merge local + remote
         const mergedKb    = mergeKbItems(kb.cache,       remote.kbItems     || []);
         const mergedChats = mergeTutorChats(tutor.chats, remote.tutorChats  || []);
+        const { docs: mergedDocs, removed: mergedRemoved } = mergeSyncedDocs(remote);
 
         // 4 — Persist merged data locally
         kb.cache = mergedKb;
@@ -6590,6 +7213,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         renderKbGrid();
 
         tutor.chats = mergedChats;
+        setRemovedDocs(mergedRemoved);
+        setCreatedDocs(mergedDocs);
         if (signedOut()) return;
         await tutor.persist();
         if (signedOut()) return;
@@ -6601,7 +7226,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         await ensureScannedPdfsUploadedToDrive();
         if (signedOut()) return;
         const newFileId = await driveWriteSyncFile(token, fileId, {
-          kbItems: kbItemsForDriveSync(kb.cache), tutorChats: mergedChats, syncedAt: Date.now()
+          kbItems: kbItemsForDriveSync(kb.cache), tutorChats: mergedChats, createdDocs: mergedDocs, removedDocIds: mergedRemoved, syncedAt: Date.now()
         });
         if (signedOut()) return;
         if (newFileId !== fileId) setSyncFileId(newFileId);
@@ -6635,7 +7260,17 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         await ensureScannedPdfsUploadedToDrive();
         if (signedOut()) return;
         let fileId = getSyncFileId();
-        const data = { kbItems: kbItemsForDriveSync(kb.cache), tutorChats: tutor.chats, syncedAt: Date.now() };
+        // Docs created on another device must not be dropped: merge the file's lists before writing
+        let remote = null;
+        if (fileId) {
+          try { remote = await driveReadSyncFile(token, fileId); }
+          catch (err) { if (!(err instanceof SyntaxError) && err.status !== 404) throw err; }
+          if (signedOut()) return;
+        }
+        const { docs, removed } = mergeSyncedDocs(remote);
+        setRemovedDocs(removed);
+        setCreatedDocs(docs);
+        const data = { kbItems: kbItemsForDriveSync(kb.cache), tutorChats: tutor.chats, createdDocs: docs, removedDocIds: removed, syncedAt: Date.now() };
         const newId = await driveWriteSyncFile(token, fileId, data);
         if (signedOut()) return;
         if (newId !== fileId) setSyncFileId(newId);
@@ -7028,7 +7663,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
       async exportMessage(text) {
         const plain = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[#*`_~]/g, '').trim();
-        const title = `Tutor message — ${new Date().toLocaleString('en-ZA')}`;
+        const title = exportDocTitle('Tutor message');
         try {
           showToast('Creating Google Doc…');
           await createGoogleDocFromContent(title, plain);
@@ -7169,7 +7804,6 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
             const alreadyUploaded = (c.uploadedScannedPdfFingerprints || []).includes(item.contentHash);
             const docMeta = { name: item.name, pageCount: item.pageCount || null, contentHash: item.contentHash };
             const needsConversion = item.type === 'doc';
-            if (needsConversion) docMeta.needsDocConversion = true;
             if (needsConversion && !state.driveSyncToken) {
               // .doc conversion happens via the user's own Google Drive —
               // no Drive connection, no conversion path.
@@ -7180,23 +7814,49 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
               continue;
             }
             if (!alreadyUploaded) {
-              if (item.originalFile instanceof Blob) {
-                docMeta.fieldName = `scanned_${binaryFiles.length}`;
-                binaryFiles.push({ fieldName: docMeta.fieldName, blob: item.originalFile, filename: item.name });
-                if (needsConversion) docMeta.driveAccessToken = state.driveSyncToken;
-              } else if (item.driveFileId && state.driveSyncToken) {
-                // Not stored locally on this device (synced in from another
-                // one) — n8n fetches the bytes from the user's own Drive
-                // using this short-lived token instead.
-                docMeta.driveFileId = item.driveFileId;
-                docMeta.driveAccessToken = state.driveSyncToken;
+              // The bytes come from this device, or from the user's own Drive
+              // folder when the file was added on another one.
+              let blob = null;
+              if (needsConversion) {
+                try {
+                  if ((item.originalSize || 0) > DOC_CONVERSION_LIMIT) throw docTooLargeError(item.name);
+                  state.tutorReadingLabel = `Converting ${item.name}…`;
+                  this.renderChat();
+                  const converted = await convertLegacyDoc(item.name, item.contentHash, () => getKbFileBlob(item));
+                  if (converted && converted.text) {
+                    cachableContext.push({ name: describeSource(item), content: converted.text });
+                    continue;
+                  }
+                  blob = converted && converted.pdf;
+                } catch (err) {
+                  console.warn('[STH] .doc conversion failed:', item.name, err);
+                  attachedContext.push({
+                    name: item.name,
+                    content: `[System Note: ${err.safeMessage ? err.message : `"${item.name}" couldn't be converted just now. Try again in a moment, or save it as .docx or PDF and re-upload.`}]`,
+                  });
+                  continue;
+                } finally {
+                  state.tutorReadingLabel = null;
+                }
+              } else if (isDriveOnlyTooLarge(item)) {
+                attachedContext.push({ name: item.name, content: wholeFileTooLargeNote(item.name) });
+                continue;
               } else {
+                blob = await getKbFileBlob(item);
+              }
+              if (!blob) {
                 attachedContext.push({
                   name: item.name,
                   content: `[System Note: "${item.name}" isn't available on this device yet — it may still be syncing to Drive, or Drive sync isn't connected here. Ask the user to try again shortly, or re-upload it.]`,
                 });
                 continue;
               }
+              if (blob.size > WEBHOOK_UPLOAD_LIMIT && (needsConversion || !(item.originalFile instanceof Blob))) {
+                attachedContext.push({ name: item.name, content: wholeFileTooLargeNote(item.name) });
+                continue;
+              }
+              docMeta.fieldName = `scanned_${binaryFiles.length}`;
+              binaryFiles.push({ fieldName: docMeta.fieldName, blob, filename: item.name });
             }
             scannedPdfDocs.push(docMeta);
             continue;
@@ -7215,6 +7875,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           JSON.stringify(c.cachedKnowledgeIds || []) === JSON.stringify(knowledgeIds)
         );
 
+        driveBlobs.clear();
         const payload = {
           mode: 'tutor',
           systemPrompt: TUTOR_SYSTEM_PROMPT,
@@ -7266,7 +7927,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           if (scannedPdfDocs.length > 0) {
             const uploaded = new Set(c.uploadedScannedPdfFingerprints || []);
             for (const doc of scannedPdfDocs) {
-              if (doc.fieldName || doc.driveFileId) uploaded.add(doc.contentHash);
+              if (doc.fieldName) uploaded.add(doc.contentHash);
             }
             for (const hash of ((data && data.reuploadScannedPdfs) || [])) uploaded.delete(hash);
             c.uploadedScannedPdfFingerprints = [...uploaded];
@@ -7301,10 +7962,10 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         if (busy) dom.btnTutorSend.setAttribute('aria-busy', 'true'); else dom.btnTutorSend.removeAttribute('aria-busy');
         const label = (state.tutorScraping || state.tutorReadingLabel) ? 'Reading…' : state.tutorTyping ? 'Thinking…' : 'Send';
         if (dom.btnTutorSend.dataset.label === label) return;
-        dom.btnTutorSend.dataset.label = label;
+        dom.btnTutorSend.dataset.label = label; dom.btnTutorSend.setAttribute('aria-label', label);
         dom.btnTutorSend.innerHTML = label === 'Send'
           ? 'Send <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'
-          : `<span class="mini-spinner"></span> ${label}`;
+          : `<span class="mini-spinner"></span>`;
       },
 
       renderSidebarList() {
@@ -7341,6 +8002,11 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           });
           dom.tutorChatList.appendChild(row);
         }
+        const act = dom.tutorChatList.querySelector('.chat-item.active');
+        if (act) requestAnimationFrame(() => {
+          const L = dom.tutorChatList, a = act.offsetTop - L.offsetTop;
+          if (a < L.scrollTop || a + act.offsetHeight > L.scrollTop + L.clientHeight) L.scrollTop = Math.max(0, a - L.clientHeight / 2 + act.offsetHeight / 2);
+        });
       },
 
       renderChat() {
@@ -7534,7 +8200,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           el.setAttribute('role', 'status');
           el.innerHTML = kind === 'reading'
             ? '<div class="reading-link-spinner"></div><span></span>'
-            : '<span></span><span></span><span></span>';
+            : '<span></span><span></span><span></span><em class="typing-label">Thinking</em>';
           if (kind === 'typing') el.setAttribute('aria-label', 'Tutor is typing');
           dom.tutorMessages.appendChild(el);
           this._status = el;
@@ -8205,34 +8871,75 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     // ═══════════════════════════════════════════════════════════
     // ─── Export picker (reference list + tutor) ────────────────
     // ═══════════════════════════════════════════════════════════
+    let exportPickerOpener = null;
+    let exportPickerInerted = [];
     function openExportPicker() {
-      dom.exportPickerUrlRow.classList.remove('visible');
+      exportPickerOpener = document.activeElement;
+      showAppendChoices(false);
       dom.exportPickerUrlInput.value = '';
+      dom.exportPickerNote.textContent = '';
+      renderRecentExports();
       dom.exportPickerModal.classList.add('open');
+      // The page behind stays out of the tab order while the dialog is open
+      exportPickerInerted = [...document.body.children].filter(el => el !== dom.exportPickerModal && el.id !== 'toast' && el.tagName !== 'SCRIPT' && !el.hasAttribute('inert'));
+      exportPickerInerted.forEach(el => el.setAttribute('inert', ''));
+      dom.exportPickerModal.querySelector('[data-export-choice]').focus();
     }
+    const showAppendChoices = (on) => {
+      dom.exportPickerUrlRow.classList.toggle('visible', on);
+      dom.exportPickerFoot.hidden = !on;
+    };
+    function renderRecentExports() {
+      const docs = getCreatedDocs();
+      dom.exportPickerRecent.innerHTML = docs.length
+        ? docs.map(d => `<button type="button" class="export-picker-doc" data-doc-id="${escapeHtml(d.id)}" aria-pressed="false"><span class="export-picker-doc-title">${escapeHtml(d.title)}</span><span class="export-picker-doc-date">${formatDateTime(d.createdAt)}</span></button>`).join('')
+        : '<p class="export-picker-empty">No recent exports yet. Create a new Doc first and it will show here.</p>';
+    }
+    function showExportPickerNote(text) {
+      dom.exportPickerNote.textContent = text;
+      dom.exportPickerNote.scrollIntoView({ block: 'nearest' });
+    }
+    const selectedExportDocId = () => dom.exportPickerRecent.querySelector('[aria-pressed="true"]')?.dataset.docId || '';
+    const exportPickerCannotAppendNote = 'Student Tools Hub can only add to Docs it created. Choose one of your recent exports, or export to a new Doc.';
+    const exportPickerGoneNote = 'That Doc was deleted, or the app no longer has access to it.';
     function closeExportPicker() {
       dom.exportPickerModal.classList.remove('open');
       state.refsPendingExport = null;
+      exportPickerInerted.forEach(el => el.removeAttribute('inert'));
+      exportPickerInerted = [];
+      if (exportPickerOpener && exportPickerOpener.isConnected) exportPickerOpener.focus();
+      exportPickerOpener = null;
     }
     async function executePendingRefsExport(mode, url) {
       const text = state.refsPendingExport;
       if (!text) return;
       let keepPicker = false;
+      let docId = null;
+      let known = false;
       try {
         if (mode === 'new') {
           showToast('Creating Google Doc…');
-          await createGoogleDocFromContent(`References — ${new Date().toLocaleDateString('en-ZA')}`, text);
+          await createGoogleDocFromContent(exportDocTitle('References'), text);
           showToast('Exported to Google Docs!');
         } else {
-          const docId = extractDocIdFromUrl(url);
-          if (!docId) { showToast('Invalid Google Docs URL', 'error'); return; }
+          docId = extractDocIdFromUrl(url);
+          if (!docId) { showToast('Choose one of your recent exports, or paste the link of one.', 'error'); keepPicker = true; return; }
+          known = getCreatedDocs().some(d => d.id === docId);
           showToast('Appending to Google Doc…');
-          await appendToGoogleDoc(docId, text);
+          const appended = await appendToGoogleDoc(docId, text);
+          if (!known) recordCreatedDoc(docId, appended.title || 'Google Doc');
           showToast('Appended to Google Doc!');
         }
       } catch (err) {
         console.error('[refs] export failed:', err);
         if (err.googleAuthHandled) { keepPicker = true; return; }
+        if (mode === 'existing' && (err.status === 403 || err.status === 404)) {
+          if (known && err.status === 404) removeCreatedDoc(docId);
+          renderRecentExports();
+          showExportPickerNote(known && err.status === 404 ? exportPickerGoneNote : exportPickerCannotAppendNote);
+          keepPicker = true;
+          return;
+        }
         navigator.clipboard.writeText(text).catch(() => {});
         showToast(withCode('Export failed — copied to clipboard instead', err), 'error');
       } finally {
@@ -8535,17 +9242,31 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         if (choice === 'new') {
           executePendingRefsExport('new');
         } else {
-          dom.exportPickerUrlRow.classList.add('visible');
-          dom.exportPickerUrlInput.focus();
+          showAppendChoices(true);
+          renderRecentExports();
         }
       });
     });
     dom.exportPickerUrlCancel.addEventListener('click', () => {
-      dom.exportPickerUrlRow.classList.remove('visible');
+      showAppendChoices(false);
+      dom.exportPickerNote.textContent = '';
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && dom.exportPickerModal.classList.contains('open')) closeExportPicker();
+    });
+    dom.exportPickerRecent.addEventListener('click', e => {
+      const btn = e.target.closest('.export-picker-doc');
+      if (!btn) return;
+      dom.exportPickerRecent.querySelectorAll('.export-picker-doc').forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+      dom.exportPickerUrlInput.value = '';
+      dom.exportPickerNote.textContent = '';
+    });
+    dom.exportPickerUrlInput.addEventListener('input', () => {
+      dom.exportPickerRecent.querySelectorAll('.export-picker-doc').forEach(b => b.setAttribute('aria-pressed', 'false'));
+      dom.exportPickerNote.textContent = '';
     });
     dom.exportPickerUrlConfirm.addEventListener('click', () => {
-      const url = dom.exportPickerUrlInput.value.trim();
-      executePendingRefsExport('existing', url);
+      executePendingRefsExport('existing', selectedExportDocId() || dom.exportPickerUrlInput.value.trim());
     });
 
     dom.tutorInput.addEventListener('input', () => {
@@ -8844,5 +9565,68 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
   })();
   </script>
+
+<script>
+(() => {
+  const rail = document.getElementById('tutorBookmarks'), wrap = rail && rail.closest('.tutor-scroll-rail');
+  if (!rail) return;
+  const card = document.createElement('div'); card.className = 'bm-card'; card.setAttribute('role','menu'); document.body.appendChild(card);
+  let hideT = 0, bypass = false;
+  const MIN_MSGS = 6;
+  const sync = () => { rail.toggleAttribute('data-many', rail.querySelectorAll('.bookmark-dot').length >= MIN_MSGS); };
+  new MutationObserver(sync).observe(rail, { childList: true }); sync();
+  const isOpen = () => card.classList.contains('show');
+  function open() {
+    clearTimeout(hideT);
+    const dots = [...rail.querySelectorAll('.bookmark-dot')]; if (dots.length < MIN_MSGS) return;
+    card.replaceChildren();
+    const h = document.createElement('div'); h.className = 'bm-head'; h.textContent = 'Jump to message'; card.appendChild(h);
+    let cur = null;
+    dots.forEach(d => {
+      const b = document.createElement('button'); b.type = 'button';
+      const user = d.classList.contains('bookmark-user');
+      b.className = 'bm-item ' + (user ? 'user' : 'tutor') + (d.classList.contains('current') ? ' current' : '');
+      b.innerHTML = '<span class="bm-tick"></span><span><span class="bm-role"></span><span class="bm-text"></span></span>';
+      b.querySelector('.bm-role').textContent = d.dataset.role || '';
+      b.querySelector('.bm-text').textContent = d.dataset.preview || '';
+      b.addEventListener('click', () => { bypass = true; close(); d.click(); bypass = false; });
+      if (d.classList.contains('current')) cur = b;
+      card.appendChild(b);
+    });
+    const r = (wrap || rail).getBoundingClientRect();
+    card.classList.add('show'); document.body.classList.add('bm-open');
+    const w = card.offsetWidth, hh = card.offsetHeight;
+    card.style.transform = 'translate(' + Math.max(8, Math.round(r.left - w - 10)) + 'px,' + Math.round(Math.min(innerHeight - hh - 8, Math.max(8, r.top + r.height / 2 - hh / 2))) + 'px)';
+    if (cur) card.scrollTop = Math.max(0, cur.offsetTop - card.clientHeight / 2 + cur.offsetHeight / 2);
+  }
+  function close() { clearTimeout(hideT); card.classList.remove('show'); document.body.classList.remove('bm-open'); }
+  const later = () => { clearTimeout(hideT); hideT = setTimeout(close, 220); };
+  rail.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') open(); });
+  rail.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') later(); });
+  card.addEventListener('pointerenter', () => clearTimeout(hideT));
+  card.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') later(); });
+  rail.addEventListener('click', e => {
+    if (bypass || !e.target.closest('.bookmark-dot') && e.target !== rail) return;
+    if (!isOpen()) { e.stopPropagation(); e.preventDefault(); open(); }
+  }, true);
+  document.addEventListener('pointerdown', e => { if (isOpen() && !card.contains(e.target) && !rail.contains(e.target)) close(); }, true);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+})();
+</script>
+<script>
+(() => {
+  const timers = new WeakMap();
+  document.addEventListener('scroll', e => {
+    let el = e.target; if (el === document || el === document.body) el = document.documentElement;
+    if (!el || !el.classList) return;
+    clearTimeout(timers.get(el));
+    el.classList.remove('sb-off'); el.classList.add('sb-on');
+    timers.set(el, setTimeout(() => { el.classList.remove('sb-on'); void el.offsetWidth; el.classList.add('sb-off'); }, 900));
+  }, { capture: true, passive: true });
+})();
+</script>
+<script>
+document.querySelectorAll('#viewHome .mode-card').forEach(a => { const h = a.querySelector('h3'); if (h) { a.title = h.textContent.trim(); a.setAttribute('aria-label', h.textContent.trim()); } });
+</script>
 </body>
 </html>
