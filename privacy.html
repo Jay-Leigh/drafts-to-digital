@@ -184,13 +184,13 @@
           <td data-label="Data">Files and text you give the app: handwritten-note images, PDFs, Word, Excel, PowerPoint and text files, typed notes, web links</td>
           <td data-label="Why">To transcribe, summarise, review and answer questions about your material</td>
           <td data-label="Where it goes">Your browser sends it to the app's server (n8n, on Google Cloud in Johannesburg), which passes it to Google Gemini and Google Cloud Vision. Copies also stay in your browser.</td>
-          <td data-label="How long">The server does not deliberately keep your files, but a copy of each request, including the file, can sit in the server's execution record (next row) until it is deleted. Google's handling is in <a href="#others">section 5</a>.</td>
+          <td data-label="How long">The server does not keep your files. It is set not to save a record of requests, so a file is held in its memory only while the request runs. Google's handling is in <a href="#others">section 5</a>.</td>
         </tr>
         <tr>
-          <td data-label="Data">Technical record of each request (the server's execution log). It can include what was sent, such as file contents and text, and the replies</td>
-          <td data-label="Why">Needed for the server to run, and to find faults</td>
+          <td data-label="Data">Technical logs of the hosting service (Google Cloud Run): time, address called, status and your IP address. The server's own execution record, which could hold what you send, is switched off for successful and failed requests, so your files and text are not written there</td>
+          <td data-label="Why">Needed for the server to run, and to find faults and abuse</td>
           <td data-label="Where it goes">The app's own n8n server on Google Cloud Run</td>
-          <td data-label="How long">Deleted automatically, currently within about 2 days</td>
+          <td data-label="How long">Kept by Google Cloud for a limited period (its default is 30 days), then deleted</td>
         </tr>
         <tr>
           <td data-label="Data">Tutor chats: your messages, the AI's replies, names of web pages or files attached to the chat, references to files already sent to Gemini</td>
@@ -231,20 +231,20 @@
         <tr>
           <td data-label="Data">Error reports, sent automatically when processing fails, without asking you first: time, your browser (user-agent text), a short error message and a short description of the problem (each cut to 300 characters, with email addresses, access tokens, web addresses, long identifiers and file names removed where they can be recognised), and sometimes a short error code. The app's own reports do not include stack traces, the recipient address or the server's error text. The error code the app shows on screen (for example STH-NET-503) and the app version number are part of every report. When the server itself fails, the email contains the server's error record, which can include parts of the failed request.</td>
           <td data-label="Why">To find and fix bugs</td>
-          <td data-label="Where it goes">Emailed by the server through Gmail to my mailbox (jayleigh.dev@gmail.com). The sending Gmail account, which is another mailbox of mine, also keeps a copy in its Sent folder. It also passes through the server's execution log.</td>
+          <td data-label="Where it goes">Emailed by the server through Gmail to my mailbox (jayleigh.dev@gmail.com). The sending Gmail account, which is another mailbox of mine, also keeps a copy in its Sent folder.</td>
           <td data-label="How long">Both copies are kept for 90 days, then deleted</td>
         </tr>
         <tr>
           <td data-label="Data">Web addresses you ask the app to read, and any DOI inside them</td>
           <td data-label="Why">To fetch the page and read it</td>
           <td data-label="Where it goes">The server fetches the address (http and https both work, and it may open web pages that are not properly secured). A DOI may also be looked up at Crossref and Unpaywall. The page text then goes to Gemini.</td>
-          <td data-label="How long">Not kept beyond the execution log above</td>
+          <td data-label="How long">Not kept by the server after the request finishes</td>
         </tr>
         <tr>
           <td data-label="Data">Reference generator input: the source address or file name, a YouTube video's title and channel, scraped page text or the first part (about 2,500 characters) of a Knowledge Bay document or a file added there, plus the chosen style</td>
           <td data-label="Why">To build a reference for that source</td>
           <td data-label="Where it goes">Your browser sends it to the server, which passes it to Google Gemini</td>
-          <td data-label="How long">Not kept beyond the execution log above</td>
+          <td data-label="How long">Not kept by the server after the request finishes</td>
         </tr>
         <tr>
           <td data-label="Data">IP address and browser details that your browser sends automatically</td>
@@ -407,7 +407,7 @@
     <li><strong>On your device:</strong> clear this site's data in your browser. Signing out of sync in the app clears your sync details (your Google name, email and picture, the ID of your sync file and the two lists of Docs the app created and removed) and revokes the Google permissions you gave the app (Drive files, hidden app data, name and email), including on your other devices. Next time you connect, Google asks for them again. Connecting to sync again brings the Docs list back from your sync file. If the app cannot remove them (for example Google cannot be reached or your sign-in has expired), or only some are removed, the app tells you, and the rest stay until you remove them at myaccount.google.com/connections. It does not clear the access code or anything else in your browser.</li>
     <li><strong>Stop Google access:</strong> while you are connected to sync (the open side menu shows your name and a cross), signing out of sync in the app does this for you; if you only export to Docs, or the menu shows "Re-connect Google", use <a href="https://myaccount.google.com/connections">myaccount.google.com/connections</a>, choose Student Tools Hub and remove its access. Syncing then stops; your hidden Drive data stays until you delete it as described below.</li>
     <li><strong>Your hidden Drive data:</strong> in Google Drive choose Settings &rarr; Manage apps &rarr; Student Tools Hub &rarr; Options &rarr; Delete hidden app data. Docs you exported, and a temporary <code>__STH_CONVERT__</code> Doc that remained in your My Drive, are ordinary files in your Drive that you can delete.</li>
-    <li><strong>On the server:</strong> tutor chats and Gemini file pointers expire by themselves. Execution logs and error emails are deleted on the schedule in <a href="#data">section 2</a>. You can ask me to delete a specific error email or log entry earlier: send the date and time. For the OCR cache (text recognition results), email me the same PDF and I will find and remove its stored text. Entries are filed under a digital fingerprint (hash) of the file and not under your name, so I find them from the PDF itself. If you no longer have the PDF, tell me what it was and when you used it and I will do what I reasonably can.</li>
+    <li><strong>On the server:</strong> tutor chats and Gemini file pointers expire by themselves. Hosting logs and error emails are deleted on the schedule in <a href="#data">section 2</a>. You can ask me to delete a specific error email or hosting log entry earlier: send the date and time. For the OCR cache (text recognition results), email me the same PDF and I will find and remove its stored text. Entries are filed under a digital fingerprint (hash) of the file and not under your name, so I find them from the PDF itself. If you no longer have the PDF, tell me what it was and when you used it and I will do what I reasonably can.</li>
     <li>There is no "Delete my data" button in the app; use the steps above.</li>
   </ul>
 
