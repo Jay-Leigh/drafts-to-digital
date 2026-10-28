@@ -4289,6 +4289,15 @@
     }
 
     // No health endpoint yet: any answer from the webhook that is not a gateway failure counts as alive
+    async function authEndpointReachable() {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      try {
+        await fetch(CONFIG.authUrl, { method: 'OPTIONS', signal: controller.signal });
+        return true;
+      } catch { return false; } finally { clearTimeout(timer); }
+    }
+
     async function probeServer() {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 15000);
@@ -6211,6 +6220,11 @@
           noteServerResult(answered);
           if (answered) throw answered;
           return data;
+        }
+        // n8n's own 401/403 (token check) carry no CORS header, so the browser reports a
+        // network failure. If the sign-in endpoint still answers, the server is up and the token was refused.
+        if (err.key === 'NET-503' && err.noResponse && !signedInAgain && authToken && await authEndpointReachable()) {
+          err = new AppError('AUTH-401', { status: 401 });
         }
         noteServerResult(err);
         err.attempts = attempt;
