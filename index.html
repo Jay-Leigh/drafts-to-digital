@@ -780,6 +780,156 @@
     }
     .kb-pick-row.selected .kb-pick-check { background: #2c5f2d; border-color: #2c5f2d; }
 
+    /* ───────── STUDY STUDIO ───────── */
+    .studio-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+    .studio-tabs { display: none; }
+    .studio-shell { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px; align-items: start; }
+    .studio-panel { min-width: 0; padding: 16px; background: rgba(255,255,255,0.7); border: 1px solid rgba(212,201,168,0.55); border-radius: 18px; }
+    .studio-panel h3 { font-size: 18px; line-height: 1.2; margin: 0; }
+    .studio-sources { position: sticky; top: 16px; display: flex; flex-direction: column; max-height: calc(100vh - 180px); max-height: calc(100dvh - 180px); }
+    .studio-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+    .studio-link { display: inline-flex; align-items: center; min-height: 32px; padding: 0 4px; font-size: 13px; font-weight: 500; color: #2c5f2d; text-decoration: underline; }
+    .studio-selectall { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 4px; margin-bottom: 6px; font-size: 13px; color: rgba(26,46,28,0.75); cursor: pointer; }
+    .studio-selectall input { width: 18px; height: 18px; accent-color: #2c5f2d; flex-shrink: 0; }
+    .studio-source-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+    .studio-source-row { gap: 8px; padding: 0 8px 0 0; margin-bottom: 6px; min-width: 0; cursor: default; }
+    .studio-source-main { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0; min-height: 52px; padding: 8px 0 8px 12px; cursor: pointer; }
+    .studio-source-row.disabled .studio-source-main { cursor: not-allowed; }
+    .studio-source-row:focus-within { outline: 2px solid #2c5f2d; outline-offset: 2px; }
+    .studio-source-text { display: block; flex: 1 1 auto; min-width: 0; }
+    .studio-source-name { display: block; font-size: 13.5px; font-weight: 500; color: rgba(26,46,28,0.85); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .studio-source-meta { display: block; font-size: 11.5px; line-height: 1.35; color: rgba(26,46,28,0.55); overflow-wrap: anywhere; }
+    .studio-source-meta.is-warn { color: #7a4b00; }
+    .studio-source-tokens { flex-shrink: 0; font-size: 12px; font-variant-numeric: tabular-nums; color: rgba(26,46,28,0.6); }
+    .studio-source-row .kb-row-peek { width: 32px; height: 32px; }
+    .studio-source-empty { margin: 0 0 8px; font-size: 13px; line-height: 1.5; color: rgba(26,46,28,0.65); }
+    .studio-hint { margin: 6px 0 0; font-size: 12px; line-height: 1.45; color: rgba(26,46,28,0.55); }
+    .studio-hint:empty { display: none; }
+    .studio-meter { flex-shrink: 0; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(212,201,168,0.55); background: #fcfbf7; }
+    .studio-meter[hidden] { display: none; }
+    .studio-meter-text { margin: 0 0 6px; font-size: 12.5px; line-height: 1.4; color: rgba(26,46,28,0.75); overflow-wrap: anywhere; }
+    .studio-meter-bar { height: 8px; border-radius: 999px; background: rgba(212,201,168,0.45); overflow: hidden; }
+    .studio-meter-fill { display: block; height: 100%; width: 0; border-radius: 999px; background: #2c5f2d; transition: width 0.25s ease; }
+    .studio-meter.is-near .studio-meter-fill { background: #b7791f; }
+    .studio-meter.is-over .studio-meter-fill { background: #9b2226; }
+    .studio-reason { margin: 6px 0 0; font-size: 12.5px; line-height: 1.4; color: #7a1a1d; overflow-wrap: anywhere; }
+    .studio-reason:empty { display: none; }
+    .studio-tool-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 128px), 1fr)); gap: 8px; margin: 12px 0 20px; }
+    .studio-tile {
+      display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; min-height: 84px; padding: 12px 14px;
+      font: inherit; text-align: left; color: #1a2e1c; cursor: pointer;
+      background: rgba(255,255,255,0.5); border: 1px solid rgba(212,201,168,0.6); border-radius: 14px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .studio-tile:hover { border-color: #2c5f2d; box-shadow: 0 6px 16px rgba(44,95,45,0.08); }
+    .studio-tile:focus-visible { outline: 2px solid #2c5f2d; outline-offset: 2px; }
+    .studio-tile[aria-disabled="true"] { cursor: not-allowed; color: rgba(26,46,28,0.5); background: rgba(250,247,240,0.6); }
+    .studio-tile[aria-disabled="true"]:hover { border-color: rgba(212,201,168,0.6); box-shadow: none; }
+    .studio-tile svg { flex-shrink: 0; color: #2c5f2d; }
+    .studio-tile[aria-disabled="true"] svg { color: rgba(26,46,28,0.4); }
+    .studio-tile-label { font-size: 14px; font-weight: 600; line-height: 1.2; }
+    .studio-tile-note { font-size: 12px; line-height: 1.3; color: rgba(26,46,28,0.6); overflow-wrap: anywhere; }
+    .studio-tile-note:empty { display: none; }
+    .studio-list { list-style: none; margin: 10px 0 0; padding: 0; }
+    .studio-list > .skeleton { margin-bottom: 10px; }
+    .skeleton-studio-row { height: 52px; margin: 0 0 6px; border-radius: 10px; }
+    .studio-empty { margin: 10px 0 0; padding: 14px; font-size: 13.5px; line-height: 1.5; color: rgba(26,46,28,0.6); border: 1px dashed rgba(212,201,168,0.8); border-radius: 14px; }
+    .studio-item { position: relative; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; margin-bottom: 8px; padding: 10px 10px 10px 12px; min-width: 0; background: white; border: 1px solid rgba(212,201,168,0.55); border-radius: 14px; }
+    .studio-item-icon { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; background: rgba(44,95,45,0.08); color: #2c5f2d; }
+    .studio-item-link { display: block; flex: 1 1 0; min-width: 0; color: inherit; text-decoration: none; }
+    .studio-item-link:focus-visible { outline: 2px solid #2c5f2d; outline-offset: 4px; border-radius: 6px; }
+    .studio-item-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-size: 14px; font-weight: 600; line-height: 1.3; }
+    .studio-item-meta { display: block; margin-top: 2px; font-size: 12px; color: rgba(26,46,28,0.55); }
+    .studio-status { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 12.5px; font-weight: 500; }
+    .studio-dot { width: 10px; height: 10px; flex-shrink: 0; border-radius: 50%; border: 2px solid #2c5f2d; background: #2c5f2d; box-sizing: border-box; }
+    .studio-dot.is-queued { background: transparent; border-color: #8a8f87; }
+    .studio-dot.is-generating { background: transparent; animation: softPulse 1.2s ease-in-out infinite; }
+    .studio-dot.is-failed { background: #9b2226; border-color: #9b2226; }
+    .studio-item-note { display: block; margin-top: 4px; font-size: 12.5px; line-height: 1.4; color: rgba(26,46,28,0.65); overflow-wrap: anywhere; }
+    .studio-item-note.is-error { color: #7a1a1d; }
+    .studio-item-skeleton { height: 8px; margin-top: 8px; border-radius: 999px; }
+    .studio-item-actions { flex-shrink: 0; display: flex; align-items: center; gap: 4px; }
+    .studio-item-retry { flex: 1 0 100%; padding-left: 46px; }
+    .studio-btn {
+      display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 0 14px;
+      font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 600; text-decoration: none; cursor: pointer;
+      color: #2c5f2d; background: white; border: 1px solid #2c5f2d; border-radius: 999px;
+    }
+    .studio-btn:hover { background: rgba(44,95,45,0.06); }
+    .studio-btn.primary { color: white; background: #2c5f2d; }
+    .studio-btn.primary:hover { background: #1e4620; }
+    .studio-btn.ghost { color: rgba(26,46,28,0.7); border-color: rgba(212,201,168,0.8); }
+    .studio-btn[aria-disabled="true"] { opacity: 0.45; cursor: not-allowed; }
+    .studio-btn:focus-visible, .studio-close:focus-visible, .studio-menu summary:focus-visible, .studio-menu-list a:focus-visible, .studio-menu-list button:focus-visible, .studio-tab:focus-visible { outline: 2px solid #2c5f2d; outline-offset: 2px; }
+    .studio-menu { position: relative; }
+    .studio-menu summary { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin: -4px -4px -4px 0; border-radius: 12px; cursor: pointer; list-style: none; color: rgba(26,46,28,0.65); }
+    .studio-menu summary::-webkit-details-marker { display: none; }
+    .studio-menu summary:hover { background: rgba(212,201,168,0.3); }
+    .studio-menu-list { position: absolute; right: 0; top: 100%; z-index: 40; display: flex; flex-direction: column; min-width: 180px; padding: 6px; background: white; border: 1px solid rgba(212,201,168,0.7); border-radius: 12px; box-shadow: 0 14px 40px rgba(26,46,28,0.16); }
+    .studio-menu-list a, .studio-menu-list button { display: flex; align-items: center; min-height: 44px; padding: 0 12px; font: inherit; font-size: 13.5px; text-align: left; color: #1a2e1c; text-decoration: none; background: transparent; border: 0; border-radius: 8px; cursor: pointer; }
+    .studio-menu-list a:hover, .studio-menu-list button:hover { background: rgba(44,95,45,0.07); }
+    .studio-menu-list .is-danger { color: #9b2226; }
+    .studio-nav-dot { flex-shrink: 0; width: 8px; height: 8px; margin-left: auto; border-radius: 50%; background: #2c5f2d; }
+    .studio-nav-dot[hidden] { display: none; }
+    #studioItemLoading[hidden] { display: none; }
+    .studio-store-note { margin: 0 0 12px; padding: 8px 12px; font-size: 12.5px; line-height: 1.4; background: #fff7e0; border: 1px solid #d4c9a8; border-radius: 12px; }
+    .studio-store-note[hidden] { display: none; }
+    .studio-viewer[hidden], .studio-main-wrap[hidden] { display: none; }
+    .studio-viewer-card { padding: 20px; background: rgba(255,255,255,0.7); border: 1px solid rgba(212,201,168,0.55); border-radius: 18px; }
+    .studio-viewer-card h2 { margin: 0 0 4px; font-size: 22px; line-height: 1.25; overflow-wrap: anywhere; }
+    .studio-viewer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; }
+    .studio-dialog .modal-box { width: 100%; max-width: 640px; }
+    .studio-dialog .modal-head { gap: 12px; }
+    .studio-close { flex-shrink: 0; width: 44px; height: 44px; margin: -8px -10px -8px 0; font-size: 24px; line-height: 1; color: rgba(26,46,28,0.65); background: transparent; border: 0; border-radius: 12px; cursor: pointer; }
+    .studio-close:hover { background: rgba(212,201,168,0.3); }
+    .studio-field { display: block; margin-bottom: 16px; }
+    .studio-field > label, .studio-field > .studio-label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: rgba(26,46,28,0.8); }
+    .studio-field select, .studio-field textarea {
+      display: block; width: 100%; padding: 10px 12px; font-family: 'Outfit', sans-serif; font-size: 14px; line-height: 1.45; color: #1a2e1c;
+      background: white; border: 1px solid rgba(212,201,168,0.8); border-radius: 10px;
+    }
+    .studio-field select { min-height: 44px; }
+    .studio-field textarea { resize: vertical; min-height: 120px; }
+    .studio-field select:focus-visible, .studio-field textarea:focus-visible { outline: 2px solid #2c5f2d; outline-offset: 1px; }
+    .studio-sources-toggle { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; padding: 0 12px; font: inherit; font-size: 14px; color: #1a2e1c; background: white; border: 1px solid rgba(212,201,168,0.8); border-radius: 10px; cursor: pointer; }
+    .studio-sources-toggle:focus-visible { outline: 2px solid #2c5f2d; outline-offset: 1px; }
+    .studio-sources-toggle svg { flex-shrink: 0; transition: transform 0.15s ease; }
+    .studio-sources-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+    .studio-dialog-sources { max-height: 240px; margin-top: 8px; overflow-y: auto; overscroll-behavior: contain; }
+    .studio-dialog-sources[hidden] { display: none; }
+    .studio-count { margin: 4px 0 0; font-size: 12px; text-align: right; color: rgba(26,46,28,0.55); }
+    .studio-count[hidden] { display: none; }
+    .studio-dialog-foot { align-items: center; justify-content: space-between; flex-wrap: wrap; }
+    .studio-dialog-foot .studio-meter { flex: 1 1 220px; min-width: 0; margin: 0; padding: 0; border: 0; background: transparent; }
+    .studio-foot-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+    @media (min-width: 901px) and (max-height: 860px) {
+      .sidebar:has([data-studio-entry]) .nav-link { min-height: 38px; padding-top: 8px; padding-bottom: 8px; }
+      .sidebar:has([data-studio-entry]) .sidebar-nav-section { padding-top: 10px; }
+    }
+    @media (max-width: 900px) {
+      .studio-tabs { display: flex; gap: 4px; padding: 4px; margin-bottom: 12px; background: rgba(212,201,168,0.3); border-radius: 999px; }
+      .studio-tab { flex: 1 1 0; min-height: 44px; padding: 0 10px; font: inherit; font-size: 14px; font-weight: 600; color: rgba(26,46,28,0.65); background: transparent; border: 0; border-radius: 999px; cursor: pointer; }
+      .studio-tab[aria-selected="true"] { color: #1a2e1c; background: white; box-shadow: 0 1px 4px rgba(26,46,28,0.12); }
+      .studio-shell { grid-template-columns: minmax(0, 1fr); }
+      .studio-shell[data-tab="studio"] .studio-sources, .studio-shell[data-tab="sources"] .studio-main { display: none; }
+      .studio-sources { position: static; max-height: none; }
+      .studio-source-list { overflow: visible; }
+      .studio-meter { position: sticky; bottom: 0; padding-bottom: 6px; }
+    }
+    @media (max-width: 640px) {
+      .studio-dialog.modal-overlay { padding: 0; align-items: stretch; }
+      .studio-dialog .modal-box { max-width: none; height: 100%; max-height: none; border-radius: 0; }
+      .studio-dialog .modal-head { position: sticky; top: 0; padding-top: max(18px, env(safe-area-inset-top)); }
+      .studio-dialog .modal-foot { padding-bottom: max(14px, env(safe-area-inset-bottom)); }
+      .studio-foot-actions { width: 100%; }
+      .studio-foot-actions .studio-btn { flex: 1 1 0; }
+      .studio-dialog-sources { max-height: 200px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .studio-dot.is-generating { animation: none; }
+      .studio-meter-fill, .studio-sources-toggle svg { transition: none; }
+    }
+
     /* ───────── TUTOR ───────── */
     .tutor-shell {
       position: relative;
@@ -2867,6 +3017,63 @@
           </div>
         </section>
 
+        <!-- ============ VIEW: STUDY STUDIO ============ -->
+        <section id="viewStudio" class="view">
+          <div class="view-header">
+            <button class="btn-nav" data-nav="home">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+              Home
+            </button>
+            <div class="view-title-block">
+              <h2>Study Studio</h2>
+              <p>Make study aids from your Knowledge Bay. Check them against your sources.</p>
+            </div>
+          </div>
+          <p id="studioStoreNote" class="studio-store-note" hidden>Study aids won&rsquo;t be kept after you close this tab.</p>
+          <div id="studioLive" class="studio-sr" role="status" aria-live="polite"></div>
+
+          <div id="studioMain" class="studio-main-wrap">
+            <div class="studio-tabs" role="tablist" aria-label="Study Studio sections">
+              <button type="button" role="tab" class="studio-tab" id="studioTabSources" data-studio-tab="sources" aria-selected="false" aria-controls="studioSourcesPanel">Sources</button>
+              <button type="button" role="tab" class="studio-tab" id="studioTabStudio" data-studio-tab="studio" aria-selected="true" aria-controls="studioStudioPanel">Studio</button>
+            </div>
+            <div id="studioShell" class="studio-shell" data-tab="studio">
+              <section id="studioSourcesPanel" class="studio-panel studio-sources" aria-labelledby="studioSourcesTitle">
+                <div class="studio-panel-head">
+                  <h3 id="studioSourcesTitle">Sources</h3>
+                  <a class="studio-link" href="#knowledge">+ Add</a>
+                </div>
+                <label id="studioSelectAllRow" class="studio-selectall" hidden>
+                  <input type="checkbox" id="studioSelectAll" />
+                  <span id="studioSelectAllLabel">Select all</span>
+                </label>
+                <div id="studioSourceList" class="studio-source-list"></div>
+                <p id="studioSourceHint" class="studio-hint"></p>
+                <div id="studioMeter" class="studio-meter">
+                  <p id="studioMeterText" class="studio-meter-text"></p>
+                  <div id="studioMeterBar" class="studio-meter-bar" role="meter" aria-label="Amount of source material" aria-valuemin="0" aria-valuemax="120000" aria-valuenow="0" aria-valuetext=""><span id="studioMeterFill" class="studio-meter-fill"></span></div>
+                  <p id="studioSourcesReason" class="studio-reason"></p>
+                </div>
+              </section>
+              <section id="studioStudioPanel" class="studio-panel studio-main" aria-labelledby="studioStudioTitle">
+                <h3 id="studioStudioTitle">Studio</h3>
+                <div id="studioToolGrid" class="studio-tool-grid"></div>
+                <h3 id="studioItemsTitle">Your study aids</h3>
+                <div id="studioItemLoading" hidden></div>
+                <ul id="studioItemList" class="studio-list" aria-labelledby="studioItemsTitle"></ul>
+                <p id="studioItemEmpty" class="studio-empty" hidden>Your study aids will appear here. Pick a tool above to make one from the sources you ticked.</p>
+              </section>
+            </div>
+          </div>
+
+          <div id="studioViewer" class="studio-viewer" hidden>
+            <div class="view-header">
+              <a class="studio-btn ghost" href="#studio">&larr; Study aids</a>
+            </div>
+            <div id="studioViewerCard" class="studio-viewer-card"></div>
+          </div>
+        </section>
+
         <!-- ============ VIEW: TUTOR ============ -->
         <section id="viewTutor" class="view">
           <!-- Tutor Landing Page -->
@@ -3138,6 +3345,52 @@
       <div id="exportPickerFoot" class="modal-foot" hidden>
         <button class="refs-panel-btn ghost" id="exportPickerUrlCancel">Back</button>
         <button class="refs-panel-btn primary" id="exportPickerUrlConfirm">Append</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ STUDY STUDIO DIALOG ============ -->
+  <div id="studioDialog" class="modal-overlay studio-dialog">
+    <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="studioDialogTitle">
+      <div class="modal-head">
+        <div>
+          <h3 class="text-lg" id="studioDialogTitle">Mind map</h3>
+          <p class="text-xs text-ink/45" id="studioDialogSub">Turn your sources into a map of the main ideas.</p>
+        </div>
+        <button type="button" class="studio-close" id="studioDialogClose" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="studio-field">
+          <label for="studioLanguage">Language</label>
+          <select id="studioLanguage"></select>
+        </div>
+        <div class="studio-field">
+          <span class="studio-label" id="studioDialogSourcesLabel">Sources</span>
+          <button type="button" class="studio-sources-toggle" id="studioDialogSourcesBtn" aria-expanded="false" aria-controls="studioDialogSources" aria-labelledby="studioDialogSourcesLabel studioDialogSourcesBtn">
+            <span id="studioDialogSourcesCount">0 sources</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div id="studioDialogSources" class="studio-dialog-sources" hidden></div>
+        </div>
+        <div class="studio-field">
+          <label for="studioTopic">What should the topic be?</label>
+          <textarea id="studioTopic" maxlength="1000" rows="4" aria-describedby="studioTopicCount" placeholder="Things to try
+&bull; Only use one source (e.g. 'the prescribed book')
+&bull; Focus only on Theme 2 and its learning units
+&bull; Make a mind map to help me study the causes of World War I"></textarea>
+          <p id="studioTopicCount" class="studio-count" hidden></p>
+        </div>
+      </div>
+      <div class="modal-foot studio-dialog-foot">
+        <div id="studioDialogMeter" class="studio-meter">
+          <p id="studioDialogMeterText" class="studio-meter-text"></p>
+          <div class="studio-meter-bar" role="meter" id="studioDialogMeterBar" aria-label="Amount of source material" aria-valuemin="0" aria-valuemax="120000" aria-valuenow="0" aria-valuetext=""><span class="studio-meter-fill" id="studioDialogMeterFill"></span></div>
+          <p id="studioDialogReason" class="studio-reason" role="status"></p>
+        </div>
+        <div class="studio-foot-actions">
+          <button type="button" class="studio-btn ghost" id="studioDialogCancel">Cancel</button>
+          <button type="button" class="studio-btn primary" id="studioGenerateBtn" aria-describedby="studioDialogReason">Generate</button>
+        </div>
       </div>
     </div>
   </div>
@@ -3509,6 +3762,7 @@
       viewTool:             $('viewTool'),
       viewKnowledge:        $('viewKnowledge'),
       viewTutor:            $('viewTutor'),
+      viewStudio:           $('viewStudio'),
       tutorLanding:         $('tutorLanding'),
       tutorLandingSearch:   $('tutorLandingSearch'),
       tutorLandingResults:  $('tutorLandingResults'),
@@ -4157,6 +4411,9 @@
       'AI-504':    { title: 'AI trouble', message: 'The AI service is having trouble. Please try again in a moment.', retryable: true, auto: 'none' },
       'AI-529':    { title: 'Daily AI limit', message: "Today's AI capacity is used up. It resets around 09:00-10:00 SAST.", retryable: false, auto: 'none', banner: 'quota' },
       'QUOTA-430': { title: 'Daily AI limit', message: "Today's AI capacity is used up. It resets tomorrow.", retryable: false, auto: 'none', banner: 'quota' },
+      'STU-409':   { title: 'Study Studio busy', message: 'Study Studio is busy making other study aids right now. Please try again in a few minutes.', retryable: true, auto: 'none' },
+      'STU-413':   { title: 'Too much material', message: 'That is too much material for one study aid. Choose fewer sources, or name a chapter in the topic.', retryable: false, auto: 'none' },
+      'STU-422':   { title: 'Answer not usable', message: 'The AI’s answer didn’t come out right. Try again, or narrow the topic.', retryable: true, auto: 'none' },
       'DRIVE-401': { title: 'Google sign-in expired', message: 'Your Google sign-in expired. Reconnect Google and try again.', retryable: false, auto: 'reauth' },
       'DRIVE-403': { title: 'Google said no', message: 'Google did not allow that. Check the permission boxes in the Google window and try again.', retryable: false, auto: 'none' },
       'DRIVE-404': { title: 'File not found', message: 'That file was not found in Google Drive.', retryable: false, auto: 'none' },
@@ -4453,7 +4710,7 @@
     }
 
     // ─── PDF text extraction ─────────────────────────
-    async function extractPdfText(file) {
+    async function extractPdfText(file, { pageMarkers = false } = {}) {
       if (typeof pdfjsLib === 'undefined') throw new Error('PDF support not available');
       const buf = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
@@ -4463,7 +4720,9 @@
         const content = await page.getTextContent();
         parts.push(content.items.map(it => it.str).join(' '));
       }
-      return parts.join('\n\n').trim();
+      const text = parts.join('\n\n').trim();
+      if (!pageMarkers || !text) return text;
+      return parts.map((p, i) => `[Page ${i + 1}]\n${p}`).join('\n\n').trim();
     }
 
     async function rasterizePdfForTranscribe(fileObj) {
@@ -4636,6 +4895,7 @@
         mergeKbStored(this.cache, (await this.store.getItem('knowledge_bay')) || [], removed);
         this.rev = (await this.store.getItem('knowledge_bay_rev')) || null;
         if (state.currentRoute === 'knowledge') renderKbGrid();
+        if (state.currentRoute === 'studio') studio.renderSources();
         if (document.getElementById('kbPickerModal').classList.contains('open')) renderKbPickerList();
       },
 
@@ -4669,7 +4929,8 @@
           entry.size = compressed.size;
           entry.mime = 'image/jpeg';
         } else if (ft === 'pdf') {
-          entry.content = await extractPdfText(file);
+          entry.content = await extractPdfText(file, { pageMarkers: true });
+          if (entry.content) entry.schemaVersion = 3;
           if (!entry.content) {
             // Scanned PDF — no embedded text. Keep the original PDF bytes (not a
             // rasterized page dump) so Tutor can hand the real file to Gemini's
@@ -4899,6 +5160,7 @@
       updateCardStatus(item) {
         const el = document.querySelector(`[data-ocr-status="${item.id}"]`);
         if (el) el.textContent = this.statusLabel(item);
+        if (state.currentRoute === 'studio') studio.renderSources();
       },
     };
 
@@ -5396,13 +5658,14 @@
       references: { view: 'viewReference' },
       knowledge:  { view: 'viewKnowledge' },
       tutor:      { view: 'viewTutor' },
+      studio:     { view: 'viewStudio' },
     };
 
     function parseHash() {
       const raw = (location.hash || '#home').slice(1);
       const [name, ...rest] = raw.split('/');
       const arg = rest.join('/') || null;
-      return { name: ROUTES[name] ? name : 'home', arg };
+      return { name: ROUTES[name] && (name !== 'studio' || studio.enabled()) ? name : 'home', arg };
     }
 
     function updateSidebarActive(name) {
@@ -5434,6 +5697,7 @@
 
     async function navigate() {
       const token = ++navigationToken;
+      studio.applyFlagHash();
       const { name, arg } = parseHash();
       const cfg = ROUTES[name];
       state.currentRoute = name;
@@ -5443,7 +5707,7 @@
         pendingTutorMessageChatId = null;
       }
 
-      const viewKeys = ['viewHome', 'viewTool', 'viewKnowledge', 'viewTutor', 'viewReference'];
+      const viewKeys = ['viewHome', 'viewTool', 'viewKnowledge', 'viewTutor', 'viewReference', 'viewStudio'];
       const activeView = document.querySelector('.view.active');
       const nextView = dom[cfg.view];
 
@@ -5513,6 +5777,9 @@
       if (name === 'references') {
         refs.render();
       }
+
+      if (name !== 'studio' && studio.dialog.tool) studio.closeDialog(false);
+      if (name === 'studio') studio.show(arg).catch(err => console.warn('[STH] Study Studio view failed:', err));
 
       closeSidebar();
       if (!isTutor) window.scrollTo({ top: 0, behavior: 'instant' });
@@ -8986,6 +9253,785 @@
     }
 
     // ═══════════════════════════════════════════════════════════
+    // ─── Study Studio (behind a flag) ──────────────────────────
+    // ═══════════════════════════════════════════════════════════
+    const STUDIO_FLAG_KEY = 'sth_flag_studio';
+    const STUDIO_SELECTION_KEY = 'sth_studio_selection';
+    const STUDIO_LANG_KEY = 'sth_studio_lang';
+    const STUDIO_MAX_TOKENS = 120000; // one direct request: about 200 pages
+    const STUDIO_MAX_SOURCES = 10;
+    const STUDIO_MAX_IMAGES = 5;
+    const STUDIO_IMAGE_TOKENS = 1600;
+    const STUDIO_TOKENS_PER_PAGE = 600;
+    const STUDIO_TOPIC_MAX = 1000;
+    const STUDIO_TIMEOUT_MS = 6 * 60 * 1000;
+    const STUDIO_MAX_ATTEMPTS = 2;
+    const STUDIO_REQUEST_VERSION = 1;
+    const STUDIO_PROMPT_VERSION = 'studio-2026-11-a';
+    const STUDIO_ENVELOPE = 'sth.studio/1';
+    const STUDIO_KEEP_OPEN = 'Keep this tab open while this is made (about 1–2 minutes).';
+    const STUDIO_INTERRUPTED = 'This was interrupted because the page was closed or reloaded, so the result was lost. Try again to make it.';
+    const STUDIO_REPORT_HREF = `mailto:jayleigh.dev@gmail.com?subject=${encodeURIComponent('Study Studio problem')}`;
+    const STUDIO_ICONS = {
+      mindmap: '<circle cx="12" cy="12" r="3"/><circle cx="5" cy="5" r="2"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M10 10L6.5 6.5M14 10l3.5-3.5M10 14l-3.5 3.5M14 14l3.5 3.5"/>',
+      quiz: '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+      infographic: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+      slides: '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+      flashcards: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M6 7V4h12v3"/>',
+      nav: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>',
+    };
+    const studioSvg = (key, size = 18, extra = '') => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${extra}>${STUDIO_ICONS[key]}</svg>`;
+    const STUDIO_TOOLS = {
+      mindmap:     { label: 'Mind map',    mode: 'studio_mindmap', enabled: true, sub: 'Turn your sources into a map of the main ideas.' },
+      quiz:        { label: 'Quiz',        enabled: false },
+      infographic: { label: 'Infographic', enabled: false },
+      slides:      { label: 'Slide deck',  enabled: false },
+      flashcards:  { label: 'Flashcards',  enabled: false },
+    };
+    const STUDIO_LANGUAGES = [
+      { code: 'en', name: 'English' }, { code: 'af', name: 'Afrikaans' },
+      { code: 'zu', name: 'isiZulu', beta: true }, { code: 'xh', name: 'isiXhosa', beta: true }, { code: 'st', name: 'Sesotho', beta: true },
+      { code: 'tn', name: 'Setswana', beta: true }, { code: 'nso', name: 'Sepedi', beta: true },
+      { code: 'fr', name: 'French' }, { code: 'pt', name: 'Portuguese' }, { code: 'es', name: 'Spanish' }, { code: 'de', name: 'German' }, { code: 'nl', name: 'Dutch' },
+      { code: 'sw', name: 'Swahili', beta: true }, { code: 'ar', name: 'Arabic' }, { code: 'zh-Hans', name: 'Chinese (Simplified)' }, { code: 'hi', name: 'Hindi' },
+    ];
+    const STUDIO_STATUS_TEXT = { queued: 'Waiting to start', generating: 'Generating', ready: 'Ready', failed: 'Couldn’t finish' };
+
+    const studioTokens = (chars) => Math.ceil(chars / 4);
+    const studioFormatTokens = (n) => n < 1000 ? String(n) : n < 10000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : `${Math.round(n / 1000)}k`;
+    const studioPages = (tokens) => Math.max(tokens ? 1 : 0, Math.round(tokens / STUDIO_TOKENS_PER_PAGE));
+    const studioKind = (item) => item.type === 'scanned_pdf' ? 'pdf' : item.type;
+    const studioError = (message, safeMessage) => new AppError('INPUT-400', { message, safeMessage });
+
+    // What one Knowledge Bay item is worth in tokens, and whether it can be used now
+    function studioEstimate(item) {
+      const notUsable = (note) => ({ state: 'notUsable', tokens: 0, note });
+      if (item.type === 'image') return { state: 'ok', tokens: STUDIO_IMAGE_TOKENS, image: true, note: 'image' };
+      if (item.type === 'scanned_pdf' || item.type === 'doc') {
+        if (!item.contentHash) return notUsable('Re-add this file to use it');
+        if (item.type === 'scanned_pdf') {
+          if (ocr.isConverted(item)) return { state: 'ok', tokens: studioTokens(item.ocrText.length), note: 'text ready' };
+          return { state: 'needsReading', tokens: (item.pageCount || 0) * STUDIO_TOKENS_PER_PAGE, approx: true, note: `Needs reading · ${ocr.statusLabel(item)}` };
+        }
+        const converted = convertedDocs.get(item.contentHash);
+        if (converted && converted.text) return { state: 'ok', tokens: studioTokens(converted.text.length) };
+        const tokens = Math.ceil((item.originalSize || 0) / 6);
+        return state.driveSyncToken
+          ? { state: 'ok', tokens, approx: true, note: 'converted when you generate' }
+          : { state: 'needsDrive', tokens, approx: true, note: 'Needs Google sync to be read' };
+      }
+      const text = item.content || '';
+      return text.trim() ? { state: 'ok', tokens: studioTokens(text.length) } : notUsable('No readable text');
+    }
+
+    async function studioSourcePayload(item, n) {
+      const base = { id: `S${n}`, name: item.name, kind: studioKind(item) };
+      if (item.type === 'image') return { ...base, tokens: STUDIO_IMAGE_TOKENS, image: { mime: item.mime || 'image/jpeg', data: item.content } };
+      let text = item.content || '', markers = 'none', pages = 0;
+      if (item.type === 'scanned_pdf') {
+        if (!ocr.isConverted(item)) throw studioError(`${item.name} is still being read. Wait for it to finish, then try again.`, 'Studio source not read yet');
+        text = item.ocrText; markers = 'scan'; pages = item.pageCount || 0;
+      } else if (item.type === 'doc') {
+        let converted;
+        try { converted = await convertLegacyDoc(item.name, item.contentHash, () => getKbFileBlob(item)); }
+        catch (e) { throw studioError(e.message, e.safeMessage || 'Studio .doc conversion failed'); }
+        if (!converted || !converted.text) throw studioError(`${item.name} couldn’t be read as text. Save it as .docx or PDF and add it again.`, 'Studio .doc had no text');
+        text = converted.text;
+      } else if (item.type === 'pdf' && item.schemaVersion >= 3) {
+        markers = 'page';
+        const found = [...text.matchAll(/^\[Page (\d+)\]/gm)];
+        pages = found.length ? Number(found[found.length - 1][1]) : 0;
+      } else if (item.type === 'pptx') markers = 'slide';
+      else if (item.type === 'xlsx') markers = 'sheet';
+      return { ...base, markers, pages, tokens: studioTokens(text.length), text };
+    }
+
+    // The request for one study aid. Sources are numbered S1..Sn in the order given; nothing else about them leaves the device.
+    async function studioBuildRequest(item) {
+      const sources = [];
+      try {
+        for (const id of item.sourceIds) {
+          const kbItem = await kb.get(id);
+          if (!kbItem) throw studioError('One of the sources is no longer in your Knowledge Bay. Choose your sources again.', 'Studio source missing');
+          sources.push(await studioSourcePayload(kbItem, sources.length + 1));
+        }
+      } finally {
+        driveBlobs.clear();
+      }
+      const lang = STUDIO_LANGUAGES.find(l => l.code === item.language) || STUDIO_LANGUAGES[0];
+      return {
+        mode: STUDIO_TOOLS[item.tool].mode,
+        v: STUDIO_REQUEST_VERSION,
+        requestId: generateId(),
+        tool: item.tool,
+        language: { code: lang.code, name: lang.name },
+        options: {},
+        description: item.topic || '',
+        sources,
+        clientEstimate: sources.reduce((sum, s) => sum + s.tokens, 0),
+        promptVersion: STUDIO_PROMPT_VERSION,
+      };
+    }
+
+    function studioSend(request) {
+      return webhookRequest(request, { timeoutMs: STUDIO_TIMEOUT_MS, maxAttempts: STUDIO_MAX_ATTEMPTS, quiet: true });
+    }
+
+    // Puts the server's answer on the item. The viewer (and the full validator) arrive with the server side.
+    function studioApplyResult(item, data) {
+      const artifact = data && data.artifact;
+      if (!artifact || typeof artifact !== 'object' || artifact.envelope !== STUDIO_ENVELOPE || artifact.tool !== item.tool || !artifact.data || typeof artifact.data !== 'object') {
+        throw new AppError('STU-422', { safeMessage: 'Studio answer had no usable artifact' });
+      }
+      item.artifact = artifact;
+      const title = typeof artifact.data.title === 'string' ? artifact.data.title.trim() : '';
+      if (title) item.title = title.slice(0, 120);
+      item.status = 'ready';
+      item.error = null;
+      item.seen = false;
+    }
+
+    const studio = {
+      store: null,
+      items: [],
+      ready: false,
+      initPromise: null,
+      memoryOnly: false,
+      flagMemory: false,
+      wired: false,
+      selection: new Set(),
+      running: new Set(),
+      viewerId: null,
+      dialog: { tool: null, opener: null, inerted: [], expanded: false },
+      hooks: { buildRequest: studioBuildRequest, send: studioSend, applyResult: studioApplyResult },
+
+      el: (id) => document.getElementById(id),
+      enabled() { return this.flagMemory || storageGet(STUDIO_FLAG_KEY) === '1'; },
+      active() { return state.currentRoute === 'studio'; },
+
+      // #studio?flag=1 turns the flag on (kept in browser storage, or for this visit when storage is blocked) and moves to #studio
+      applyFlagHash() {
+        if (location.hash !== '#studio?flag=1') return;
+        if (!storageSet(STUDIO_FLAG_KEY, '1')) this.flagMemory = true;
+        history.replaceState(null, '', `${location.pathname}${location.search}#studio`);
+        this.boot();
+      },
+
+      boot() {
+        if (!this.enabled()) return;
+        this.mountEntry();
+        this.wire();
+        this.ensureInit();
+      },
+
+      mountEntry() {
+        if (document.querySelector('[data-studio-entry]')) return;
+        const tutorLink = document.querySelector('.sidebar-nav .nav-link[data-route="tutor"]');
+        if (tutorLink) {
+          tutorLink.insertAdjacentHTML('afterend', `<a class="nav-link" data-route="studio" data-studio-entry href="#studio" data-tip="Study Studio">${studioSvg('nav')}<span class="nav-label">Study Studio</span><span class="studio-nav-dot" hidden><span class="studio-sr">New study aid ready</span></span></a>`);
+        }
+        const grid = dom.viewHome.querySelector('.grid');
+        if (grid) {
+          grid.insertAdjacentHTML('beforeend', `<a class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center bg-white/50" data-studio-entry href="#studio" title="Study Studio" aria-label="Study Studio"><div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center" style="color:#2c5f2d">${studioSvg('nav', 24)}</div><h3 class="text-lg mt-3">Study Studio</h3><p class="font-body text-sm text-ink/45 mt-1">Turn your Knowledge Bay into study aids, starting with mind maps</p></a>`);
+        }
+        updateSidebarActive(state.currentRoute);
+      },
+
+      // ── storage ──
+      ensureInit() {
+        this.initPromise ??= (async () => {
+          try {
+            this.store = localforage.createInstance({ name: 'sth_studio', storeName: 'items' });
+            const index = (await this.store.getItem('index')) || [];
+            const removed = (await this.store.getItem('removed')) || {};
+            const full = await Promise.all(index.filter(s => s && s.id && !removed[s.id]).map(s => this.store.getItem(`item:${s.id}`)));
+            this.items = full.filter(Boolean);
+          } catch (err) {
+            console.warn('[STH] Study Studio storage unavailable:', err);
+            this.memoryOnly = true;
+            this.items = [];
+          }
+          this.loadSelection();
+          this.ready = true;
+          await this.sweepInterrupted();
+          this.renderSources();
+          this.refreshViews();
+          if (this.memoryOnly) this.el('studioStoreNote').hidden = false;
+        })();
+        return this.initPromise;
+      },
+
+      summaryOf(item) {
+        const { artifact, ...rest } = item;
+        return { ...rest, hasArtifact: !!artifact };
+      },
+
+      // Writes one item (and the index), or removes one; merges anything another tab saved meanwhile
+      async persist(item, removeId) {
+        if (this.store && !this.memoryOnly) {
+          try {
+            await withStoreLock('studio', async () => {
+              const removed = (await this.store.getItem('removed')) || {};
+              if (removeId) {
+                removed[removeId] = Date.now();
+                await this.store.removeItem(`item:${removeId}`);
+              }
+              const byId = new Map(this.items.map(i => [i.id, this.summaryOf(i)]));
+              for (const s of (await this.store.getItem('index')) || []) if (s && s.id && !byId.has(s.id)) byId.set(s.id, s);
+              for (const id of Object.keys(removed)) byId.delete(id);
+              if (item) await this.store.setItem(`item:${item.id}`, item);
+              await this.store.setItem('index', [...byId.values()]);
+              await this.store.setItem('removed', pruneRemoved(removed));
+            });
+            tabSync.post('studio');
+            return;
+          } catch (err) {
+            console.warn('[STH] Study Studio save failed:', err);
+            this.memoryOnly = true;
+          }
+        }
+        this.el('studioStoreNote').hidden = false;
+      },
+
+      async save(item) {
+        item.updatedAt = Date.now();
+        this.refreshViews();
+        await this.persist(item);
+      },
+
+      // Another tab saved
+      async reload() {
+        if (!this.store || this.memoryOnly) return;
+        try {
+          const removed = (await this.store.getItem('removed')) || {};
+          this.items = this.items.filter(i => !removed[i.id] || this.running.has(i.id));
+          for (const s of (await this.store.getItem('index')) || []) {
+            if (!s || !s.id || removed[s.id]) continue;
+            const cur = this.items.find(i => i.id === s.id);
+            if (cur && (this.running.has(cur.id) || (s.updatedAt || 0) <= (cur.updatedAt || 0))) continue;
+            const full = await this.store.getItem(`item:${s.id}`);
+            if (!full) continue;
+            if (cur) Object.assign(cur, full); else this.items.push(full);
+          }
+          await this.sweepInterrupted();
+        } catch (err) {
+          console.warn('[STH] Study Studio refresh failed:', err);
+        }
+        this.refreshViews();
+      },
+
+      loadSelection() {
+        try {
+          const saved = JSON.parse(storageGet(STUDIO_SELECTION_KEY));
+          if (Array.isArray(saved)) this.selection = new Set(saved.filter(id => typeof id === 'string'));
+        } catch { /* nothing saved */ }
+      },
+      saveSelection() { storageSet(STUDIO_SELECTION_KEY, JSON.stringify([...this.selection])); },
+      pruneSelection() {
+        if (kb.loading) return;
+        const keep = new Set(kb.cache.filter(i => studioEstimate(i).state !== 'notUsable').map(i => i.id));
+        const before = this.selection.size;
+        this.selection = new Set([...this.selection].filter(id => keep.has(id)));
+        if (this.selection.size !== before) this.saveSelection();
+      },
+      orderedSelection() { return kb.list().filter(i => this.selection.has(i.id)).map(i => i.id); },
+
+      // ── what the current picks add up to ──
+      plan(ids) {
+        const byId = new Map(kb.cache.map(i => [i.id, i]));
+        const p = { count: 0, tokens: 0, images: 0, approx: false, missing: 0, unread: [], needsDrive: [], unusable: [], reason: '', level: 'ok' };
+        for (const id of ids) {
+          const it = byId.get(id);
+          if (!it) { p.missing++; continue; }
+          const est = studioEstimate(it);
+          if (est.state === 'notUsable') { p.unusable.push(it); continue; }
+          p.count++; p.tokens += est.tokens;
+          if (est.image) p.images++;
+          if (est.approx) p.approx = true;
+          if (est.state === 'needsReading') p.unread.push(it);
+          else if (est.state === 'needsDrive') p.needsDrive.push(it);
+        }
+        const over = p.tokens > STUDIO_MAX_TOKENS || p.count > STUDIO_MAX_SOURCES || p.images > STUDIO_MAX_IMAGES;
+        p.level = over ? 'over' : p.tokens >= STUDIO_MAX_TOKENS * 0.75 ? 'near' : 'ok';
+        if (!p.count && !p.unusable.length) p.reason = 'Pick at least one source.';
+        else if (over) p.reason = 'Choose fewer sources.';
+        else if (p.unusable.length) p.reason = 'Untick the sources that cannot be used.';
+        else if (p.needsDrive.length) p.reason = 'Connect Google sync to read .doc files, or untick them.';
+        else if (p.unread.length === 1) {
+          const prog = ocr.progress.get(p.unread[0].id);
+          p.reason = `Wait for “${p.unread[0].name}” to be read${prog ? ` (reading ${prog.done}/${prog.total})` : ''}.`;
+        } else if (p.unread.length) p.reason = `Wait for ${p.unread.length} scanned PDFs to be read.`;
+        return p;
+      },
+
+      // ── rendering ──
+      rowHtml(it, peek) {
+        const est = studioEstimate(it);
+        const sel = this.selection.has(it.id), dis = est.state === 'notUsable';
+        const id = escapeHtml(it.id);
+        const kindNote = [(it.type === 'scanned_pdf' ? 'pdf' : (it.ext || it.type)).toUpperCase(), est.note].filter(Boolean).join(' · ');
+        const tokens = est.tokens ? `${est.approx ? '≈' : ''}${studioFormatTokens(est.tokens)}` : '';
+        return `<div class="kb-pick-row studio-source-row${sel ? ' selected' : ''}${dis ? ' disabled' : ''}" data-studio-row="${id}">
+          <label class="studio-source-main">
+            <input type="checkbox" class="studio-sr" data-studio-source="${id}"${sel ? ' checked' : ''}${dis ? ' disabled' : ''} />
+            <span class="kb-pick-check" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+            <span class="studio-source-text"><span class="studio-source-name">${escapeHtml(it.name)}</span><span class="studio-source-meta${est.state === 'ok' ? '' : ' is-warn'}">${escapeHtml(kindNote)}</span></span>
+            <span class="studio-source-tokens">${tokens}</span>
+          </label>
+          ${peek ? `<button type="button" class="kb-row-peek" data-studio-peek="${id}" aria-label="Preview ${escapeHtml(it.name)}" title="Preview file"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>` : ''}
+        </div>`;
+      },
+
+      // Redraws a list and keeps the keyboard focus on the same checkbox
+      drawList(container, peek) {
+        const focused = document.activeElement && container.contains(document.activeElement) ? document.activeElement.dataset.studioSource : null;
+        if (kb.loading) { renderSkeleton(container, 'skeleton-studio-row', 4); return; }
+        container.removeAttribute('aria-busy');
+        const items = kb.list();
+        container.innerHTML = items.length
+          ? items.map(it => this.rowHtml(it, peek)).join('')
+          : '<p class="studio-source-empty">Your Knowledge Bay is empty. Add notes, PDFs or links first.</p><a class="studio-btn" href="#knowledge">Go to Knowledge Bay</a>';
+        if (focused) { const cb = [...container.querySelectorAll('input[data-studio-source]')].find(c => c.dataset.studioSource === focused); if (cb) cb.focus(); }
+      },
+
+      renderSources() {
+        if (!this.wired) return;
+        this.pruneSelection();
+        this.drawList(this.el('studioSourceList'), true);
+        const usable = kb.loading ? [] : kb.cache.filter(i => studioEstimate(i).state !== 'notUsable');
+        this.el('studioSelectAllRow').hidden = !usable.length;
+        this.el('studioSourceHint').textContent = !kb.loading && kb.cache.some(i => i.type === 'pdf' && !(i.schemaVersion >= 3))
+          ? 'Page numbers are saved for PDFs added from now on. Re-add older PDFs if you want page references.' : '';
+        if (this.dialog.tool) this.drawList(this.el('studioDialogSources'), false);
+        this.syncSelectionViews();
+      },
+
+      // Selection changed (or the data behind it): update checks, counts, meters and buttons without redrawing the rows
+      syncSelectionViews() {
+        if (!this.wired) return;
+        document.querySelectorAll('[data-studio-row]').forEach(row => {
+          const on = this.selection.has(row.dataset.studioRow);
+          row.classList.toggle('selected', on);
+          const cb = row.querySelector('input');
+          if (cb) cb.checked = on;
+        });
+        const usable = kb.loading ? [] : kb.cache.filter(i => studioEstimate(i).state !== 'notUsable');
+        const picked = usable.filter(i => this.selection.has(i.id)).length;
+        const all = this.el('studioSelectAll');
+        all.checked = usable.length > 0 && picked === usable.length;
+        all.indeterminate = picked > 0 && picked < usable.length;
+        this.el('studioSelectAllLabel').textContent = `Select all (${usable.length})`;
+        this.el('studioTabSources').textContent = `Sources${this.selection.size ? ` (${this.selection.size})` : ''}`;
+        const plan = this.plan(this.orderedSelection());
+        this.drawMeter(plan, { box: 'studioMeter', text: 'studioMeterText', bar: 'studioMeterBar', fill: 'studioMeterFill' });
+        this.el('studioSourcesReason').textContent = plan.count || plan.unusable.length ? plan.reason : '';
+        this.el('studioMeter').hidden = kb.loading || !kb.cache.length;
+        this.updateTools();
+        if (this.dialog.tool) this.drawDialogState(plan);
+      },
+
+      drawMeter(plan, ids) {
+        const box = this.el(ids.box), bar = this.el(ids.bar);
+        const word = plan.level === 'over' ? 'Too much' : plan.level === 'near' ? 'Nearly full' : 'Fits';
+        const pages = studioPages(plan.tokens);
+        box.classList.toggle('is-near', plan.level === 'near');
+        box.classList.toggle('is-over', plan.level === 'over');
+        this.el(ids.text).textContent = plan.count
+          ? `${word}: ${plan.approx ? '≈' : ''}${studioFormatTokens(plan.tokens)} of ${studioFormatTokens(STUDIO_MAX_TOKENS)} tokens (about ${pages} page${pages === 1 ? '' : 's'}) · ${plan.count} of ${STUDIO_MAX_SOURCES} sources${plan.images ? ` · ${plan.images} of ${STUDIO_MAX_IMAGES} images` : ''}`
+          : 'Tick the sources you want to use.';
+        this.el(ids.fill).style.width = `${Math.min(100, Math.round(plan.tokens / STUDIO_MAX_TOKENS * 100))}%`;
+        bar.setAttribute('aria-valuenow', String(Math.min(plan.tokens, STUDIO_MAX_TOKENS)));
+        bar.setAttribute('aria-valuetext', `${word}: ${Math.round(plan.tokens / 1000)} thousand of ${STUDIO_MAX_TOKENS / 1000} thousand tokens, about ${pages} pages`);
+      },
+
+      renderTools() {
+        this.el('studioToolGrid').innerHTML = Object.entries(STUDIO_TOOLS).map(([key, t]) =>
+          `<button type="button" class="studio-tile" id="studioTile_${key}" data-tool="${key}" aria-disabled="true" aria-describedby="studioTileNote_${key}">${studioSvg(key, 22)}<span class="studio-tile-label">${t.label}</span><span class="studio-tile-note" id="studioTileNote_${key}"></span></button>`).join('');
+      },
+
+      updateTools() {
+        const kbEmpty = !kb.loading && kb.cache.length === 0;
+        for (const [key, t] of Object.entries(STUDIO_TOOLS)) {
+          const tile = this.el(`studioTile_${key}`);
+          if (!tile) continue;
+          const note = !t.enabled ? 'Coming soon' : kbEmpty ? 'Add a source first' : '';
+          tile.setAttribute('aria-disabled', String(!t.enabled || kbEmpty));
+          this.el(`studioTileNote_${key}`).textContent = note;
+        }
+      },
+
+      sorted() { return [...this.items].sort((a, b) => b.createdAt - a.createdAt); },
+
+      statusHtml(item) {
+        const text = STUDIO_STATUS_TEXT[item.status] || item.status;
+        const fresh = item.status === 'ready' && !item.seen ? ' · New' : '';
+        return `<span class="studio-status"><span class="studio-dot is-${escapeHtml(item.status)}" aria-hidden="true"></span><span>${escapeHtml(text + fresh)}</span></span>`;
+      },
+
+      noteHtml(item) {
+        if (item.status === 'queued' || item.status === 'generating') return `<span class="studio-item-note">${STUDIO_KEEP_OPEN}</span><span class="skeleton studio-item-skeleton" aria-hidden="true"></span>`;
+        if (item.status === 'failed' && item.error) return `<span class="studio-item-note is-error">${escapeHtml(item.error.message)}${item.error.code ? ` (Code ${escapeHtml(item.error.code)})` : ''}</span>`;
+        return '';
+      },
+
+      itemHtml(item) {
+        const n = item.sourceIds.length;
+        const id = escapeHtml(item.id);
+        const actions = [];
+        if (item.status === 'ready') actions.push(`<a href="#studio/${id}">Open</a>`);
+        if (item.status === 'ready' || item.status === 'failed') actions.push(`<button type="button" data-studio-act="regenerate" data-id="${id}">Regenerate</button>`);
+        actions.push(`<a href="${STUDIO_REPORT_HREF}">Report a problem</a>`);
+        actions.push(`<button type="button" class="is-danger" data-studio-act="delete" data-id="${id}">Delete</button>`);
+        return `<li class="studio-item" data-studio-item="${id}">
+          <span class="studio-item-icon">${studioSvg(item.tool)}</span>
+          <a class="studio-item-link" href="#studio/${id}">
+            <span class="studio-item-title">${escapeHtml(item.title)}</span>
+            <span class="studio-item-meta">${n} source${n === 1 ? '' : 's'} · ${escapeHtml(formatRelativeDate(item.updatedAt || item.createdAt))}</span>
+            ${this.statusHtml(item)}
+            ${this.noteHtml(item)}
+          </a>
+          <div class="studio-item-actions">
+            <details class="studio-menu"><summary aria-label="More actions for ${escapeHtml(item.title)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></summary><div class="studio-menu-list">${actions.join('')}</div></details>
+          </div>
+          ${item.status === 'failed' ? `<div class="studio-item-retry"><button type="button" class="studio-btn" data-studio-act="retry" data-id="${id}">Retry</button></div>` : ''}
+        </li>`;
+      },
+
+      renderItems() {
+        if (!this.wired) return;
+        const loading = this.el('studioItemLoading'), list = this.el('studioItemList');
+        loading.hidden = this.ready;
+        if (!this.ready) { renderSkeleton(loading, 'skeleton-history-row', 3); list.innerHTML = ''; this.el('studioItemEmpty').hidden = true; return; }
+        loading.innerHTML = '';
+        const items = this.sorted();
+        const openId = list.querySelector('.studio-menu[open]')?.closest('[data-studio-item]')?.dataset.studioItem;
+        list.innerHTML = items.map(i => this.itemHtml(i)).join('');
+        if (openId) list.querySelector(`[data-studio-item="${openId}"] .studio-menu`)?.setAttribute('open', '');
+        this.el('studioItemEmpty').hidden = items.length > 0;
+      },
+
+      updateNavDot() {
+        const dot = document.querySelector('.studio-nav-dot');
+        if (dot) dot.hidden = !this.items.some(i => i.status === 'ready' && !i.seen);
+      },
+
+      announce(message) { if (this.wired) this.el('studioLive').textContent = message; },
+
+      refreshViews() {
+        if (!this.wired) return;
+        this.renderItems();
+        this.updateNavDot();
+        if (this.viewerId && this.active()) this.renderViewer();
+      },
+
+      renderViewer() {
+        const item = this.items.find(i => i.id === this.viewerId);
+        if (!item) return;
+        if (item.status === 'ready' && !item.seen) { item.seen = true; this.save(item); return; }
+        const id = escapeHtml(item.id);
+        const n = item.sourceIds.length;
+        let body = '';
+        if (item.status === 'ready') {
+          const nodes = item.artifact && item.artifact.data && Array.isArray(item.artifact.data.nodes) ? item.artifact.data.nodes.length : 0;
+          body = `<p class="studio-item-note">The ${escapeHtml(STUDIO_TOOLS[item.tool].label.toLowerCase())} viewer arrives in the next update. Your result is saved on this device${nodes ? ` (${nodes} items)` : ''}.</p>`;
+        } else body = this.noteHtml(item);
+        this.el('studioViewerCard').innerHTML = `
+          <h2>${escapeHtml(item.title)}</h2>
+          <span class="studio-item-meta">${escapeHtml(STUDIO_TOOLS[item.tool].label)} · ${n} source${n === 1 ? '' : 's'}${item.sourceNames.length ? ` (${escapeHtml(item.sourceNames.join(', '))})` : ''} · ${escapeHtml(formatRelativeDate(item.updatedAt || item.createdAt))}</span>
+          ${this.statusHtml(item)}
+          ${body}
+          <div class="studio-viewer-actions">
+            ${item.status === 'failed' ? `<button type="button" class="studio-btn primary" data-studio-act="retry" data-id="${id}">Retry</button>` : ''}
+            ${item.status === 'ready' || item.status === 'failed' ? `<button type="button" class="studio-btn" data-studio-act="regenerate" data-id="${id}">Regenerate</button>` : ''}
+            <a class="studio-btn ghost" href="${STUDIO_REPORT_HREF}">Report a problem</a>
+          </div>`;
+      },
+
+      // ── routing ──
+      async show(arg) {
+        this.wire();
+        this.viewerId = arg || null;
+        this.el('studioMain').hidden = !!arg;
+        this.el('studioViewer').hidden = !arg;
+        this.renderSources();
+        this.renderItems();
+        await this.ensureInit();
+        if (!this.active()) return;
+        if (arg && !this.items.some(i => i.id === arg)) {
+          showToast('That item is no longer on this device');
+          location.hash = '#studio';
+          return;
+        }
+        this.refreshViews();
+      },
+
+      setTab(tab, focus) {
+        this.el('studioShell').dataset.tab = tab;
+        for (const t of ['sources', 'studio']) {
+          const btn = this.el(t === 'sources' ? 'studioTabSources' : 'studioTabStudio');
+          btn.setAttribute('aria-selected', String(t === tab));
+          btn.tabIndex = t === tab ? 0 : -1;
+          if (focus && t === tab) btn.focus();
+        }
+      },
+
+      // ── selection ──
+      toggle(id, on) {
+        if (on) this.selection.add(id); else this.selection.delete(id);
+        this.saveSelection();
+        this.syncSelectionViews();
+      },
+      selectAll(on) {
+        const usable = kb.cache.filter(i => studioEstimate(i).state !== 'notUsable');
+        this.selection = on ? new Set(usable.map(i => i.id)) : new Set();
+        this.saveSelection();
+        this.syncSelectionViews();
+      },
+
+      // ── dialog ──
+      openDialog(tool, prefill = {}) {
+        const t = STUDIO_TOOLS[tool];
+        const d = this.dialog;
+        if (!t || !t.enabled || d.tool) return;
+        this.wire();
+        d.tool = tool;
+        d.opener = document.activeElement;
+        this.el('studioDialogTitle').textContent = t.label;
+        this.el('studioDialogSub').textContent = t.sub;
+        const savedLang = storageGet(STUDIO_LANG_KEY);
+        const pick = [prefill.language, savedLang].find(c => STUDIO_LANGUAGES.some(l => l.code === c)) || 'en';
+        this.el('studioLanguage').value = pick;
+        this.el('studioTopic').value = prefill.topic || '';
+        if (prefill.sourceIds) {
+          const known = new Set(kb.cache.map(i => i.id));
+          this.selection = new Set(prefill.sourceIds.filter(id => known.has(id)));
+          this.saveSelection();
+        }
+        d.expanded = this.selection.size === 0;
+        this.drawList(this.el('studioDialogSources'), false);
+        this.syncSelectionViews();
+        this.el('studioDialog').classList.add('open');
+        d.inerted = [...document.body.children].filter(el => el.id !== 'studioDialog' && !['toast', 'loginOverlay'].includes(el.id) && el.tagName !== 'SCRIPT' && !el.hasAttribute('inert'));
+        d.inerted.forEach(el => el.setAttribute('inert', ''));
+        this.el('studioLanguage').focus();
+      },
+
+      drawDialogState(plan) {
+        const d = this.dialog;
+        const n = this.selection.size;
+        this.el('studioDialogSourcesCount').textContent = `${n} source${n === 1 ? '' : 's'}`;
+        this.el('studioDialogSourcesBtn').setAttribute('aria-expanded', String(d.expanded));
+        this.el('studioDialogSources').hidden = !d.expanded;
+        this.drawMeter(plan, { box: 'studioDialogMeter', text: 'studioDialogMeterText', bar: 'studioDialogMeterBar', fill: 'studioDialogMeterFill' });
+        this.el('studioDialogReason').textContent = plan.reason;
+        this.el('studioGenerateBtn').setAttribute('aria-disabled', String(!!plan.reason));
+        const len = this.el('studioTopic').value.length, count = this.el('studioTopicCount');
+        count.hidden = len < 800;
+        count.textContent = `${len} / ${STUDIO_TOPIC_MAX}`;
+      },
+
+      closeDialog(restore = true) {
+        const d = this.dialog;
+        if (!d.tool) return;
+        this.el('studioDialog').classList.remove('open');
+        d.inerted.forEach(el => el.removeAttribute('inert'));
+        d.inerted = [];
+        const tile = this.el(`studioTile_${d.tool}`), opener = d.opener;
+        d.tool = null; d.opener = null;
+        if (restore) {
+          const target = opener && opener.isConnected && opener.offsetParent !== null ? opener : tile;
+          if (target) target.focus();
+        }
+      },
+
+      async requestClose() {
+        if (this.el('studioTopic').value.trim()) {
+          const confirmBox = document.getElementById('confirmOverlay');
+          confirmBox.removeAttribute('inert');
+          const discard = await showConfirm('Discard what you typed?', 'Discard');
+          if (!discard) {
+            if (this.dialog.tool) { confirmBox.setAttribute('inert', ''); this.el('studioTopic').focus(); }
+            return;
+          }
+        }
+        this.closeDialog();
+      },
+
+      async submitDialog() {
+        if (this.el('studioGenerateBtn').getAttribute('aria-disabled') === 'true') return;
+        const tool = this.dialog.tool;
+        const params = { tool, language: this.el('studioLanguage').value, topic: this.el('studioTopic').value.trim().slice(0, STUDIO_TOPIC_MAX), sourceIds: this.orderedSelection() };
+        storageSet(STUDIO_LANG_KEY, params.language);
+        this.closeDialog();
+        const item = await this.generate(params);
+        if (item) {
+          showToast(`${STUDIO_TOOLS[tool].label} started. Keep this tab open until it is ready.`);
+          this.announce(`${STUDIO_TOOLS[tool].label} started. ${STUDIO_KEEP_OPEN}`);
+        }
+      },
+
+      // ── lifecycle: queued -> generating -> ready | failed ──
+      async generate(params) {
+        const plan = this.plan(params.sourceIds);
+        if (plan.reason) { showToast(plan.reason, 'error'); return null; }
+        await this.ensureInit();
+        const label = STUDIO_TOOLS[params.tool].label;
+        const picked = params.sourceIds.map(id => kb.cache.find(i => i.id === id)).filter(Boolean);
+        const stem = (name) => name.replace(/\.[a-z0-9]{1,5}$/i, '');
+        const now = Date.now();
+        const item = {
+          id: generateId(),
+          tool: params.tool,
+          title: picked.length === 1 ? `${label}: ${stem(picked[0].name)}`.slice(0, 120) : `${label} of ${picked.length} sources`,
+          language: params.language,
+          topic: params.topic,
+          sourceIds: picked.map(i => i.id),
+          sourceNames: picked.map(i => i.name),
+          status: 'queued',
+          createdAt: now,
+          updatedAt: now,
+          seen: false,
+          error: null,
+          artifact: null,
+        };
+        this.items.unshift(item);
+        this.refreshViews();
+        this.run(item);
+        return item;
+      },
+
+      // The lock is held while the request runs, so a reload (which frees it) can tell the item was cut off
+      run(item) {
+        this.running.add(item.id);
+        const work = () => this.execute(item);
+        const held = navigator.locks && navigator.locks.request ? navigator.locks.request(this.lockName(item.id), work) : work();
+        return Promise.resolve(held).catch(err => this.fail(item, err)).finally(() => this.running.delete(item.id));
+      },
+
+      async execute(item) {
+        try {
+          await this.save(item);
+          const request = await this.hooks.buildRequest(item);
+          if (!this.items.includes(item)) return;
+          item.status = 'generating';
+          await this.save(item);
+          this.announce(`${item.title}: generating. ${STUDIO_KEEP_OPEN}`);
+          const data = await this.hooks.send(request);
+          if (!this.items.includes(item)) return;
+          this.hooks.applyResult(item, data);
+          await this.save(item);
+          this.announce(`${item.title}: ready.`);
+        } catch (err) {
+          await this.fail(item, err);
+        }
+      },
+
+      async fail(item, err) {
+        if (!this.items.includes(item)) return;
+        const e = errorFromException(err);
+        console.warn('[STH] Study Studio failed:', e.code, e.safeMessage);
+        item.status = 'failed';
+        item.error = { code: e.code, message: e.message };
+        await this.save(item);
+        this.announce(`${item.title}: could not be made. ${e.message}`);
+      },
+
+      async retry(id) {
+        const item = this.items.find(i => i.id === id);
+        if (!item || item.status !== 'failed' || this.running.has(id)) return;
+        const plan = this.plan(item.sourceIds);
+        const reason = plan.missing ? 'One of the sources is no longer in your Knowledge Bay. Use Regenerate to choose again.' : plan.reason;
+        if (reason) { showToast(reason, 'error'); return; }
+        item.status = 'queued';
+        item.error = null;
+        item.artifact = null;
+        this.refreshViews();
+        this.run(item);
+      },
+
+      async remove(id) {
+        const item = this.items.find(i => i.id === id);
+        if (!item || !(await showConfirm(`Delete <strong>${escapeHtml(item.title)}</strong>? This removes it from this device.`))) return;
+        this.items = this.items.filter(i => i !== item);
+        await this.persist(null, id);
+        if (this.viewerId === id) location.hash = '#studio';
+        this.refreshViews();
+      },
+
+      lockName: (id) => `sth-studio-${id}`,
+      async lockHeld(id) {
+        if (!(navigator.locks && navigator.locks.request)) return false;
+        try { return await navigator.locks.request(this.lockName(id), { ifAvailable: true }, async lock => lock === null); }
+        catch { return false; }
+      },
+
+      // An item still waiting or generating whose tab is gone (no lock held) was cut off: the result is lost
+      async sweepInterrupted() {
+        for (const item of this.items) {
+          if ((item.status !== 'generating' && item.status !== 'queued') || this.running.has(item.id)) continue;
+          if (await this.lockHeld(item.id)) continue;
+          item.status = 'failed';
+          item.error = { code: null, message: STUDIO_INTERRUPTED, interrupted: true };
+          item.updatedAt = Date.now();
+          await this.persist(item);
+        }
+      },
+
+      // ── events (once) ──
+      wire() {
+        if (this.wired) return;
+        this.wired = true;
+        this.renderTools();
+        this.el('studioLanguage').innerHTML = STUDIO_LANGUAGES.map(l => `<option value="${l.code}">${l.name}${l.beta ? ' (beta)' : ''}</option>`).join('');
+        const onRowChange = (e) => { const cb = e.target.closest('input[data-studio-source]'); if (cb) this.toggle(cb.dataset.studioSource, cb.checked); };
+        this.el('studioSourceList').addEventListener('change', onRowChange);
+        this.el('studioDialogSources').addEventListener('change', onRowChange);
+        this.el('studioSourceList').addEventListener('click', (e) => { const peek = e.target.closest('[data-studio-peek]'); if (peek) openKbReader(peek.dataset.studioPeek, 'studio'); });
+        this.el('studioSelectAll').addEventListener('change', (e) => this.selectAll(e.target.checked));
+        this.el('studioToolGrid').addEventListener('click', (e) => {
+          const tile = e.target.closest('.studio-tile');
+          if (tile && tile.getAttribute('aria-disabled') !== 'true') this.openDialog(tile.dataset.tool);
+        });
+        const onAct = (e) => {
+          const btn = e.target.closest('[data-studio-act]');
+          if (!btn) return;
+          btn.closest('.studio-menu')?.removeAttribute('open');
+          const id = btn.dataset.id, act = btn.dataset.studioAct;
+          if (act === 'retry') this.retry(id);
+          else if (act === 'delete') this.remove(id);
+          else if (act === 'regenerate') { const it = this.items.find(i => i.id === id); if (it) this.openDialog(it.tool, { language: it.language, topic: it.topic, sourceIds: it.sourceIds }); }
+        };
+        this.el('studioItemList').addEventListener('click', onAct);
+        this.el('studioViewerCard').addEventListener('click', onAct);
+        for (const id of ['studioTabSources', 'studioTabStudio']) {
+          this.el(id).addEventListener('click', (e) => this.setTab(e.currentTarget.dataset.studioTab));
+          this.el(id).addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); this.setTab(this.el('studioShell').dataset.tab === 'studio' ? 'sources' : 'studio', true); }
+          });
+        }
+        this.setTab('studio');
+        this.el('studioDialogClose').addEventListener('click', () => this.requestClose());
+        this.el('studioDialogCancel').addEventListener('click', () => this.requestClose());
+        this.el('studioDialog').addEventListener('click', (e) => { if (e.target === this.el('studioDialog')) this.requestClose(); });
+        this.el('studioGenerateBtn').addEventListener('click', () => this.submitDialog());
+        this.el('studioDialogSourcesBtn').addEventListener('click', () => { this.dialog.expanded = !this.dialog.expanded; this.syncSelectionViews(); });
+        this.el('studioTopic').addEventListener('input', () => this.syncSelectionViews());
+        document.addEventListener('keydown', (e) => {
+          if (e.key !== 'Escape') return;
+          if (this.dialog.tool) {
+            if (!document.getElementById('confirmOverlay').classList.contains('open')) this.requestClose();
+            return;
+          }
+          const menu = this.active() && document.querySelector('.studio-menu[open]');
+          if (menu) { menu.removeAttribute('open'); menu.querySelector('summary').focus(); }
+        });
+        document.addEventListener('click', (e) => {
+          document.querySelectorAll('.studio-menu[open]').forEach(m => { if (!m.contains(e.target)) m.removeAttribute('open'); });
+        });
+      },
+    };
+
+    // ═══════════════════════════════════════════════════════════
     // ─── Export picker (reference list + tutor) ────────────────
     // ═══════════════════════════════════════════════════════════
     let exportPickerOpener = null;
@@ -9723,7 +10769,7 @@
       }
 
       // Init KB + Tutor stores
-      tabSync.handlers = { kb: () => kb.reload(), tutor: () => tutor.reload(), history: refreshHistoryUi };
+      tabSync.handlers = { kb: () => kb.reload(), tutor: () => tutor.reload(), history: refreshHistoryUi, studio: () => studio.reload() };
       tabSync.init();
       renderKbGrid();
       tutor.renderSidebarList();
@@ -9732,6 +10778,7 @@
       renderKbGrid();
       await tutor.init();
       ocr.resumePending();
+      studio.boot();
       wireKbDropzone();
       wireComposerAttach();
 
