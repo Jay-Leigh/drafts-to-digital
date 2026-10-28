@@ -34,4 +34,4 @@ Out of scope:
 
 ## Handling of Secrets
 
-API keys and credentials are never stored in this repository. They live in n8n credentials or the encrypted app config. If you spot a key committed anywhere, report it as above and it will be rotated immediately.
+API keys and credentials are never stored in this repository. They live in n8n credentials. If you spot a key committed anywhere, report it as above and it will be rotated immediately.
