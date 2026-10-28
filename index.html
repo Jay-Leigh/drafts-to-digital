@@ -786,7 +786,7 @@
     .studio-shell { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 16px; align-items: start; }
     .studio-panel { min-width: 0; padding: 16px; background: rgba(255,255,255,0.7); border: 1px solid rgba(212,201,168,0.55); border-radius: 18px; }
     .studio-panel h3 { font-size: 18px; line-height: 1.2; margin: 0; }
-    .studio-sources { position: sticky; top: 16px; display: flex; flex-direction: column; max-height: calc(100vh - 150px); max-height: calc(100dvh - 150px); }
+    .studio-sources { position: sticky; top: 16px; display: flex; flex-direction: column; max-height: calc(100vh - 180px); max-height: calc(100dvh - 180px); }
     .studio-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
     .studio-link { display: inline-flex; align-items: center; min-height: 32px; padding: 0 4px; font-size: 13px; font-weight: 500; color: #2c5f2d; text-decoration: underline; }
     .studio-selectall { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 4px; margin-bottom: 6px; font-size: 13px; color: rgba(26,46,28,0.75); cursor: pointer; }
@@ -805,7 +805,7 @@
     .studio-source-empty { margin: 0 0 8px; font-size: 13px; line-height: 1.5; color: rgba(26,46,28,0.65); }
     .studio-hint { margin: 6px 0 0; font-size: 12px; line-height: 1.45; color: rgba(26,46,28,0.55); }
     .studio-hint:empty { display: none; }
-    .studio-meter { flex-shrink: 0; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(212,201,168,0.55); background: rgba(255,255,255,0.7); }
+    .studio-meter { flex-shrink: 0; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(212,201,168,0.55); background: #fcfbf7; }
     .studio-meter[hidden] { display: none; }
     .studio-meter-text { margin: 0 0 6px; font-size: 12.5px; line-height: 1.4; color: rgba(26,46,28,0.75); overflow-wrap: anywhere; }
     .studio-meter-bar { height: 8px; border-radius: 999px; background: rgba(212,201,168,0.45); overflow: hidden; }
@@ -814,7 +814,7 @@
     .studio-meter.is-over .studio-meter-fill { background: #9b2226; }
     .studio-reason { margin: 6px 0 0; font-size: 12.5px; line-height: 1.4; color: #7a1a1d; overflow-wrap: anywhere; }
     .studio-reason:empty { display: none; }
-    .studio-tool-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 8px; margin: 12px 0 20px; }
+    .studio-tool-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 128px), 1fr)); gap: 8px; margin: 12px 0 20px; }
     .studio-tile {
       display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-width: 0; min-height: 84px; padding: 12px 14px;
       font: inherit; text-align: left; color: #1a2e1c; cursor: pointer;
@@ -834,9 +834,9 @@
     .studio-list > .skeleton { margin-bottom: 10px; }
     .skeleton-studio-row { height: 52px; margin: 0 0 6px; border-radius: 10px; }
     .studio-empty { margin: 10px 0 0; padding: 14px; font-size: 13.5px; line-height: 1.5; color: rgba(26,46,28,0.6); border: 1px dashed rgba(212,201,168,0.8); border-radius: 14px; }
-    .studio-item { position: relative; display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; padding: 10px 10px 10px 12px; min-width: 0; background: white; border: 1px solid rgba(212,201,168,0.55); border-radius: 14px; }
+    .studio-item { position: relative; display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px; margin-bottom: 8px; padding: 10px 10px 10px 12px; min-width: 0; background: white; border: 1px solid rgba(212,201,168,0.55); border-radius: 14px; }
     .studio-item-icon { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; background: rgba(44,95,45,0.08); color: #2c5f2d; }
-    .studio-item-link { display: block; flex: 1 1 auto; min-width: 0; color: inherit; text-decoration: none; }
+    .studio-item-link { display: block; flex: 1 1 0; min-width: 0; color: inherit; text-decoration: none; }
     .studio-item-link:focus-visible { outline: 2px solid #2c5f2d; outline-offset: 4px; border-radius: 6px; }
     .studio-item-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; font-size: 14px; font-weight: 600; line-height: 1.3; }
     .studio-item-meta { display: block; margin-top: 2px; font-size: 12px; color: rgba(26,46,28,0.55); }
@@ -849,6 +849,7 @@
     .studio-item-note.is-error { color: #7a1a1d; }
     .studio-item-skeleton { height: 8px; margin-top: 8px; border-radius: 999px; }
     .studio-item-actions { flex-shrink: 0; display: flex; align-items: center; gap: 4px; }
+    .studio-item-retry { flex: 1 0 100%; padding-left: 46px; }
     .studio-btn {
       display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 0 14px;
       font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 600; text-decoration: none; cursor: pointer;
@@ -9494,8 +9495,8 @@
 
       async save(item) {
         item.updatedAt = Date.now();
-        await this.persist(item);
         this.refreshViews();
+        await this.persist(item);
       },
 
       // Another tab saved
@@ -9690,9 +9691,9 @@
             ${this.noteHtml(item)}
           </a>
           <div class="studio-item-actions">
-            ${item.status === 'failed' ? `<button type="button" class="studio-btn" data-studio-act="retry" data-id="${id}">Retry</button>` : ''}
             <details class="studio-menu"><summary aria-label="More actions for ${escapeHtml(item.title)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></summary><div class="studio-menu-list">${actions.join('')}</div></details>
           </div>
+          ${item.status === 'failed' ? `<div class="studio-item-retry"><button type="button" class="studio-btn" data-studio-act="retry" data-id="${id}">Retry</button></div>` : ''}
         </li>`;
       },
 
@@ -9810,7 +9811,7 @@
         this.drawList(this.el('studioDialogSources'), false);
         this.syncSelectionViews();
         this.el('studioDialog').classList.add('open');
-        d.inerted = [...document.body.children].filter(el => el.id !== 'studioDialog' && !['toast', 'confirmOverlay', 'loginOverlay'].includes(el.id) && el.tagName !== 'SCRIPT' && !el.hasAttribute('inert'));
+        d.inerted = [...document.body.children].filter(el => el.id !== 'studioDialog' && !['toast', 'loginOverlay'].includes(el.id) && el.tagName !== 'SCRIPT' && !el.hasAttribute('inert'));
         d.inerted.forEach(el => el.setAttribute('inert', ''));
         this.el('studioLanguage').focus();
       },
@@ -9844,7 +9845,15 @@
       },
 
       async requestClose() {
-        if (this.el('studioTopic').value.trim() && !(await showConfirm('Discard what you typed?', 'Discard'))) return;
+        if (this.el('studioTopic').value.trim()) {
+          const confirmBox = document.getElementById('confirmOverlay');
+          confirmBox.removeAttribute('inert');
+          const discard = await showConfirm('Discard what you typed?', 'Discard');
+          if (!discard) {
+            if (this.dialog.tool) { confirmBox.setAttribute('inert', ''); this.el('studioTopic').focus(); }
+            return;
+          }
+        }
         this.closeDialog();
       },
 
