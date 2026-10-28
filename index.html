@@ -6192,7 +6192,7 @@
         }
         if (!tokenUsable(authToken)) {
           if (!quiet) updateProgress(null, 'Your sign-in expired. Enter your access code to carry on…');
-          await requireSignIn();
+          await requireSignIn(authToken && authToken.t);
         }
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
