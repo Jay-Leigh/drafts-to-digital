@@ -3268,24 +3268,25 @@
       ],
     };
 
-    // Tutor persona — "chill upperclassman"
-    const TUTOR_SYSTEM_PROMPT =
-`You are a chill upperclassman tutor — the friend who already aced this course and is happy to walk someone through it. Warm, grounded, a little playful. Use clear analogies, break ideas into small chunks, and check in with short prompts like "does that click?" or "want me to zoom in on anything?". Avoid stiff academic tone and avoid cheerleader-style hype. Celebrate progress gently. When the student has attached reference material, treat it as the source of truth — quote small bits rather than invent facts. If context is missing, ask before guessing. Keep replies focused and tight.
+    // ─── Configuration ──────────────────────────────
+    // Public values only: the access code is checked by the server (authUrl), never in this page.
+    const CONFIG = {
+      authUrl: 'https://n8n-67295956827.africa-south1.run.app/webhook/student-tools-auth',
+      n8nWebhookUrl: 'https://n8n-67295956827.africa-south1.run.app/webhook/student-tools-v2',
+      googleClientId: '730237345425-i08jvribm9k9rgm26ui0jq4gdvcjbplb.apps.googleusercontent.com',
+      googleScopes: 'https://www.googleapis.com/auth/drive.file',
+      compression: { maxSizeMB: 0.8, maxWidthOrHeight: 1600, useWebWorker: true, fileType: 'image/jpeg' },
+    };
 
-OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is approximately 190,000 characters — that is a hard limit, not a target. Stay comfortably well below it. Give concise, focused answers and use only as much space as the student's question actually needs.`;
-
-    // ─── Encrypted Configuration (AES-256-GCM) ─────
-    // The webhook URL, Google Client ID, and dev email are encrypted.
-    // Without the correct password, the app literally cannot function.
-    const ENCRYPTED_BLOB = {"salt":"Mj2ztE0XUtD4waGyPbI3dA==","iv":"AbjKn28LsAcIJiHN","authTag":"/fZLfruNwbH1ZST5uUgMHg==","iterations":100000,"ciphertext":"3lx2cUcmRJZvrug9R0fxgOoc2qyDjNeZYVmjv1M433Mu2zoar918VCuV5CF0xXQ7NfVixter/8jpEKCr6V2ygsSXK0VYhZVet8+GLCEjhA+pwwp1UdyAF2BaISWTX7/Zm/W93R/sEiaRKM0KlQql2PilgwdY41lYl+la0ccN4GXizV4nh/pcOZ//wwpMzLEzDweSkf1Bxg3Qfmv8eUOB3CT9/Gql0jR0E/TtWZ5P7qGN5nIJdXFCLtH/sh5QEzAiiFbs4MQJ4zgEl95ywjr3VSDFITDgEU8jfzULp230gYMEsLtG"};
-
-    const SESSION_KEY = 'sth_session';
-    const SESSION_TTL = 24 * 60 * 60 * 1000; // 24 hours
+    const TOKEN_KEY = 'sth_token';
+    const LEGACY_SESSION_KEY = 'sth_session'; // old versions kept the code here; it is only read once, to sign in silently, and removed
+    const LEGACY_SESSION_TTL = 24 * 60 * 60 * 1000;
+    const TOKEN_MARGIN_MS = 60 * 1000; // a token this close to its end counts as expired
+    const TOKEN_FALLBACK_TTL = 24 * 60 * 60 * 1000; // only when neither the token nor the answer states an expiry
+    const AUTH_TIMEOUT_MS = 20000;
     const CONSENT_KEY = 'sth_consent';
     // Bump whenever the effective date on privacy.html or terms.html changes: everyone is asked to accept again
     const TERMS_VERSION = '2026-10-27';
-
-    let CONFIG = null;
 
     // Storage can be blocked or full (private modes, policies): the app must still open for the visit
     function storageGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
@@ -3301,69 +3302,87 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     const gateBehindEls = [...document.body.children].filter(el => !['loginOverlay', 'toast'].includes(el.id) && el.tagName !== 'SCRIPT');
     gateBehindEls.forEach(el => el.setAttribute('inert', ''));
 
-    // ─── Crypto helpers (Web Crypto API) ────────────
-    function b64ToBytes(b64) {
-      const bin = atob(b64);
-      const bytes = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-      return bytes;
-    }
+    // ─── Sign-in token ──────────────────────────────
+    // The server answers the access code with a token (7 days). Only the token is kept: in memory,
+    // and in browser storage when that works. The code itself is never stored.
+    let authToken = null; // { t: token, exp: expiry in ms }
 
-    async function deriveKey(password, salt, iterations) {
-      const enc = new TextEncoder();
-      const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveKey']);
-      return crypto.subtle.deriveKey(
-        { name: 'PBKDF2', salt, iterations, hash: 'SHA-256' },
-        keyMaterial,
-        { name: 'AES-GCM', length: 256 },
-        false,
-        ['decrypt']
-      );
-    }
-
-    async function decryptConfig(password) {
-      const salt = b64ToBytes(ENCRYPTED_BLOB.salt);
-      const iv = b64ToBytes(ENCRYPTED_BLOB.iv);
-      const authTag = b64ToBytes(ENCRYPTED_BLOB.authTag);
-      const ciphertext = b64ToBytes(ENCRYPTED_BLOB.ciphertext);
-
-      const combined = new Uint8Array(ciphertext.length + authTag.length);
-      combined.set(ciphertext);
-      combined.set(authTag, ciphertext.length);
-
-      const key = await deriveKey(password, salt, ENCRYPTED_BLOB.iterations);
-      const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, combined);
-      return JSON.parse(new TextDecoder().decode(decrypted));
-    }
-
-    async function unlockApp(password, decrypted) {
-      const sensitive = decrypted || await decryptConfig(password);
-      CONFIG = {
-        compression: { maxSizeMB: 0.8, maxWidthOrHeight: 1600, useWebWorker: true, fileType: 'image/jpeg' },
-        ...sensitive,
-        googleScopes: 'https://www.googleapis.com/auth/drive.file',
-      };
-
-      // Save session (if storage is blocked the app still opens for this visit)
-      if (!storageSet(SESSION_KEY, JSON.stringify({ ts: Date.now(), p: btoa(password) }))) showStorageNote();
-
-      // Show app
-      gateBehindEls.forEach(el => el.removeAttribute('inert'));
-      document.getElementById('loginOverlay').classList.add('dismissed');
-      document.getElementById('appContent').classList.add('unlocked');
-    }
-
-    function checkSession() {
+    function tokenExpiry(token, expiresAt) {
       try {
-        const raw = storageGet(SESSION_KEY);
-        if (!raw) return null;
+        const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        if (Number.isFinite(payload.exp)) return payload.exp * 1000;
+      } catch { /* not a readable JWT: use the stated expiry */ }
+      const stated = Date.parse(expiresAt);
+      return Number.isNaN(stated) ? Date.now() + TOKEN_FALLBACK_TTL : stated;
+    }
+
+    function tokenUsable(tok) {
+      return !!tok && typeof tok.t === 'string' && !!tok.t && Number.isFinite(tok.exp) && tok.exp - TOKEN_MARGIN_MS > Date.now();
+    }
+
+    function loadStoredToken() {
+      try {
+        const tok = JSON.parse(storageGet(TOKEN_KEY));
+        if (tokenUsable(tok)) return { t: tok.t, exp: tok.exp };
+      } catch { /* damaged entry */ }
+      storageRemove(TOKEN_KEY);
+      return null;
+    }
+
+    function saveToken(token, expiresAt) {
+      authToken = { t: token, exp: tokenExpiry(token, expiresAt) };
+      if (!storageSet(TOKEN_KEY, JSON.stringify(authToken))) showStorageNote();
+    }
+
+    // Authorization header for the webhook, or nothing when there is no usable token
+    function authHeaders() {
+      return tokenUsable(authToken) ? { Authorization: `Bearer ${authToken.t}` } : {};
+    }
+
+    // POST the code to the sign-in endpoint. Resolves when a token is stored; otherwise throws an AppError:
+    // AUTH-401 wrong code, AUTH-429 too many attempts, SRV-404/NET-*/SRV-500 sign-in unavailable.
+    async function signIn(code) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
+      let res, text;
+      try {
+        res = await fetch(CONFIG.authUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code }),
+          signal: controller.signal,
+        });
+        text = await res.text();
+      } catch (e) {
+        throw errorFromException(e);
+      } finally {
+        clearTimeout(timer);
+      }
+      let data = null;
+      try { data = JSON.parse(text); } catch { /* not JSON */ }
+      if (res.ok) {
+        if (!data || typeof data.token !== 'string' || !data.token) throw new AppError('SRV-500', { status: res.status, safeMessage: 'Unexpected sign-in response' });
+        saveToken(data.token, data.expiresAt);
+        return;
+      }
+      if (res.status === 401) throw new AppError('AUTH-401', { status: 401, message: 'Incorrect access code. Please try again.', safeMessage: 'Sign-in 401' });
+      if (res.status === 429) {
+        const limited = data && data.error === 'rate_limited';
+        throw new AppError('AUTH-429', { status: 429, message: limited ? 'Too many sign-ins from this network. Please try again later.' : undefined, safeMessage: 'Sign-in 429' });
+      }
+      throw errorFromResponse(res, text);
+    }
+
+    // Before this version the access code sat (base64) in storage. Use it once to sign in, then delete it.
+    async function migrateLegacySession() {
+      const raw = storageGet(LEGACY_SESSION_KEY);
+      if (raw === null) return;
+      storageRemove(LEGACY_SESSION_KEY);
+      try {
         const session = JSON.parse(raw);
-        if (Date.now() - session.ts > SESSION_TTL) {
-          storageRemove(SESSION_KEY);
-          return null;
-        }
-        return atob(session.p);
-      } catch { storageRemove(SESSION_KEY); return null; }
+        if (Date.now() - session.ts > LEGACY_SESSION_TTL) return;
+        await signIn(atob(session.p));
+      } catch { /* the gate asks for the code instead */ }
     }
 
     function hasValidConsent() {
@@ -4068,7 +4087,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       'NET-502':   { title: 'Server restarting', message: 'The server is restarting. Please try again in a moment.', retryable: true, auto: 'backoff', banner: 'down' },
       'NET-503':   { title: 'Server busy', message: 'The server is busy right now. Please try again in a few minutes.', retryable: true, auto: 'backoff', banner: 'down' },
       'NET-504':   { title: 'Server too slow', message: 'The server took too long to finish. Try fewer or smaller files, then try again.', retryable: true, auto: 'backoff', banner: 'down' },
-      'AUTH-401':  { title: 'Access not accepted', message: 'The server did not accept this request. Reload the page and enter your access code again.', retryable: false, auto: 'none' },
+      'AUTH-401':  { title: 'Sign-in not accepted', message: 'Your sign-in was not accepted or has expired. Please enter your access code again.', retryable: false, auto: 'reauth' },
+      'AUTH-429':  { title: 'Too many attempts', message: 'Too many attempts. Please wait 15 minutes and try again.', retryable: false, auto: 'none' },
       'SRV-404':   { title: 'Switched off', message: 'This feature is switched off for maintenance. Please try again later.', retryable: false, auto: 'none' },
       'SRV-413':   { title: 'Too large', message: 'That is too large to send. Try fewer or smaller files.', retryable: false, auto: 'none' },
       'SRV-500':   { title: 'Something went wrong', message: 'We couldn’t process your files right now. Something went wrong on our side, so please try again shortly.', retryable: true, auto: 'none', banner: 'down' },
@@ -4084,6 +4104,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       'AI-503':    { title: 'AI trouble', message: 'The AI service is having trouble. Please try again in a moment.', retryable: true, auto: 'none' },
       'AI-504':    { title: 'AI trouble', message: 'The AI service is having trouble. Please try again in a moment.', retryable: true, auto: 'none' },
       'AI-529':    { title: 'Daily AI limit', message: "Today's AI capacity is used up. It resets around 09:00-10:00 SAST.", retryable: false, auto: 'none', banner: 'quota' },
+      'QUOTA-430': { title: 'Daily AI limit', message: "Today's AI capacity is used up. It resets tomorrow.", retryable: false, auto: 'none', banner: 'quota' },
       'DRIVE-401': { title: 'Google sign-in expired', message: 'Your Google sign-in expired. Reconnect Google and try again.', retryable: false, auto: 'reauth' },
       'DRIVE-403': { title: 'Google said no', message: 'Google did not allow that. Check the permission boxes in the Google window and try again.', retryable: false, auto: 'none' },
       'DRIVE-404': { title: 'File not found', message: 'That file was not found in Google Drive.', retryable: false, auto: 'none' },
@@ -4168,10 +4189,14 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       [/^\s*\[Blocked\]/i, 'AI-451'],
       [/^\s*\[No reply\]/i, 'AI-204'],
     ];
-    function errorFromPayload(data) {
+    // The server can answer 200 with { ok:false, error:{ code } } (it cannot set a status code there): always an error
+    function errorFromPayload(data, { markers = true } = {}) {
       if (!data || typeof data !== 'object') return null;
-      const envKey = data.ok === false && data.error && errorKeyFromCode(data.error.code);
-      if (envKey) return new AppError(envKey, { retryAfterMs: Number(data.error.retryAfterMs) || undefined });
+      if (data.ok === false) {
+        const envKey = data.error && errorKeyFromCode(data.error.code);
+        return new AppError(envKey || 'SRV-500', { retryAfterMs: Number(data.error && data.error.retryAfterMs) || undefined, safeMessage: envKey ? undefined : 'Server answered ok:false' });
+      }
+      if (!markers) return null;
       for (const field of ['text', 'result', 'citation']) {
         if (typeof data[field] !== 'string') continue;
         const hit = AI_MARKERS.find(([re]) => re.test(data[field]));
@@ -4264,13 +4289,22 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     }
 
     // No health endpoint yet: any answer from the webhook that is not a gateway failure counts as alive
+    async function authEndpointReachable() {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 5000);
+      try {
+        await fetch(CONFIG.authUrl, { method: 'OPTIONS', signal: controller.signal });
+        return true;
+      } catch { return false; } finally { clearTimeout(timer); }
+    }
+
     async function probeServer() {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 15000);
       try {
         const res = await fetch(CONFIG.n8nWebhookUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify({ mode: 'ping' }),
           signal: controller.signal,
         });
@@ -4326,10 +4360,11 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
     async function reportErrorToDev(errorPayload) {
       if (navigator.onLine === false) return;
+      if (!tokenUsable(authToken)) return; // the server only takes reports from a signed-in browser
       try {
         await fetch(CONFIG.n8nWebhookUrl, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...authHeaders() },
           body: JSON.stringify({
             mode: 'error_report',
             timestamp: new Date().toISOString(),
@@ -6129,6 +6164,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     // Only requests that cannot have changed anything on the server are repeated.
     function retryDelayMs(err, mode, attempt, maxAttempts) {
       if (attempt >= maxAttempts) return -1;
+      if (err.status === 401 || err.status === 403) return -1; // a rejected sign-in never gets better by waiting
       const idempotent = IDEMPOTENT_MODES.has(mode);
       let retry = false;
       if (err.noResponse) retry = !err.clientTimeout || idempotent;
@@ -6140,7 +6176,9 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       return Math.min(RETRY_MAX_WAIT_MS, Math.max(backoff, err.retryAfterMs || 0));
     }
 
-    // One logical request: at most WEBHOOK_MAX_ATTEMPTS fetches, each with its own timeout
+    // One logical request: at most WEBHOOK_MAX_ATTEMPTS fetches, each with its own timeout.
+    // Every fetch carries the sign-in token. A missing or expired token, or an answer 401/403 (the server checks the
+    // token before it runs anything), shows the gate again, then the same request is sent once more with the new token.
     async function webhookRequest(payload, { binaryFiles, timeoutMs = REQUEST_TIMEOUT_MS, maxAttempts = WEBHOOK_MAX_ATTEMPTS, quiet = false } = {}) {
       let body, headers;
       if (binaryFiles && binaryFiles.length > 0) {
@@ -6154,17 +6192,22 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         headers = { 'Content-Type': 'application/json' };
       }
       const mode = payload && payload.mode;
+      let signedInAgain = false;
 
       for (let attempt = 1; ; attempt++) {
         if (navigator.onLine === false) {
           if (!quiet) updateProgress(null, 'You’re offline. Waiting for your connection…');
           await waitForOnline();
         }
+        if (!tokenUsable(authToken)) {
+          if (!quiet) updateProgress(null, 'Your sign-in expired. Enter your access code to carry on…');
+          await requireSignIn(authToken && authToken.t);
+        }
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
         let err = null, data;
         try {
-          const res = await fetch(CONFIG.n8nWebhookUrl, { method: 'POST', headers, body, signal: controller.signal });
+          const res = await fetch(CONFIG.n8nWebhookUrl, { method: 'POST', headers: { ...headers, ...authHeaders() }, body, signal: controller.signal });
           if (res.ok) data = await res.json();
           else err = errorFromResponse(res, await res.text());
         } catch (e) {
@@ -6173,13 +6216,25 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           clearTimeout(timer);
         }
         if (!err) {
-          const answered = mode === 'scrape' ? null : errorFromPayload(data);
+          const answered = errorFromPayload(data, { markers: mode !== 'scrape' });
           noteServerResult(answered);
           if (answered) throw answered;
           return data;
         }
+        // n8n's own 401/403 (token check) carry no CORS header, so the browser reports a
+        // network failure. If the sign-in endpoint still answers, the server is up and the token was refused.
+        if (err.key === 'NET-503' && err.noResponse && !signedInAgain && authToken && await authEndpointReachable()) {
+          err = new AppError('AUTH-401', { status: 401 });
+        }
         noteServerResult(err);
         err.attempts = attempt;
+        if ((err.status === 401 || err.status === 403) && !signedInAgain) {
+          signedInAgain = true;
+          if (!quiet) updateProgress(null, 'Your sign-in was not accepted. Enter your access code to carry on…');
+          await requireSignIn(authToken && authToken.t);
+          attempt--; // signing in again is not a retry
+          continue;
+        }
         const wait = retryDelayMs(err, mode, attempt, maxAttempts);
         if (wait < 0) throw err;
         if (!quiet) updateProgress(null, `Retrying in ${Math.round(wait / 1000)}s (attempt ${attempt + 1}/${maxAttempts})…`);
@@ -7887,7 +7942,6 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         driveBlobs.clear();
         const payload = {
           mode: 'tutor',
-          systemPrompt: TUTOR_SYSTEM_PROMPT,
           attachedContext,
           cachableContext: cacheValid ? [] : cachableContext,
           attachedImages: cacheValid ? [] : attachedImages,
@@ -9357,8 +9411,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     const loginError = document.getElementById('loginError');
     const loginConsent = document.getElementById('loginConsent');
     const loginBtn = document.getElementById('loginBtn');
-    let consentOnlyPwd = null;
-    let consentOnlyConfig = null;
+    let consentOnly = false;
+    let signInWaiter = null; // { promise, resolve } while a request waits behind the gate
 
     const TICK_MESSAGE = 'Please tick the box to continue.';
     let gateBusy = false;
@@ -9378,10 +9432,9 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       loginConsent.focus();
     }
 
-    // Valid session but no consent for the current TERMS_VERSION: ask only for the tick, then continue
-    function showConsentStep(savedPwd, config) {
-      consentOnlyPwd = savedPwd;
-      consentOnlyConfig = config;
+    // Valid sign-in token but no consent for the current TERMS_VERSION: ask only for the tick, then continue
+    function showConsentStep() {
+      consentOnly = true;
       loginForm.classList.add('consent-only');
       document.getElementById('loginSubtitle').textContent = 'Please confirm before you continue';
       loginBtn.textContent = 'Continue';
@@ -9397,7 +9450,49 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       loginInput.focus();
     }
 
-    // Only a failed decrypt means a wrong code; a startup problem after unlock never does
+    // Wrong code and rate limits get their own wording; anything else means the sign-in service cannot be reached
+    function showSignInError(err) {
+      const e = errorFromException(err);
+      if (e.key === 'AUTH-401') { showWrongCode(); return; }
+      loginError.style.color = '#9b2226';
+      if (e.key === 'AUTH-429') loginError.textContent = e.message;
+      else if (e.key === 'NET-000') loginError.textContent = withCode(e.message, e);
+      else if (e.key === 'SRV-500') loginError.textContent = `Sign-in is temporarily unavailable. Something went wrong on our side. Please try again shortly. (Code ${e.code})`;
+      else loginError.textContent = `Sign-in is temporarily unavailable. ${withCode(e.message, e)}`;
+      loginInput.focus();
+    }
+
+    function unlockApp() {
+      gateBehindEls.forEach(el => el.removeAttribute('inert'));
+      document.getElementById('loginOverlay').classList.add('dismissed');
+      document.getElementById('appContent').classList.add('unlocked');
+    }
+
+    // The token ran out or the server did not accept it: show the gate over the app. Nothing behind it is touched,
+    // so drafts, results and Knowledge Bay stay as they are. Resolves once the user has signed in again.
+    // Several waiting requests share one gate.
+    function requireSignIn(rejectedToken) {
+      const other = loadStoredToken(); // another tab may have signed in already
+      if (other && other.t !== rejectedToken) { authToken = other; return Promise.resolve(); }
+      if (signInWaiter) return signInWaiter.promise;
+      storageRemove(TOKEN_KEY);
+      signInWaiter = {};
+      signInWaiter.promise = new Promise(resolve => { signInWaiter.resolve = resolve; });
+      authToken = null;
+      consentOnly = false;
+      gateBehindEls.forEach(el => el.setAttribute('inert', ''));
+      loginForm.classList.remove('consent-only');
+      document.getElementById('loginSubtitle').textContent = 'Your sign-in has expired. Enter your access code to continue';
+      loginBtn.textContent = 'Unlock';
+      loginInput.value = '';
+      loginError.textContent = '\u00a0';
+      if (hasValidConsent()) loginConsent.checked = true;
+      document.getElementById('loginOverlay').classList.remove('dismissed');
+      loginInput.focus();
+      return signInWaiter.promise;
+    }
+
+    // A startup problem after sign-in is never a wrong code
     async function startApp() {
       try {
         await initAfterAuth();
@@ -9417,41 +9512,28 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
       gateBusy = true;
       loginBtn.disabled = true;
-      loginBtn.textContent = consentOnlyPwd ? 'Continuing...' : 'Checking...';
+      loginBtn.textContent = consentOnly ? 'Continuing...' : 'Checking...';
       try {
-        if (consentOnlyPwd) {
+        if (!consentOnly) {
+          const code = loginInput.value;
+          if (!code.trim()) { showWrongCode(); return; }
+          loginError.textContent = 'Verifying\u2026';
+          loginError.style.color = '#6b8f71';
           try {
-            await unlockApp(consentOnlyPwd, consentOnlyConfig);
-          } catch {
-            // The saved code stopped working: back to the full gate
-            storageRemove(SESSION_KEY);
-            consentOnlyPwd = null;
-            consentOnlyConfig = null;
-            loginForm.classList.remove('consent-only');
-            document.getElementById('loginSubtitle').textContent = 'Enter your access code to continue';
-            showWrongCode();
+            await signIn(code);
+          } catch (err) {
+            showSignInError(err);
             return;
           }
-          saveConsent();
-          await startApp();
-          return;
         }
-
-        const pwd = loginInput.value;
-        loginError.textContent = 'Verifying\u2026';
-        loginError.style.color = '#6b8f71';
-        try {
-          await unlockApp(pwd);
-        } catch {
-          showWrongCode();
-          return;
-        }
+        unlockApp();
         saveConsent();
+        if (signInWaiter) { signInWaiter.resolve(); signInWaiter = null; }
         await startApp();
       } finally {
         gateBusy = false;
         loginBtn.disabled = false;
-        loginBtn.textContent = consentOnlyPwd ? 'Continue' : 'Unlock';
+        loginBtn.textContent = consentOnly ? 'Continue' : 'Unlock';
       }
     });
 
@@ -9514,7 +9596,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
       // Dev reminder
       console.info(
-        '%c[STH v2.0]%c Tutor payload shape: { mode:"tutor", systemPrompt, attachedContext:[{name,content}] (ad-hoc/URL, always sent), ' +
+        '%c[STH v2.0]%c Tutor payload shape: { mode:"tutor", attachedContext:[{name,content}] (ad-hoc/URL, always sent), ' +
         'cachableContext:[{name,content}] + attachedImages (KB attachments — only sent when (re)caching), cacheName, cacheExpiresAt, messages:[{role,text}], chatId, chatTitle }\n' +
         'n8n creates/reuses a Gemini explicit context cache (3h TTL) from cachableContext+attachedImages so KB docs aren\'t retransmitted every turn — see "Prep — Tutor" node.',
         'color:#2c5f2d;font-weight:bold',
@@ -9528,31 +9610,15 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
     // ─── Init ───────────────────────────────────────
     window.addEventListener('load', async () => {
-      const savedPwd = checkSession();
       if (hasValidConsent()) loginConsent.checked = true;
       syncConsentUi();
-      if (savedPwd) {
-        if (!hasValidConsent()) {
-          try {
-            const config = await decryptConfig(savedPwd);
-            showConsentStep(savedPwd, config);
-            return;
-          } catch {
-            storageRemove(SESSION_KEY);
-          }
-        } else {
-          let unlocked = false;
-          try {
-            await unlockApp(savedPwd);
-            unlocked = true;
-          } catch {
-            storageRemove(SESSION_KEY);
-          }
-          if (unlocked) {
-            await startApp();
-            return;
-          }
-        }
+      authToken = loadStoredToken();
+      if (!authToken) await migrateLegacySession();
+      if (authToken) {
+        if (!hasValidConsent()) { showConsentStep(); return; }
+        unlockApp();
+        await startApp();
+        return;
       }
       loginInput.focus();
     });
