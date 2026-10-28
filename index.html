@@ -2233,6 +2233,7 @@
       .topbar .hamburger-btn { position: fixed; top: calc(var(--gap) + env(safe-area-inset-top, 0px)); left: var(--gap); z-index: 60; }
       .topbar .history-topbar-btn { position: fixed; top: calc(var(--gap) + env(safe-area-inset-top, 0px)); right: var(--gap); z-index: 60; width: 44px; min-width: 44px; height: 44px; padding: 0 !important; border-radius: 50% !important; display: inline-flex; align-items: center; justify-content: center; }
       .topbar .history-topbar-btn svg { width: 20px; height: 20px; flex: 0 0 20px; }
+      .storage-note { margin: calc(var(--gap) + 44px + var(--gap) + env(safe-area-inset-top, 0px)) var(--gap) 0; border: 1px solid #d4c9a8; border-radius: var(--r-md); }
       .topbar .history-topbar-btn { font-size: 0 !important; gap: 0 !important; overflow: visible; }
       .topbar .history-topbar-btn .hist-dot { position: absolute; top: 8px; right: 8px; width: 11px; height: 11px; border: 2px solid #fff; box-sizing: border-box; }
 
@@ -2248,7 +2249,7 @@
       .sidebar-nav .nav-link .nav-label { overflow: hidden; text-overflow: ellipsis; }
       .sidebar-tutor-chats { flex: 1 1 0; min-height: 0; }
     }
-    @media (max-width: 900px) and (max-height: 720px) { .sync-hint, .sidebar-legal { display: none; } }
+    @media (max-width: 900px) and (max-height: 720px) { .sync-hint { display: none; } }
     @media (max-width: 340px) { .sidebar-nav .nav-link { font-size: 12px; padding: 0 8px; } }
   </style>
   <style id="ux-home-compact">
