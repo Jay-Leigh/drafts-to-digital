@@ -462,6 +462,72 @@
       font-size: 18px; line-height: 1; color: #1a2e1c; cursor: pointer;
     }
 
+    /* ───────── SERVICE STATUS BANNER ───────── */
+    .status-banner {
+      display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+      margin: var(--gap, 12px) var(--gap, 12px) 0; padding: 8px 8px 8px 16px;
+      border: 1px solid var(--line, rgba(212,201,168,0.55)); border-radius: var(--r-md, 14px);
+      background: #eceae0; color: #1a2e1c; box-shadow: 0 6px 24px rgba(26,46,28,0.05);
+      font-family: 'Outfit', sans-serif; font-size: 13px; line-height: 1.4;
+    }
+    .status-banner[hidden] { display: none; }
+    @media (max-width: 900px) {
+      /* the floating menu and history buttons sit fixed at the top: start below them */
+      .status-banner { margin-top: calc(var(--gap, 8px) + 52px + env(safe-area-inset-top, 0px)); }
+      .main-area:not(.tutor-mode):has(.status-banner:not([hidden])) .content { padding-top: 12px; }
+      .main-area.tutor-mode:has(.status-banner:not([hidden])) .tutor-landing.active { margin-top: var(--gap, 8px); }
+    }
+    .status-banner.is-down { background: #fdeceb; border-color: #e3a5a5; color: #7a1a1d; }
+    .status-banner.is-degraded { background: #fff7e0; }
+    .status-banner-text { flex: 1 1 200px; min-width: 0; }
+    .status-banner-code { opacity: 0.7; white-space: nowrap; }
+    .status-banner-actions { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+    .status-banner-retry {
+      min-height: 36px; padding: 0 14px; border: 1px solid currentColor; border-radius: 999px; background: transparent;
+      font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 600; color: inherit; cursor: pointer;
+    }
+    .status-banner-retry[disabled] { opacity: 0.6; cursor: default; }
+    .status-banner-close {
+      flex-shrink: 0; width: 36px; height: 36px; border: none; border-radius: 50%; background: transparent;
+      font-size: 18px; line-height: 1; color: inherit; cursor: pointer;
+    }
+
+    /* ───────── LOADING STATES ───────── */
+    @keyframes skeletonShimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+    .skeleton {
+      display: block; border-radius: 8px;
+      background: linear-gradient(90deg, rgba(212,201,168,0.25) 25%, rgba(212,201,168,0.5) 50%, rgba(212,201,168,0.25) 75%);
+      background-size: 200% 100%;
+      animation: skeletonShimmer 1.4s ease-in-out infinite;
+    }
+    .skeleton-chat-row { height: 34px; margin: 4px 0; border-radius: 12px; }
+    .skeleton-history-row { height: 78px; margin-bottom: 10px; border-radius: 14px; }
+    .skeleton-kb-card { height: 120px; border-radius: 18px; }
+    .skeleton-msg { height: 54px; width: 70%; margin: 14px 0; border-radius: 18px; }
+    .skeleton-msg.user { width: 45%; margin-left: auto; height: 38px; }
+    .is-busy { cursor: progress; }
+    .is-busy::before {
+      content: ''; display: inline-block; width: 13px; height: 13px; margin-right: 8px; vertical-align: -2px;
+      border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .skeleton, .is-busy::before { animation: none !important; }
+    }
+
+    /* ───────── ERROR CODE + TUTOR LOCK NOTE ───────── */
+    .error-code-row { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; margin: -10px 0 18px; font-size: 12px; color: rgba(26,46,28,0.55); }
+    .error-code-row[hidden] { display: none; }
+    .error-copy-btn {
+      min-height: 36px; padding: 0 14px; border: 1px solid #d4c9a8; border-radius: 999px; background: white;
+      font-family: 'Outfit', sans-serif; font-size: 12px; font-weight: 500; color: rgba(26,46,28,0.7); cursor: pointer;
+    }
+    .error-copy-btn:hover { border-color: #2c5f2d; color: #2c5f2d; }
+    .chat-error-code { display: block; margin-top: 6px; font-size: 11.5px; opacity: 0.65; }
+    .chat-error-code button { margin-left: 8px; border: none; background: transparent; padding: 0; font: inherit; color: #2c5f2d; text-decoration: underline; cursor: pointer; }
+    .tutor-lock-note { display: none; margin: 0 12px 8px; padding: 8px 14px; background: #fff7e0; border: 1px solid #d4c9a8; border-radius: 14px; font-size: 12.5px; color: #1a2e1c; }
+    .tutor-lock-note.active { display: block; }
+
     /* ───────── KNOWLEDGE BAY ───────── */
     .kb-grid {
       display: grid;
@@ -2424,6 +2490,13 @@
         <span>Your browser is blocking storage, so you will need to enter the code and tick the box on each visit, and your work may not be saved on this device.</span>
         <button type="button" id="storageNoteClose" class="storage-note-close" aria-label="Dismiss storage notice">&times;</button>
       </div>
+      <div id="statusBanner" class="status-banner" role="status" aria-live="polite" hidden>
+        <span class="status-banner-text"><span id="statusBannerText"></span> <span id="statusBannerCode" class="status-banner-code"></span></span>
+        <span class="status-banner-actions">
+          <button type="button" id="statusBannerRetry" class="status-banner-retry" hidden>Try again now</button>
+          <button type="button" id="statusBannerClose" class="status-banner-close" aria-label="Dismiss status message">&times;</button>
+        </span>
+      </div>
       <div class="topbar">
         <div class="flex items-center gap-3">
           <button id="btnHamburger" class="hamburger-btn" aria-label="Toggle sidebar">
@@ -2620,8 +2693,12 @@
               <div class="w-14 h-14 mx-auto mb-5 rounded-2xl bg-red-50 flex items-center justify-center">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9b2226" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
               </div>
-              <h2 class="text-xl mb-2">Something went wrong</h2>
+              <h2 id="errorTitle" class="text-xl mb-2">Something went wrong</h2>
               <p id="errorMessage" class="font-body font-light text-ink/50 max-w-md mx-auto mb-6"></p>
+              <div id="errorCodeRow" class="error-code-row" hidden>
+                <span>Code <span id="errorCode"></span></span>
+                <button type="button" id="btnCopyErrorDetails" class="error-copy-btn">Copy details</button>
+              </div>
               <div class="flex flex-col sm:flex-row items-center justify-center gap-3 mt-2">
                 <button id="btnRetry" class="font-body font-semibold text-sm bg-accent hover:bg-accent-deep text-white px-8 py-3 rounded-xl transition">
                   Try Again &mdash; Keep My Files
@@ -2856,6 +2933,7 @@
             </div>
 
             <div class="tutor-composer">
+              <div id="tutorLockNote" class="tutor-lock-note" role="status"></div>
               <div id="tutorNudge" class="tutor-nudge">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
                 <span id="tutorNudgeText" style="flex:1"></span>
@@ -3128,7 +3206,14 @@
     const BATCH_SIZE = 5;
     const BATCH_DELAY_MS = 5000;
     const REQUEST_TIMEOUT_MS = 600000; // 10 min
-    const MAX_RETRIES = 3;
+    const WEBHOOK_MAX_ATTEMPTS = 3;
+    const RETRY_BASE_MS = 4000;
+    const RETRY_MAX_WAIT_MS = 60000;
+    const IDEMPOTENT_MODES = new Set(['ocr', 'scrape', 'reference']);
+    const STREAK_LIMIT = 3;
+    const STREAK_WINDOW_MS = 5 * 60 * 1000;
+    const ERROR_PREFIX = 'STH';
+    const CLIENT_VERSION = '2026.10.27-j1';
     const OCR_PAGES_PER_REQUEST = 5;
     const OCR_REQUEST_TIMEOUT_MS = 120000; // 2 min
     const GEMINI_PDF_LIMIT = 50 * 1024 * 1024; // Gemini Files API cap, only for unconverted scans
@@ -3367,6 +3452,16 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       btnRetryFresh:        $('btnRetryFresh'),
 
       errorMessage:         $('errorMessage'),
+      errorTitle:           $('errorTitle'),
+      errorCode:            $('errorCode'),
+      errorCodeRow:         $('errorCodeRow'),
+      btnCopyErrorDetails:  $('btnCopyErrorDetails'),
+      statusBanner:         $('statusBanner'),
+      statusBannerText:     $('statusBannerText'),
+      statusBannerCode:     $('statusBannerCode'),
+      statusBannerRetry:    $('statusBannerRetry'),
+      statusBannerClose:    $('statusBannerClose'),
+      tutorLockNote:        $('tutorLockNote'),
       toast:                $('toast'),
 
       lightbox:             $('lightbox'),
@@ -3612,6 +3707,14 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       await _historyStore.setItem('entries', all).catch(() => {});
       const btn = document.getElementById('historyBtn');
       if (btn) btn.classList.add('has-entries');
+      tabSync.post('history');
+    }
+
+    async function refreshHistoryUi() {
+      const entries = await getHistory();
+      const btn = document.getElementById('historyBtn');
+      if (btn) btn.classList.toggle('has-entries', entries.length > 0);
+      if (document.getElementById('historyPanel').classList.contains('open')) renderHistoryList();
     }
 
     async function getHistory() {
@@ -3634,6 +3737,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       const btn = document.getElementById('historyBtn');
       if (btn) btn.classList.toggle('has-entries', updated.length > 0);
       renderHistoryList();
+      tabSync.post('history');
     }
 
     async function clearAllHistory() {
@@ -3641,6 +3745,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       const btn = document.getElementById('historyBtn');
       if (btn) btn.classList.remove('has-entries');
       renderHistoryList();
+      tabSync.post('history');
     }
 
     // ─── History Panel UI ───────────────────────────
@@ -3648,7 +3753,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       const overlay = document.getElementById('historyOverlay');
       const panel   = document.getElementById('historyPanel');
       if (open) {
-        renderHistoryList();
+        renderHistoryList(true);
         overlay.classList.add('open');
         panel.classList.add('open');
       } else {
@@ -3657,10 +3762,12 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       }
     }
 
-    async function renderHistoryList() {
+    async function renderHistoryList(showSkeleton = false) {
       const list = document.getElementById('historyList');
       if (!list) return;
+      if (showSkeleton) renderSkeleton(list, 'skeleton-history-row', 4);
       const entries = await getHistory();
+      list.removeAttribute('aria-busy');
       if (!entries.length) {
         list.innerHTML = `<div class="history-empty"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><p>No saved generations yet.<br>Your results will appear here after processing.</p></div>`;
         return;
@@ -3758,7 +3865,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ title }),
         });
-        if (!createRes.ok) throw new Error(`Docs create failed: ${createRes.status}`);
+        if (!createRes.ok) throw driveHttpError('Docs create failed', createRes.status);
         const doc = await createRes.json();
         recordCreatedDoc(doc.documentId, title);
         const requests = ['template', 'reviewer'].includes(entry.mode)
@@ -3769,7 +3876,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ requests }),
         });
-        if (!updateRes.ok) throw new Error(`Docs update failed: ${updateRes.status}`);
+        if (!updateRes.ok) throw driveHttpError('Docs update failed', updateRes.status);
         showToast('Exported to Google Docs!');
         window.open(`https://docs.google.com/document/d/${doc.documentId}/edit`, '_blank');
       } catch (err) {
@@ -3780,6 +3887,13 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
     // ─── Utilities ──────────────────────────────────
     const generateId = () => `f_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    // Grey placeholders shown while a list loads; the real render clears aria-busy
+    function renderSkeleton(el, rowClass, count, extraClass = '') {
+      el.innerHTML = Array.from({ length: count }, (_, i) =>
+        `<span class="skeleton ${rowClass}${extraClass && i % 2 ? ' ' + extraClass : ''}" aria-hidden="true"></span>`).join('');
+      el.setAttribute('aria-busy', 'true');
+    }
 
     function showToolSection(id) {
       ['sectionUpload', 'sectionProcessing', 'sectionResult', 'sectionError'].forEach(s => {
@@ -3848,22 +3962,11 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
     // Lightweight scrape request — no retry, 20s timeout
     async function scrapeUrl(url) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 20000);
       try {
-        const res = await fetch(CONFIG.n8nWebhookUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode: 'scrape', url }),
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
-        if (!res.ok) throw new Error(`Webhook ${res.status}`);
-        return await res.json();
+        return await webhookRequest({ mode: 'scrape', url }, { timeoutMs: 20000, maxAttempts: 1, quiet: true });
       } catch (err) {
-        clearTimeout(timeout);
-        if (err.name === 'AbortError') return { error: true, message: 'Request timed out. The site may be too slow.' };
-        return { error: true, message: err.message };
+        const e = errorFromException(err);
+        return { error: true, message: e.key === 'NET-408' ? 'Request timed out. The site may be too slow.' : e.message, code: e.code };
       }
     }
 
@@ -3957,6 +4060,245 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       dom.statReadTime.textContent = mins < 1 ? '< 1 min' : `${mins} min${mins > 1 ? 's' : ''}`;
     }
 
+    // ─── Error codes ────────────────────────────────
+    // banner: 'down' counts toward the server-down streak, 'offline' and 'quota' drive their own banner
+    const ERRORS = {
+      'NET-000':   { title: 'You are offline', message: "You're offline. Your work is saved on this device; we'll carry on when you're back.", retryable: true, auto: 'online', banner: 'offline' },
+      'NET-408':   { title: 'Request timed out', message: 'The server took too long to answer. Please try again, or send fewer or smaller files.', retryable: true, auto: 'backoff' },
+      'NET-502':   { title: 'Server restarting', message: 'The server is restarting. Please try again in a moment.', retryable: true, auto: 'backoff', banner: 'down' },
+      'NET-503':   { title: 'Server busy', message: 'The server is busy right now. Please try again in a few minutes.', retryable: true, auto: 'backoff', banner: 'down' },
+      'NET-504':   { title: 'Server too slow', message: 'The server took too long to finish. Try fewer or smaller files, then try again.', retryable: true, auto: 'backoff', banner: 'down' },
+      'AUTH-401':  { title: 'Access not accepted', message: 'The server did not accept this request. Reload the page and enter your access code again.', retryable: false, auto: 'none' },
+      'SRV-404':   { title: 'Switched off', message: 'This feature is switched off for maintenance. Please try again later.', retryable: false, auto: 'none' },
+      'SRV-413':   { title: 'Too large', message: 'That is too large to send. Try fewer or smaller files.', retryable: false, auto: 'none' },
+      'SRV-500':   { title: 'Something went wrong', message: 'We couldn’t process your files right now. Something went wrong on our side, so please try again shortly.', retryable: true, auto: 'none', banner: 'down' },
+      'AI-204':    { title: 'Empty answer', message: 'The AI returned an empty answer. Please try again.', retryable: true, auto: 'none' },
+      'AI-206':    { title: 'Answer cut short', message: 'The answer was cut short. Ask for the rest and it will carry on.', retryable: false, auto: 'none' },
+      'AI-403':    { title: 'AI unavailable', message: 'The AI service is not available right now. Please try again later.', retryable: false, auto: 'none' },
+      'AI-413':    { title: 'Too much material', message: 'Too much material is attached. Remove some sources and try again.', retryable: false, auto: 'none' },
+      'AI-422':    { title: 'PDF not readable', message: 'The AI could not open this PDF. Try re-saving it as a PDF and upload it again.', retryable: false, auto: 'none' },
+      'AI-429':    { title: 'AI busy', message: 'The AI is busy right now. Please try again in about a minute.', retryable: true, auto: 'none' },
+      'AI-451':    { title: 'Blocked by safety filters', message: 'The AI safety filters blocked this content. Try different material.', retryable: false, auto: 'none' },
+      'AI-452':    { title: 'Published text', message: 'This looks like published text the AI cannot reproduce. Try your own notes instead.', retryable: false, auto: 'none' },
+      'AI-500':    { title: 'AI trouble', message: 'The AI service is having trouble. Please try again in a moment.', retryable: true, auto: 'none' },
+      'AI-503':    { title: 'AI trouble', message: 'The AI service is having trouble. Please try again in a moment.', retryable: true, auto: 'none' },
+      'AI-504':    { title: 'AI trouble', message: 'The AI service is having trouble. Please try again in a moment.', retryable: true, auto: 'none' },
+      'AI-529':    { title: 'Daily AI limit', message: "Today's AI capacity is used up. It resets around 09:00-10:00 SAST.", retryable: false, auto: 'none', banner: 'quota' },
+      'DRIVE-401': { title: 'Google sign-in expired', message: 'Your Google sign-in expired. Reconnect Google and try again.', retryable: false, auto: 'reauth' },
+      'DRIVE-403': { title: 'Google said no', message: 'Google did not allow that. Check the permission boxes in the Google window and try again.', retryable: false, auto: 'none' },
+      'DRIVE-404': { title: 'File not found', message: 'That file was not found in Google Drive.', retryable: false, auto: 'none' },
+      'DRIVE-429': { title: 'Google Drive busy', message: 'Google Drive is busy. Please try again in a minute.', retryable: true, auto: 'none' },
+      'DRIVE-503': { title: 'Google Drive trouble', message: 'Google Drive is having trouble right now. Please try again shortly.', retryable: true, auto: 'none' },
+      'STORE-507': { title: 'Storage full or blocked', message: 'Your browser is blocking storage or it is full, so this could not be saved on this device.', retryable: false, auto: 'none' },
+      'INPUT-400': { title: 'Request not valid', message: 'Something about this request was not valid. Reload the page and try again.', retryable: false, auto: 'none' },
+      'APP-500':   { title: 'Something went wrong', message: 'Something went wrong in the app. Please try again, and reload the page if it keeps happening.', retryable: true, auto: 'none' },
+    };
+    const UNREACHABLE_MESSAGE = 'We could not reach the server. Check your connection and try again.';
+
+    class AppError extends Error {
+      constructor(key, o = {}) {
+        super(o.message || ERRORS[key].message);
+        this.name = 'AppError';
+        this.key = key;
+        this.code = `${ERROR_PREFIX}-${key}`;
+        this.time = new Date().toISOString();
+        this.status = o.status;
+        this.retryAfterMs = o.retryAfterMs;
+        this.noResponse = !!o.noResponse;
+        this.clientTimeout = !!o.clientTimeout;
+        this.legacyCode = o.legacyCode;
+        this.safeMessage = o.safeMessage || ERRORS[key].title;
+      }
+    }
+
+    function errorKeyFromCode(code) {
+      const m = /^(?:STH|D2D)-([A-Z]+-\d{3})$/.exec(typeof code === 'string' ? code : '');
+      return m && ERRORS[m[1]] ? m[1] : null;
+    }
+
+    function driveErrorKey(status) {
+      if (status === 401 || status === 403 || status === 404 || status === 429) return `DRIVE-${status}`;
+      return status >= 500 ? 'DRIVE-503' : null;
+    }
+
+    function parseRetryAfterMs(header, bodyText) {
+      const h = (header || '').trim();
+      if (/^\d+(\.\d+)?$/.test(h)) return Math.round(parseFloat(h) * 1000);
+      if (h) { const t = Date.parse(h); if (!Number.isNaN(t)) return Math.max(0, t - Date.now()); }
+      const delay = /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/.exec(bodyText || '');
+      if (delay) return Math.round(parseFloat(delay[1]) * 1000);
+      const ms = /"retryAfterMs"\s*:\s*(\d+)/.exec(bodyText || '');
+      return ms ? Number(ms[1]) : null;
+    }
+
+    function envelopeKey(bodyText) {
+      try {
+        const body = JSON.parse(bodyText);
+        return errorKeyFromCode(body && body.error && body.error.code);
+      } catch { return null; }
+    }
+
+    // A non-2xx webhook response: the safe message names only the status, never the server's body
+    function errorFromResponse(res, bodyText) {
+      const status = res.status;
+      let key = envelopeKey(bodyText);
+      if (!key) {
+        if (status === 408) key = 'NET-408';
+        else if (status === 401 || status === 403) key = 'AUTH-401';
+        else if (status === 404) key = 'SRV-404';
+        else if (status === 413) key = 'SRV-413';
+        else if (status === 429 || status === 503) key = 'NET-503';
+        else if (status === 502) key = 'NET-502';
+        else if (status === 504) key = 'NET-504';
+        else if (status >= 500) key = 'SRV-500';
+        else if (status >= 400) key = 'INPUT-400';
+        else key = 'SRV-500';
+      }
+      return new AppError(key, {
+        status,
+        retryAfterMs: parseRetryAfterMs(res.headers && res.headers.get('Retry-After'), bodyText),
+        safeMessage: `Server responded ${status}`,
+      });
+    }
+
+    // The server reports some failures inside a 200 as bracketed text (see the Extract * Text nodes)
+    const AI_MARKERS = [
+      [/^\s*\[Busy\]/i, 'AI-429'],
+      [/^\s*\[Transcription blocked\]/i, 'AI-452'],
+      [/^\s*\[Blocked\]/i, 'AI-451'],
+      [/^\s*\[No reply\]/i, 'AI-204'],
+    ];
+    function errorFromPayload(data) {
+      if (!data || typeof data !== 'object') return null;
+      const envKey = data.ok === false && data.error && errorKeyFromCode(data.error.code);
+      if (envKey) return new AppError(envKey, { retryAfterMs: Number(data.error.retryAfterMs) || undefined });
+      for (const field of ['text', 'result', 'citation']) {
+        if (typeof data[field] !== 'string') continue;
+        const hit = AI_MARKERS.find(([re]) => re.test(data[field]));
+        if (hit) return new AppError(hit[1]);
+      }
+      return null;
+    }
+
+    function errorFromException(e) {
+      if (e instanceof AppError) return e;
+      const safe = typeof e === 'string' ? e
+        : e && typeof e === 'object' ? (e.safeMessage || e.message || e.error_description || e.error) : undefined;
+      const legacyCode = e && typeof e === 'object' ? [e.code, e.error].find(c => typeof c === 'string' && /^[\w.\-]{1,40}$/.test(c)) : undefined;
+      if (e && e.name === 'AbortError') return new AppError('NET-408', { noResponse: true, clientTimeout: true, safeMessage: 'Request timed out' });
+      if (e instanceof TypeError && /fetch|network|load failed/i.test(e.message)) {
+        return navigator.onLine === false
+          ? new AppError('NET-000', { noResponse: true, safeMessage: safe })
+          : new AppError('NET-503', { noResponse: true, message: UNREACHABLE_MESSAGE, safeMessage: safe });
+      }
+      if (e instanceof SyntaxError) return new AppError('SRV-500', { safeMessage: 'Unexpected response from server' });
+      const key = e && typeof e === 'object' && (errorKeyFromCode(e.code) || (e.status && driveErrorKey(e.status)));
+      if (key) return new AppError(key, { status: e.status, safeMessage: safe });
+      return new AppError('APP-500', { safeMessage: safe, legacyCode });
+    }
+
+    // Plain wording plus the code, for toasts that cannot show the full error screen
+    function errorToastText(err) {
+      const e = errorFromException(err);
+      return `${e.message} (Code ${e.code})`;
+    }
+
+    function withCode(message, err) {
+      return `${message} (Code ${errorFromException(err).code})`;
+    }
+
+    function errorDetailsText(err) {
+      return ['Student Tools Hub error', `Code: ${err.code}`, `Time: ${err.time}`, `App version: ${CLIENT_VERSION}`].join('\n');
+    }
+
+    async function copyErrorDetails(info) {
+      try {
+        await navigator.clipboard.writeText(errorDetailsText(info));
+        showToast('Error details copied');
+      } catch {
+        showToast('Copy failed — please note the code shown on screen', 'error');
+      }
+    }
+
+    // ─── Service status banner ──────────────────────
+    const DOWN_MESSAGE = 'The server seems to be down or very busy. Nothing is lost. Please try again in a little while (this can take up to an hour).';
+    const service = { offline: false, down: null, degraded: null, failures: [], dismissed: null };
+
+    // status: 'offline' | 'online' | 'down' | 'degraded' | 'ok'. A future health check can call this directly.
+    function setServiceStatus(status, code, message) {
+      if (status === 'offline') service.offline = true;
+      else if (status === 'online') service.offline = false;
+      else if (status === 'down') service.down = { code, message: message || DOWN_MESSAGE };
+      else if (status === 'degraded') service.degraded = { code, message };
+      else if (status === 'ok') { service.down = null; service.degraded = null; service.failures = []; }
+      renderServiceBanner();
+    }
+
+    function renderServiceBanner() {
+      const cur = service.offline ? { kind: 'offline', code: '', message: ERRORS['NET-000'].message }
+        : service.down ? { kind: 'down', ...service.down }
+        : service.degraded ? { kind: 'degraded', ...service.degraded }
+        : null;
+      if (!cur) service.dismissed = null;
+      const hide = !cur || service.dismissed === cur.kind;
+      dom.statusBanner.hidden = hide;
+      if (hide) return;
+      dom.statusBanner.className = `status-banner is-${cur.kind}`;
+      if (dom.statusBannerText.textContent !== cur.message) dom.statusBannerText.textContent = cur.message;
+      dom.statusBannerCode.textContent = cur.code ? `(Code ${cur.code})` : '';
+      dom.statusBannerRetry.hidden = cur.kind !== 'down';
+    }
+
+    // err = null means a success. Three gateway or server failures within five minutes show the banner.
+    function noteServerResult(err) {
+      const kind = err && ERRORS[err.key].banner;
+      if (kind === 'down') {
+        const now = Date.now();
+        service.failures = service.failures.filter(t => now - t < STREAK_WINDOW_MS).concat(now);
+        if (service.failures.length >= STREAK_LIMIT) setServiceStatus('down', err.code);
+        return;
+      }
+      if (err && (err.noResponse || err.status === 408)) return;
+      setServiceStatus('ok');
+      if (kind === 'quota') setServiceStatus('degraded', err.code, err.message);
+    }
+
+    // No health endpoint yet: any answer from the webhook that is not a gateway failure counts as alive
+    async function probeServer() {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
+      try {
+        const res = await fetch(CONFIG.n8nWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'ping' }),
+          signal: controller.signal,
+        });
+        return ![502, 503, 504].includes(res.status);
+      } catch { return false; } finally { clearTimeout(timer); }
+    }
+
+    async function tryServiceAgain() {
+      const btn = dom.statusBannerRetry;
+      if (btn.disabled) return;
+      setBusy(btn, true);
+      try {
+        if (await probeServer()) {
+          setServiceStatus('ok');
+          showToast('The server is answering again.');
+        } else {
+          showToast('Still no answer from the server. Please try again in a little while.', 'error');
+        }
+      } finally { setBusy(btn, false); }
+    }
+
+    function setBusy(btn, busy) {
+      if (!btn) return;
+      btn.disabled = busy;
+      btn.classList.toggle('is-busy', busy);
+      if (busy) btn.setAttribute('aria-busy', 'true'); else btn.removeAttribute('aria-busy');
+    }
+
     // ─── Error Reporting ────────────────────────────
     // Reports carry only a short scrubbed message: no tokens, emails, file names, server bodies or stacks
     function scrubErrorText(value) {
@@ -3983,6 +4325,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     }
 
     async function reportErrorToDev(errorPayload) {
+      if (navigator.onLine === false) return;
       try {
         await fetch(CONFIG.n8nWebhookUrl, {
           method: 'POST',
@@ -3999,20 +4342,27 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       }
     }
 
+    let lastShownError = null;
+    function showError(codeOrErr, opts = {}) {
+      const err = codeOrErr instanceof AppError ? codeOrErr : new AppError(codeOrErr, opts);
+      const message = opts.userMessage && err.key === 'APP-500' ? opts.userMessage : err.message;
+      lastShownError = err;
+      dom.errorTitle.textContent = ERRORS[err.key].title;
+      dom.errorMessage.textContent = message;
+      dom.errorCode.textContent = err.code;
+      dom.errorCodeRow.hidden = false;
+      showToolSection('sectionError');
+      reportErrorToDev({
+        userMessage: scrubErrorText(`${message} (Code ${err.code})`),
+        technicalDetail: scrubErrorText(err.safeMessage),
+        code: err.legacyCode || err.code,
+        clientVersion: CLIENT_VERSION,
+      });
+    }
+
     function handleAppError(userMessage, technicalDetail) {
       console.error('[STH] Error:', technicalDetail);
-      dom.errorMessage.textContent = userMessage;
-      showToolSection('sectionError');
-      const detail = technicalDetail && typeof technicalDetail === 'object' ? technicalDetail : null;
-      const message = !detail ? technicalDetail
-        : detail instanceof SyntaxError ? 'Unexpected response from server'
-        : (detail.safeMessage || detail.message || detail.error_description || detail.error);
-      const code = detail && [detail.code, detail.error].find(c => typeof c === 'string' && /^[\w.\-]{1,40}$/.test(c));
-      reportErrorToDev({
-        userMessage: scrubErrorText(userMessage),
-        technicalDetail: scrubErrorText(message),
-        ...(code && { code }),
-      });
+      showError(errorFromException(technicalDetail), { userMessage });
     }
 
     // ─── PDF text extraction ─────────────────────────
@@ -4094,14 +4444,112 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     // ═══════════════════════════════════════════════════════════
     // ─── KNOWLEDGE BAY STORE (localForage) ─────────────────────
     // ═══════════════════════════════════════════════════════════
+    // Several tabs share one IndexedDB: writes read, merge and write under a lock, and every
+    // write bumps a revision so a tab that has not seen anyone else's write skips the merge.
+    const TAB_ID = Math.random().toString(36).slice(2, 10);
+    const newRev = () => `${TAB_ID}:${Date.now()}:${Math.random().toString(36).slice(2, 8)}`;
+    const REMOVED_KEEP = 300;
+
+    function withStoreLock(name, fn) {
+      return navigator.locks && navigator.locks.request ? navigator.locks.request(`sth-store-${name}`, fn) : fn();
+    }
+
+    function pruneRemoved(removed) {
+      const ids = Object.keys(removed);
+      if (ids.length <= REMOVED_KEEP) return removed;
+      ids.sort((a, b) => removed[b] - removed[a]);
+      return Object.fromEntries(ids.slice(0, REMOVED_KEEP).map(id => [id, removed[id]]));
+    }
+
+    const tabSync = {
+      channel: null,
+      handlers: {},
+      init() {
+        try {
+          this.channel = new BroadcastChannel('sth-sync');
+          this.channel.onmessage = (e) => this.receive(e.data);
+        } catch { this.channel = null; }
+        window.addEventListener('storage', (e) => {
+          if (e.key === 'sth_sync_ping' && e.newValue) {
+            try { this.receive(JSON.parse(e.newValue)); } catch { /* ignore a malformed ping */ }
+          } else if (e.key && e.key.startsWith(CHAT_LOCK_PREFIX)) {
+            tutor.syncBusyUi();
+          }
+        });
+      },
+      post(type) {
+        const msg = { type, tab: TAB_ID, ts: Date.now() };
+        if (this.channel) { try { this.channel.postMessage(msg); } catch { /* channel closed */ } }
+        else storageSet('sth_sync_ping', JSON.stringify(msg));
+      },
+      receive(msg) {
+        if (!msg || msg.tab === TAB_ID || !this.handlers[msg.type]) return;
+        Promise.resolve(this.handlers[msg.type]()).catch(err => console.warn('[STH] Cross-tab refresh failed:', err));
+      },
+    };
+
+    const KB_CARRY = ['ocrText', 'ocrStatus', 'driveFileId'];
+    function mergeKbStored(cache, stored, removed) {
+      const byId = new Map(cache.map(i => [i.id, i]));
+      for (const r of stored) {
+        if (removed[r.id]) continue;
+        const l = byId.get(r.id);
+        if (!l) { cache.push(r); byId.set(r.id, r); continue; }
+        const rNewer = (r.updatedAt || r.timestamp || 0) > (l.updatedAt || l.timestamp || 0);
+        const carried = Object.fromEntries(KB_CARRY.filter(k => l[k]).map(k => [k, l[k]]));
+        if (rNewer) Object.assign(l, r);
+        for (const k of KB_CARRY) if (!l[k] && (carried[k] || r[k])) l[k] = carried[k] || r[k];
+      }
+      for (let i = cache.length - 1; i >= 0; i--) if (removed[cache[i].id]) cache.splice(i, 1);
+    }
+
     const kb = {
       store: null,
       cache: [],
+      loading: true,
+      rev: null,
 
       async init() {
         this.store = localforage.createInstance({ name: 'sth_knowledge_bay', storeName: 'items' });
-        try { this.cache = (await this.store.getItem('knowledge_bay')) || []; }
+        try {
+          this.cache = (await this.store.getItem('knowledge_bay')) || [];
+          this.rev = (await this.store.getItem('knowledge_bay_rev')) || null;
+        }
         catch (err) { console.error('[STH] Knowledge Bay storage unavailable:', err); this.cache = []; }
+        finally { this.loading = false; }
+      },
+
+      // Writes the whole list, first merging in anything another tab saved since this tab last wrote
+      async persist(removedIds = []) {
+        try {
+          await withStoreLock('kb', async () => {
+            const storedRev = (await this.store.getItem('knowledge_bay_rev')) || null;
+            const stale = storedRev !== this.rev;
+            let removed = null;
+            if (stale || removedIds.length) {
+              removed = (await this.store.getItem('knowledge_bay_removed')) || {};
+              for (const id of removedIds) removed[id] = Date.now();
+            }
+            if (stale) mergeKbStored(this.cache, (await this.store.getItem('knowledge_bay')) || [], removed);
+            if (removed) await this.store.setItem('knowledge_bay_removed', pruneRemoved(removed));
+            const rev = newRev();
+            await this.store.setItem('knowledge_bay', this.cache);
+            await this.store.setItem('knowledge_bay_rev', rev);
+            this.rev = rev;
+          });
+        } catch (err) {
+          throw new AppError('STORE-507', { safeMessage: err && err.name ? `Storage write failed (${err.name})` : 'Storage write failed' });
+        }
+        tabSync.post('kb');
+      },
+
+      // Another tab saved: merge its list into memory and redraw
+      async reload() {
+        const removed = (await this.store.getItem('knowledge_bay_removed')) || {};
+        mergeKbStored(this.cache, (await this.store.getItem('knowledge_bay')) || [], removed);
+        this.rev = (await this.store.getItem('knowledge_bay_rev')) || null;
+        if (state.currentRoute === 'knowledge') renderKbGrid();
+        if (document.getElementById('kbPickerModal').classList.contains('open')) renderKbPickerList();
       },
 
       list() {
@@ -4188,7 +4636,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         }
 
         this.cache.push(entry);
-        await this.store.setItem('knowledge_bay', this.cache);
+        await this.persist();
         scheduleDrivePush();
         ocr.enqueue(entry);
         return entry;
@@ -4196,7 +4644,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
       async remove(id) {
         this.cache = this.cache.filter(i => i.id !== id);
-        await this.store.setItem('knowledge_bay', this.cache);
+        await this.persist([id]);
         scheduleDrivePush();
       },
 
@@ -4224,7 +4672,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           content,
         };
         this.cache.push(entry);
-        await this.store.setItem('knowledge_bay', this.cache);
+        await this.persist();
         scheduleDrivePush();
         return entry;
       },
@@ -4234,7 +4682,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         if (!item || !newName.trim()) return;
         item.name = newName.trim();
         item.updatedAt = Date.now();
-        await this.store.setItem('knowledge_bay', this.cache);
+        await this.persist();
         scheduleDrivePush();
       },
     };
@@ -4312,6 +4760,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           };
           if (pageRange(start, end).every(p => p in pages)) { done(); continue; }
 
+          listeners.forEach(fn => fn(start - 1, total));
           const payload = { mode: 'ocr', contentHash: item.contentHash, startPage: start, endPage: end };
           if (source) payload.pdfBase64 = await this.extractPages(source, start, end);
           let result = await this.request(payload);
@@ -4336,7 +4785,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         const current = kb.cache.find(i => i.id === item.id) || item;
         Object.assign(current, { ocrText, ocrStatus: 'done' });
         if (current !== item) Object.assign(item, { ocrText, ocrStatus: 'done' });
-        await kb.store.setItem('knowledge_bay', kb.cache);
+        await kb.persist();
         await this.progressStore().removeItem(item.contentHash);
         scheduleDrivePush();
         return true;
@@ -4355,29 +4804,9 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       },
 
       async request(payload) {
-        let lastErr = null;
-        for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-          if (attempt > 0) await new Promise(r => setTimeout(r, Math.pow(2, attempt) * 2000));
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), OCR_REQUEST_TIMEOUT_MS);
-          try {
-            const res = await fetch(CONFIG.n8nWebhookUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload),
-              signal: controller.signal,
-            });
-            if (!res.ok) throw new Error(`Server responded ${res.status}: ${await res.text()}`);
-            const data = await res.json();
-            if (!Array.isArray(data.pages)) throw new Error('OCR response had no pages');
-            return data;
-          } catch (err) {
-            lastErr = err;
-          } finally {
-            clearTimeout(timeout);
-          }
-        }
-        throw lastErr;
+        const data = await webhookRequest(payload, { timeoutMs: OCR_REQUEST_TIMEOUT_MS, quiet: true });
+        if (!Array.isArray(data.pages)) throw new AppError('SRV-500', { safeMessage: 'OCR response had no pages' });
+        return data;
       },
 
       updateCardStatus(item) {
@@ -4418,7 +4847,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           added++;
         } catch (e) {
           failed++;
-          showToast(e.message || `Failed to add ${file.name}`, 'error');
+          showToast(e instanceof AppError ? errorToastText(e) : (e.message || `Failed to add ${file.name}`), 'error');
         }
       }
 
@@ -4428,6 +4857,12 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     }
 
     function renderKbGrid() {
+      if (kb.loading) {
+        dom.kbEmpty.classList.add('hidden');
+        renderSkeleton(dom.kbGrid, 'skeleton-kb-card', 6);
+        return;
+      }
+      dom.kbGrid.removeAttribute('aria-busy');
       const items = kb.list();
       dom.kbCount.textContent = items.length
         ? `${items.length} item${items.length > 1 ? 's' : ''}`
@@ -4569,16 +5004,16 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       if (!url) return;
       try { new URL(url); } catch { showToast('Please enter a valid URL (starting with https://)', 'error'); return; }
 
-      dom.kbUrlBtn.disabled = true;
+      setBusy(dom.kbUrlBtn, true);
       dom.kbScrapingNote.classList.remove('hidden');
 
       const data = await scrapeUrl(url);
 
       dom.kbScrapingNote.classList.add('hidden');
-      dom.kbUrlBtn.disabled = false;
+      setBusy(dom.kbUrlBtn, false);
 
       if (data.error) {
-        showToast(data.message || 'We couldn\'t read this website. Please copy-paste the text manually.', 'error');
+        showToast((data.message || 'We couldn\'t read this website. Please copy-paste the text manually.') + (data.code ? ` (Code ${data.code})` : ''), 'error');
         return;
       }
 
@@ -5446,7 +5881,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       const totalFiles = Object.values(state.zones).reduce((s, a) => s + a.length, 0);
 
       dom.btnAction.textContent = meta.btnLabel;
-      dom.btnAction.disabled = !requiredOk;
+      dom.btnAction.disabled = !requiredOk || processRunning;
       dom.fileCount.textContent = totalFiles > 0 ? `${totalFiles} file${totalFiles !== 1 ? 's' : ''} selected` : '';
 
       dom.actionArea.classList.remove('hidden');
@@ -5642,7 +6077,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           timestamp: Date.now(),
           content,
         });
-        await kb.store.setItem('knowledge_bay', kb.cache);
+        await kb.persist();
         scheduleDrivePush();
       } catch (e) {
         console.warn('Auto-KB save failed (non-critical):', e);
@@ -5681,11 +6116,32 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     // When present, the request goes as multipart/form-data with the JSON payload
     // under a `payload` field and each file under its own fieldName; n8n's webhook
     // node parses multipart natively into $json.body / $binary.
-    async function sendToWebhook(payload, binaryFiles) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-      let lastErr = null;
+    function sendToWebhook(payload, binaryFiles) {
+      return webhookRequest(payload, { binaryFiles });
+    }
 
+    function waitForOnline() {
+      if (navigator.onLine !== false) return Promise.resolve();
+      return new Promise(resolve => window.addEventListener('online', resolve, { once: true }));
+    }
+
+    // Milliseconds to wait before the next attempt, or -1 when this failure must not be retried.
+    // Only requests that cannot have changed anything on the server are repeated.
+    function retryDelayMs(err, mode, attempt, maxAttempts) {
+      if (attempt >= maxAttempts) return -1;
+      const idempotent = IDEMPOTENT_MODES.has(mode);
+      let retry = false;
+      if (err.noResponse) retry = !err.clientTimeout || idempotent;
+      else if (err.status === 408 || err.status === 429 || err.status === 502 || err.status === 503 || err.status === 504) retry = true;
+      else if (err.status === 500) retry = idempotent && attempt < 2;
+      if (!retry) return -1;
+      if (err.retryAfterMs > RETRY_MAX_WAIT_MS) return -1;
+      const backoff = RETRY_BASE_MS * Math.pow(2, attempt - 1) * (0.75 + Math.random() * 0.5);
+      return Math.min(RETRY_MAX_WAIT_MS, Math.max(backoff, err.retryAfterMs || 0));
+    }
+
+    // One logical request: at most WEBHOOK_MAX_ATTEMPTS fetches, each with its own timeout
+    async function webhookRequest(payload, { binaryFiles, timeoutMs = REQUEST_TIMEOUT_MS, maxAttempts = WEBHOOK_MAX_ATTEMPTS, quiet = false } = {}) {
       let body, headers;
       if (binaryFiles && binaryFiles.length > 0) {
         const form = new FormData();
@@ -5697,38 +6153,46 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         body = JSON.stringify(payload);
         headers = { 'Content-Type': 'application/json' };
       }
+      const mode = payload && payload.mode;
 
-      for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-        try {
-          if (attempt > 0) {
-            const backoff = Math.pow(2, attempt) * 2000;
-            updateProgress(null, `Retrying in ${backoff / 1000}s (attempt ${attempt + 1}/${MAX_RETRIES})\u2026`);
-            await new Promise(r => setTimeout(r, backoff));
-          }
-          const res = await fetch(CONFIG.n8nWebhookUrl, {
-            method: 'POST',
-            headers,
-            body,
-            signal: controller.signal,
-          });
-          clearTimeout(timeout);
-          if (!res.ok) {
-            const errBody = await res.text();
-            throw new Error(`Server responded ${res.status}: ${errBody}`);
-          }
-          return await res.json();
-        } catch (err) {
-          lastErr = err;
-          if (err.name === 'AbortError') { clearTimeout(timeout); throw new Error('Request timed out (10 min). Please try with fewer/smaller files.'); }
+      for (let attempt = 1; ; attempt++) {
+        if (navigator.onLine === false) {
+          if (!quiet) updateProgress(null, 'You’re offline. Waiting for your connection…');
+          await waitForOnline();
         }
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        let err = null, data;
+        try {
+          const res = await fetch(CONFIG.n8nWebhookUrl, { method: 'POST', headers, body, signal: controller.signal });
+          if (res.ok) data = await res.json();
+          else err = errorFromResponse(res, await res.text());
+        } catch (e) {
+          err = errorFromException(e);
+        } finally {
+          clearTimeout(timer);
+        }
+        if (!err) {
+          const answered = mode === 'scrape' ? null : errorFromPayload(data);
+          noteServerResult(answered);
+          if (answered) throw answered;
+          return data;
+        }
+        noteServerResult(err);
+        err.attempts = attempt;
+        const wait = retryDelayMs(err, mode, attempt, maxAttempts);
+        if (wait < 0) throw err;
+        if (!quiet) updateProgress(null, `Retrying in ${Math.round(wait / 1000)}s (attempt ${attempt + 1}/${maxAttempts})…`);
+        await new Promise(r => setTimeout(r, wait));
       }
-      clearTimeout(timeout);
-      throw lastErr;
     }
 
     // ─── Core Processing Flow ───────────────────────
+    let processRunning = false;
     async function runProcess() {
-      if (!state.mode) return;
+      if (!state.mode || processRunning) return;
+      processRunning = true;
+      setBusy(dom.btnAction, true);
 
       showToolSection('sectionProcessing');
       startLoadingMessages();
@@ -5783,7 +6247,11 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           const parts = [];
           for (let bIdx = 0; bIdx < batches.length; bIdx++) {
             const pct = 40 + Math.round((bIdx / batches.length) * 45);
-            updateProgress(pct, `Sending batch ${bIdx + 1} of ${batches.length}\u2026`);
+            const from = bIdx * BATCH_SIZE + 1;
+            const to = Math.min(documents.length, from + BATCH_SIZE - 1);
+            updateProgress(pct, documents.length > 1
+              ? `Reading pages ${from}-${to} of ${documents.length}`
+              : `Sending batch ${bIdx + 1} of ${batches.length}\u2026`);
 
             const data = await sendToWebhook({
               mode: 'transcribe',
@@ -5815,7 +6283,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
                     timestamp: Date.now(),
                     content: resultText.trim(),
                   });
-                  await kb.store.setItem('knowledge_bay', kb.cache);
+                  await kb.persist();
                   scheduleDrivePush();
                   newKbNames.push(resultName);
                 }
@@ -5834,7 +6302,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           resultText = data.text || data.result || '';
         }
 
-        if (!resultText.trim()) throw new Error('AI returned an empty response. Please try again.');
+        if (!resultText.trim()) throw new AppError('AI-204');
 
         updateProgress(100, 'Done!');
         await new Promise(r => setTimeout(r, 400));
@@ -5853,18 +6321,13 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         clearDraft();
 
       } catch (error) {
-        const unreachable = error instanceof TypeError && /fetch|network|load failed/i.test(error.message);
-        handleAppError(
-          unreachable
-            ? 'We could not reach the server. Check your connection and try again.'
-            : error && error.safeMessage
-              ? error.message
-              : 'We couldn\u2019t process your files right now. Our team has been notified \u2014 please try again shortly.',
-          error
-        );
+        handleAppError(error && error.safeMessage && !(error instanceof AppError) ? error.message : null, error);
       } finally {
         driveBlobs.clear();
         stopLoadingMessages();
+        processRunning = false;
+        setBusy(dom.btnAction, false);
+        updateActionState();
       }
     }
 
@@ -6092,7 +6555,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           headers: { 'Authorization': `Bearer ${state.googleAccessToken}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ title }),
         });
-        if (!createRes.ok) throw new Error(`Docs create failed: ${createRes.status}`);
+        if (!createRes.ok) throw driveHttpError('Docs create failed', createRes.status);
         const doc = await createRes.json();
         recordCreatedDoc(doc.documentId, title);
 
@@ -6101,7 +6564,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           headers: { 'Authorization': `Bearer ${state.googleAccessToken}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ requests: ['template', 'reviewer'].includes(mode) ? markdownToDocsRequests(text) : [{ insertText: { location: { index: 1 }, text } }] }),
         });
-        if (!updateRes.ok) throw new Error(`Docs update failed: ${updateRes.status}`);
+        if (!updateRes.ok) throw driveHttpError('Docs update failed', updateRes.status);
 
         showToast('Exported to Google Docs!');
         window.open(`https://docs.google.com/document/d/${doc.documentId}/edit`, '_blank');
@@ -6133,9 +6596,10 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       // Another export started the sign-in: join it, so this tap is not dropped
       if (googleTokenInflight) showToast('Finish signing in to Google and your export will continue.');
       mainExportPending = true;
+      setBusy(dom.btnExportDocs, true);
       ensureGoogleToken().then(() => createGoogleDoc(snap), err => {
         if (!err.googleAuthHandled) handleAppError('Google sign-in was cancelled or failed.', err);
-      }).finally(() => { mainExportPending = false; });
+      }).finally(() => { mainExportPending = false; setBusy(dom.btnExportDocs, false); });
     }
 
     // ─── Reusable Google Docs helpers ────────────────
@@ -6173,7 +6637,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ title }),
       });
-      if (!createRes.ok) throw new Error(`Docs create failed: ${createRes.status}`);
+      if (!createRes.ok) throw driveHttpError('Docs create failed', createRes.status);
       const doc = await createRes.json();
       recordCreatedDoc(doc.documentId, title);
       const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${doc.documentId}:batchUpdate`, {
@@ -6181,7 +6645,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ requests: [{ insertText: { location: { index: 1 }, text: content } }] }),
       });
-      if (!updateRes.ok) throw new Error(`Docs update failed: ${updateRes.status}`);
+      if (!updateRes.ok) throw driveHttpError('Docs update failed', updateRes.status);
       window.open(`https://docs.google.com/document/d/${doc.documentId}/edit`, '_blank');
       return doc.documentId;
     }
@@ -6272,7 +6736,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       return `Student Tools Hub - ${kind} - ${date} ${time}`;
     }
 
-    const docsHttpError = (label, status) => Object.assign(new Error(`${label}: ${status}`), { status });
+    const docsHttpError = (label, status) => driveHttpError(label, status);
 
     async function appendToGoogleDoc(docId, content) {
       const token = await ensureGoogleToken();
@@ -6317,11 +6781,18 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         scope: SYNC_SCOPE,
         include_granted_scopes: false,
         callback: onDriveSyncToken,
-        error_callback: showGoogleAuthToast,
+        error_callback: (err) => { clearSyncSignInBusy(); showGoogleAuthToast(err); },
       });
     }
 
+    let syncSignInTimer = null;
+    function clearSyncSignInBusy() {
+      clearTimeout(syncSignInTimer);
+      setBusy(dom.btnSyncSignIn, false);
+    }
+
     function onDriveSyncToken(resp) {
+      clearSyncSignInBusy();
       if (resp.error) {
         if (isGoogleAuthCancel(resp)) showToast('Google sign-in was cancelled.');
         else showToast('Google sign-in did not complete. Please try again.', 'error');
@@ -6340,6 +6811,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           return;
         }
       }
+      setBusy(dom.btnSyncSignIn, true);
+      syncSignInTimer = setTimeout(clearSyncSignInBusy, 30000);
       state.driveSyncClient.requestAccessToken();
     }
 
@@ -6385,6 +6858,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     function driveHttpError(label, status) {
       const err = new Error(`${label}: ${status}`);
       err.status = status;
+      const key = driveErrorKey(status);
+      if (key) err.code = `${ERROR_PREFIX}-${key}`;
       return err;
     }
 
@@ -6460,7 +6935,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
         { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }
       );
-      if (!res.ok) throw new Error(`Drive upload: ${res.status}`);
+      if (!res.ok) throw driveHttpError('Drive upload', res.status);
       const file = await res.json();
       return file.id;
     }
@@ -6612,7 +7087,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           console.warn('[Sync] Scanned PDF Drive upload failed (will retry next sync):', err);
         }
       }
-      await kb.store.setItem('knowledge_bay', kb.cache);
+      await kb.persist();
     }
 
     async function driveFetchUserInfo(token) {
@@ -6742,16 +7217,15 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
         // 4 — Persist merged data locally
         kb.cache = mergedKb;
-        await kb.store.setItem('knowledge_bay', kb.cache);
+        await kb.persist();
         if (signedOut()) return;
         renderKbGrid();
 
         tutor.chats = mergedChats;
         setRemovedDocs(mergedRemoved);
         setCreatedDocs(mergedDocs);
-        await kb.store.setItem('knowledge_bay', kb.cache); // belt-and-suspenders flush
         if (signedOut()) return;
-        await tutor.store.setItem('tutor_chats', tutor.chats);
+        await tutor.persist();
         if (signedOut()) return;
         tutor.renderSidebarList();
         if (tutor.currentId) tutor.renderChat?.();
@@ -6775,10 +7249,10 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         // Token expired / rejected → clear so the button prompts re-auth (same as pushToDrive)
         if (err.status === 401 || err.status === 403) {
           state.driveSyncToken = null;
-          showToast('Google sign-in expired — please re-connect to sync', 'error');
+          showToast(withCode('Google sign-in expired — please re-connect to sync', err), 'error');
           updateSyncUI('expired');
         } else {
-          showToast('Sync failed — will retry on next save', 'error');
+          showToast(withCode('Sync failed — will retry on next save', err), 'error');
           updateSyncUI('error');
         }
       }
@@ -6835,6 +7309,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     function updateSyncUI(status, user) {
       const { syncSignedOut, syncSignedIn, syncName, syncAvatar, syncStatus, btnSyncSignIn } = dom;
       if (!syncSignedOut) return;
+      document.getElementById('syncSection').setAttribute('aria-busy', String(status === 'syncing'));
 
       const resolvedUser = user || (() => {
         try { return state.driveSyncUser || JSON.parse(storageGet(SYNC_USER_KEY)); } catch { return null; }
@@ -6926,22 +7401,181 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
     // ═══════════════════════════════════════════════════════════
     // ─── TUTOR MODULE ──────────────────────────────────────────
     // ═══════════════════════════════════════════════════════════
+    const CHAT_LOCK_PREFIX = 'sth_chat_lock_';
+    const CHAT_LOCK_STALE_MS = 120000;
+    const CHAT_LOCK_BEAT_MS = 15000;
+    const CHAT_LOCK_MESSAGE = 'This chat is answering in another tab.';
+
+    // Messages merge by id (older messages without one by role, quote and text); the newest copy of a message wins
+    const messageKey = (m) => m.id || `${m.role}\u0000${m.quote || ''}\u0000${m.text}`;
+    function keyMessages(list) {
+      const seen = {};
+      return list.map(m => {
+        const k = messageKey(m);
+        seen[k] = (seen[k] || 0) + 1;
+        return { m, k: `${k}#${seen[k]}` };
+      });
+    }
+
+    function mergeMessages(a, b) {
+      const A = keyMessages(a), B = keyMessages(b);
+      const bKeys = new Set(B.map(x => x.k));
+      const out = A.slice();
+      for (let i = 0; i < B.length; i++) {
+        const at = out.findIndex(x => x.k === B[i].k);
+        if (at >= 0) {
+          if (B[i].m.id && B[i].m.text !== out[at].m.text && (B[i].m.ts || 0) > (out[at].m.ts || 0)) out[at] = B[i];
+          continue;
+        }
+        let pos = 0;
+        for (let j = i - 1; j >= 0; j--) {
+          const prev = out.findIndex(x => x.k === B[j].k);
+          if (prev >= 0) { pos = prev + 1; break; }
+        }
+        while (pos < out.length && !bKeys.has(out[pos].k) && out[pos].m.ts && B[i].m.ts && out[pos].m.ts <= B[i].m.ts) pos++;
+        out.splice(pos, 0, B[i]);
+      }
+      return out.map(x => x.m);
+    }
+
+    // Merges a stored chat into the live one in place, so arrays and objects held elsewhere stay valid
+    function mergeChatInto(local, remote) {
+      const merged = mergeMessages(local.messages || [], remote.messages || []);
+      const messages = local.messages || [];
+      if ((remote.updated || 0) > (local.updated || 0)) Object.assign(local, remote);
+      local.messages = messages;
+      messages.splice(0, messages.length, ...merged);
+      local.updated = Math.max(local.updated || 0, remote.updated || 0);
+    }
+
+    function mergeChatsStored(chats, stored, removed) {
+      const byId = new Map(chats.map(c => [c.id, c]));
+      for (const r of stored) {
+        if (removed[r.id]) continue;
+        const l = byId.get(r.id);
+        if (l) mergeChatInto(l, r);
+        else { chats.push(r); byId.set(r.id, r); }
+      }
+      for (let i = chats.length - 1; i >= 0; i--) if (removed[chats[i].id]) chats.splice(i, 1);
+    }
+
     const tutor = {
       store: null,
       chats: [],
       currentId: null,
       activeQuote: null,
+      loading: true,
+      rev: null,
+      pending: new Set(),
+      beats: new Map(),
 
       async init() {
         this.store = localforage.createInstance({ name: 'sth_tutor', storeName: 'chats' });
-        try { this.chats = (await this.store.getItem('tutor_chats')) || []; }
+        try {
+          this.chats = (await this.store.getItem('tutor_chats')) || [];
+          this.rev = (await this.store.getItem('tutor_chats_rev')) || null;
+        }
         catch (err) { console.error('[STH] Tutor storage unavailable:', err); this.chats = []; }
+        finally { this.loading = false; }
         this.renderSidebarList();
       },
 
-      async save() {
-        await this.store.setItem('tutor_chats', this.chats);
+      // Writes all chats, first merging in anything another tab saved since this tab last wrote
+      async persist(removedIds = []) {
+        let merged = false;
+        try {
+          await withStoreLock('tutor', async () => {
+            const storedRev = (await this.store.getItem('tutor_chats_rev')) || null;
+            const stale = storedRev !== this.rev;
+            let removed = null;
+            if (stale || removedIds.length) {
+              removed = (await this.store.getItem('tutor_chats_removed')) || {};
+              for (const id of removedIds) removed[id] = Date.now();
+            }
+            if (stale) { mergeChatsStored(this.chats, (await this.store.getItem('tutor_chats')) || [], removed); merged = true; }
+            if (removed) await this.store.setItem('tutor_chats_removed', pruneRemoved(removed));
+            const rev = newRev();
+            await this.store.setItem('tutor_chats', this.chats);
+            await this.store.setItem('tutor_chats_rev', rev);
+            this.rev = rev;
+          });
+        } catch (err) {
+          throw new AppError('STORE-507', { safeMessage: err && err.name ? `Storage write failed (${err.name})` : 'Storage write failed' });
+        }
+        if (merged) this.renderSidebarList();
+        tabSync.post('tutor');
+      },
+
+      async save(removedIds = []) {
+        try { await this.persist(removedIds); }
+        catch (err) { console.error('[STH] Tutor save failed:', err); showToast(errorToastText(err), 'error'); }
         scheduleDrivePush();
+      },
+
+      // Another tab saved: merge its chats into memory and redraw what changed
+      async reload() {
+        const removed = (await this.store.getItem('tutor_chats_removed')) || {};
+        const cur = this.current();
+        const before = cur ? `${cur.messages.length}:${cur.updated}` : '';
+        mergeChatsStored(this.chats, (await this.store.getItem('tutor_chats')) || [], removed);
+        this.rev = (await this.store.getItem('tutor_chats_rev')) || null;
+        if (this.currentId && !this.current()) {
+          this.currentId = null;
+          if (state.currentRoute === 'tutor') location.hash = '#tutor';
+        }
+        this.renderSidebarList();
+        if (state.currentRoute === 'tutor' && !this.currentId) renderTutorLanding('');
+        const c = this.current();
+        if (c && `${c.messages.length}:${c.updated}` !== before) { this._view = null; this.renderChat(); }
+      },
+
+      lockInfo(id) {
+        try { return JSON.parse(storageGet(CHAT_LOCK_PREFIX + id)); } catch { return null; }
+      },
+
+      lockedElsewhere(id) {
+        const v = this.lockInfo(id);
+        return !!v && v.tab !== TAB_ID && Date.now() - v.ts < CHAT_LOCK_STALE_MS;
+      },
+
+      // One tab at a time may have a reply pending for a chat; a stale lock (tab gone) expires
+      async acquireLock(id) {
+        if (this.lockedElsewhere(id)) return false;
+        const key = CHAT_LOCK_PREFIX + id;
+        const stamp = () => storageSet(key, JSON.stringify({ tab: TAB_ID, ts: Date.now() }));
+        if (!stamp()) return true; // storage blocked: no cross-tab lock is possible
+        await new Promise(r => setTimeout(r, 40));
+        const v = this.lockInfo(id);
+        if (v && v.tab !== TAB_ID) return false;
+        this.beats.set(id, setInterval(stamp, CHAT_LOCK_BEAT_MS));
+        return true;
+      },
+
+      releaseLock(id) {
+        clearInterval(this.beats.get(id));
+        this.beats.delete(id);
+        const v = this.lockInfo(id);
+        if (v && v.tab === TAB_ID) storageRemove(CHAT_LOCK_PREFIX + id);
+      },
+
+      releaseAllLocks() {
+        for (const id of [...this.beats.keys()]) this.releaseLock(id);
+      },
+
+      // null when this chat can take a message, 'tab' when another tab is answering it, 'busy' otherwise
+      blockedReason(c) {
+        if (this.pending.has(c.id) || state.tutorTyping || state.tutorScraping || state.tutorReadingLabel) return 'busy';
+        return this.lockedElsewhere(c.id) ? 'tab' : null;
+      },
+
+      syncBusyUi() {
+        const c = this.current();
+        const locked = !!c && this.lockedElsewhere(c.id);
+        dom.tutorLockNote.textContent = locked ? CHAT_LOCK_MESSAGE : '';
+        dom.tutorLockNote.classList.toggle('active', locked);
+        this.updateSendButton();
+        clearTimeout(this._lockTimer);
+        if (locked) this._lockTimer = setTimeout(() => this.syncBusyUi(), Math.max(1000, this.lockInfo(c.id).ts + CHAT_LOCK_STALE_MS - Date.now() + 500));
       },
 
       current() {
@@ -6984,7 +7618,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         if (!chat) return;
         if (!await showConfirm(`Delete chat <strong>${escapeHtml(chat.title)}</strong>?`)) return;
         this.chats = this.chats.filter(c => c.id !== id);
-        await this.save();
+        await this.save([id]);
         this.renderSidebarList();
         if (this.currentId === id) {
           this.currentId = null;
@@ -7047,17 +7681,27 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           console.error('[STH] Google export failed:', err);
           if (err.googleAuthHandled) return;
           navigator.clipboard.writeText(plain).catch(() => {});
-          showToast('Export failed — copied to clipboard as fallback', 'error');
+          showToast(withCode('Export failed — copied to clipboard as fallback', err), 'error');
         }
       },
 
       async send(text) {
         const c = this.current();
-        if (!c || !text.trim() || state.tutorTyping || state.tutorScraping || state.tutorReadingLabel) return;
+        if (!c || !text.trim() || this.blockedReason(c)) return;
+        this.pending.add(c.id);
+        try {
+          if (!await this.acquireLock(c.id)) { this.syncBusyUi(); showToast(CHAT_LOCK_MESSAGE); return; }
+          await this.sendLocked(c, text);
+        } finally {
+          this.releaseLock(c.id);
+          this.pending.delete(c.id);
+        }
+      },
 
+      async sendLocked(c, text) {
         const activeQuote = this.activeQuote;
         this.clearQuote();
-        c.messages.push({ role: 'user', text: text.trim(), ...(activeQuote ? { quote: activeQuote } : {}) });
+        c.messages.push({ id: generateId(), ts: Date.now(), role: 'user', text: text.trim(), ...(activeQuote ? { quote: activeQuote } : {}) });
         c.updated = Date.now();
         if (c.title === 'New chat') {
           c.title = text.trim().slice(0, 60) + (text.length > 60 ? '…' : '');
@@ -7118,7 +7762,9 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           this.updateSendButton();
           try {
             await ocr.ensure(item, (done, total) => {
-              state.tutorReadingLabel = `Reading ${item.name}… ${done}/${total} pages`;
+              state.tutorReadingLabel = done >= total
+                ? `Reading ${item.name}…`
+                : `Reading ${item.name}… pages ${done + 1}-${Math.min(done + OCR_PAGES_PER_REQUEST, total)} of ${total}`;
               this.renderChat();
             });
           } catch (err) {
@@ -7270,7 +7916,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
           const data = await sendToWebhook(payload, binaryFiles);
           const reply = (data && (data.text || data.result)) || '';
-          c.messages.push({ role: 'model', text: reply || '_(No response text returned.)_' });
+          c.messages.push({ id: generateId(), ts: Date.now(), role: 'model', text: reply || '_(No response text returned.)_' });
           this._revealIdx = c.messages.length - 1;
           this._revealChatId = c.id;
           if (data && data.cacheName) {
@@ -7302,9 +7948,11 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           await this.save();
         } catch (err) {
           console.error('[STH] Tutor send failed:', err);
+          const failure = errorFromException(err);
           c.messages.push({
-            role: 'model',
-            text: '_Oof, I couldn\'t reach the server just now. Give it another shot in a moment — your message is saved._'
+            id: generateId(), ts: Date.now(), role: 'model', error: true,
+            errorCode: failure.code, errorTime: failure.time,
+            text: `_Oof, that didn't go through. ${failure.message} Your message is saved, so you can try again in a moment._`
           });
           await this.save();
         } finally {
@@ -7318,7 +7966,9 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       updateSendButton() {
         const hasText = dom.tutorInput.value.trim().length > 0;
         const busy = state.tutorTyping || state.tutorScraping || !!state.tutorReadingLabel;
-        dom.btnTutorSend.disabled = !hasText || busy;
+        const cur = this.current();
+        dom.btnTutorSend.disabled = !hasText || busy || (!!cur && this.lockedElsewhere(cur.id));
+        if (busy) dom.btnTutorSend.setAttribute('aria-busy', 'true'); else dom.btnTutorSend.removeAttribute('aria-busy');
         const label = (state.tutorScraping || state.tutorReadingLabel) ? 'Reading…' : state.tutorTyping ? 'Thinking…' : 'Send';
         if (dom.btnTutorSend.dataset.label === label) return;
         dom.btnTutorSend.dataset.label = label; dom.btnTutorSend.setAttribute('aria-label', label);
@@ -7334,6 +7984,8 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
         const items = searchResults
           .map(r => r.chat)
           .sort((a, b) => b.updated - a.updated);
+        if (this.loading) { renderSkeleton(dom.tutorChatList, 'skeleton-chat-row', 4); return; }
+        dom.tutorChatList.removeAttribute('aria-busy');
         dom.tutorChatList.innerHTML = '';
         if (!items.length) {
           dom.tutorChatList.innerHTML = `<p class="chat-empty">${q ? 'No chats match.' : 'No chats yet.'}</p>`;
@@ -7368,6 +8020,14 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
 
       renderChat() {
         const c = this.current();
+
+        if (this.loading) {
+          renderSkeleton(dom.tutorMessages, 'skeleton-msg', 3, 'user');
+          this._view = null;
+          this._status = null;
+          return;
+        }
+        dom.tutorMessages.removeAttribute('aria-busy');
 
         if (!c) {
           dom.tutorChatTitle.textContent = 'No chat selected';
@@ -7406,7 +8066,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           : 'No resources attached';
 
         this.renderMessages(c);
-        this.updateSendButton();
+        this.syncBusyUi();
       },
 
       // Incremental render: bubbles already on screen are kept, so the typing /
@@ -7485,6 +8145,17 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           bubble.className = 'chat-bubble model';
           bubble.dataset.msgIndex = String(idx);
           renderMarkdown(bubble, msg.text || '');
+          if (msg.errorCode) {
+            const codeLine = document.createElement('span');
+            codeLine.className = 'chat-error-code';
+            codeLine.textContent = `Code ${msg.errorCode}`;
+            const copyBtn = document.createElement('button');
+            copyBtn.type = 'button';
+            copyBtn.textContent = 'Copy details';
+            copyBtn.addEventListener('click', () => copyErrorDetails({ code: msg.errorCode, time: msg.errorTime || new Date().toISOString() }));
+            codeLine.appendChild(copyBtn);
+            bubble.appendChild(codeLine);
+          }
           const actions = document.createElement('div');
           actions.className = 'msg-actions';
           actions.innerHTML = `
@@ -7992,7 +8663,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           }
         }
         dom.refsSourceCount.textContent = this.sources.length ? `(${this.sources.length})` : '';
-        dom.refsGenerateBtn.disabled = this.sources.length === 0;
+        dom.refsGenerateBtn.disabled = this.sources.length === 0 || dom.refsGenerateBtn.classList.contains('is-busy');
 
         // Results
         if (this.results.length) {
@@ -8072,14 +8743,14 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           showToast(`${file.name} added`);
         } catch (err) {
           console.error('[refs] upload failed:', err);
-          showToast(err.message || 'Upload failed', 'error');
+          showToast(err.code ? errorToastText(err) : (err.message || 'Upload failed'), 'error');
         }
       },
 
       async generate() {
         if (!this.sources.length) return;
         this.style = dom.refsStyleSelect.value || 'Harvard';
-        dom.refsGenerateBtn.disabled = true;
+        setBusy(dom.refsGenerateBtn, true);
 
         // Initialize results with pending placeholders
         this.results = this.sources.map(s => ({ sourceId: s.id, label: s.label, pending: true }));
@@ -8103,11 +8774,11 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
             this.results[i] = { sourceId: src.id, label: src.label, citation: citation || '(No citation returned.)' };
           } catch (err) {
             console.error('[refs] generate failed for source', src, err);
-            this.results[i] = { sourceId: src.id, label: src.label, error: scrubErrorText(err.safeMessage || err.message) || 'Generation failed' };
+            this.results[i] = { sourceId: src.id, label: src.label, error: errorToastText(err) };
           }
           this.render();
         }
-        dom.refsGenerateBtn.disabled = false;
+        setBusy(dom.refsGenerateBtn, false);
         showToast('References generated');
       },
 
@@ -8279,7 +8950,7 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
           return;
         }
         navigator.clipboard.writeText(text).catch(() => {});
-        showToast('Export failed — copied to clipboard instead', 'error');
+        showToast(withCode('Export failed — copied to clipboard instead', err), 'error');
       } finally {
         if (!keepPicker) closeExportPicker();
       }
@@ -8613,24 +9284,26 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       dom.tutorInput.style.height = Math.min(200, dom.tutorInput.scrollHeight) + 'px';
       tutor.updateSendButton();
     });
-    dom.tutorInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        const text = dom.tutorInput.value;
-        if (text.trim()) {
-          dom.tutorInput.value = '';
-          dom.tutorInput.style.height = 'auto';
-          tutor.send(text);
-        }
-      }
-    });
-    dom.btnTutorSend.addEventListener('click', () => {
+    function submitTutorInput() {
       const text = dom.tutorInput.value;
-      if (!text.trim()) return;
+      const c = tutor.current();
+      if (!text.trim() || !c) return;
+      const blocked = tutor.blockedReason(c);
+      if (blocked) {
+        if (blocked === 'tab') showToast(CHAT_LOCK_MESSAGE);
+        return;
+      }
       dom.tutorInput.value = '';
       dom.tutorInput.style.height = 'auto';
       tutor.send(text);
+    }
+    dom.tutorInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        submitTutorInput();
+      }
     });
+    dom.btnTutorSend.addEventListener('click', submitTutorInput);
 
     // Sidebar nav clicks close the drawer on mobile (href navigation still fires)
     document.querySelectorAll('.nav-link').forEach(a => {
@@ -8807,7 +9480,13 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       }
 
       // Init KB + Tutor stores
+      tabSync.handlers = { kb: () => kb.reload(), tutor: () => tutor.reload(), history: refreshHistoryUi };
+      tabSync.init();
+      renderKbGrid();
+      tutor.renderSidebarList();
+      tutor.renderChat();
       await kb.init();
+      renderKbGrid();
       await tutor.init();
       ocr.resumePending();
       wireKbDropzone();
@@ -8877,6 +9556,17 @@ OUTPUT LENGTH LIMITS: the absolute technical ceiling for a single response is ap
       }
       loginInput.focus();
     });
+
+    dom.statusBannerClose.addEventListener('click', () => {
+      service.dismissed = service.offline ? 'offline' : service.down ? 'down' : 'degraded';
+      renderServiceBanner();
+    });
+    dom.statusBannerRetry.addEventListener('click', tryServiceAgain);
+    dom.btnCopyErrorDetails.addEventListener('click', () => { if (lastShownError) copyErrorDetails(lastShownError); });
+    window.addEventListener('offline', () => setServiceStatus('offline'));
+    window.addEventListener('online', () => setServiceStatus('online'));
+    window.addEventListener('pagehide', () => tutor.releaseAllLocks());
+    if (navigator.onLine === false) setServiceStatus('offline');
 
     document.getElementById('storageNoteClose').addEventListener('click', () => {
       storageNoteDismissed = true;
