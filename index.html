@@ -4040,13 +4040,53 @@
       });
     }
 
+    function bytesToHex(bytes) {
+      return [...bytes].map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
     // Content-addressable fingerprint for a scanned PDF's bytes — same
     // document, same hash, regardless of filename/rename/which device it
     // was uploaded from. Used to dedupe Gemini Files API uploads.
     async function sha256Hex(blob) {
       const buf = await blob.arrayBuffer();
       const digest = await crypto.subtle.digest('SHA-256', buf);
-      return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+      return bytesToHex(new Uint8Array(digest));
+    }
+
+    // Server-side caches (OCR text, Gemini file pointers) are filed under HMAC(device secret, file fingerprint),
+    // so nobody can find or reuse an entry from a file alone. The secret stays on this device: it is never synced,
+    // never sent, and signing out keeps it. Without storage it lives in memory for the visit.
+    const CACHE_SECRET_KEY = 'sth_cache_secret';
+    let cacheSecret = null; // { k: 32 hex chars, createdAt: ms }
+    const serverKeys = new Map(); // raw fingerprint -> server key
+
+    function readStoredCacheSecret() {
+      try {
+        const stored = JSON.parse(storageGet(CACHE_SECRET_KEY));
+        if (stored && typeof stored.k === 'string' && /^[0-9a-f]{32}$/.test(stored.k)) return { k: stored.k, createdAt: Number(stored.createdAt) || 0 };
+      } catch { /* missing or damaged entry */ }
+      return null;
+    }
+
+    function getCacheSecret() {
+      if (cacheSecret) return cacheSecret;
+      cacheSecret = readStoredCacheSecret();
+      if (!cacheSecret) {
+        cacheSecret = { k: bytesToHex(crypto.getRandomValues(new Uint8Array(16))), createdAt: Date.now() };
+        // Another tab may have created one at the same moment: keep whichever is stored
+        if (storageSet(CACHE_SECRET_KEY, JSON.stringify(cacheSecret))) cacheSecret = readStoredCacheSecret() || cacheSecret;
+      }
+      return cacheSecret;
+    }
+
+    async function serverKey(rawHash) {
+      if (serverKeys.has(rawHash)) return serverKeys.get(rawHash);
+      const keyBytes = Uint8Array.from(getCacheSecret().k.match(/../g), h => parseInt(h, 16));
+      const key = await crypto.subtle.importKey('raw', keyBytes, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+      const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawHash));
+      const hex = bytesToHex(new Uint8Array(signature));
+      serverKeys.set(rawHash, hex);
+      return hex;
     }
 
     // Label a KB item for the AI so it knows what format the text came from
@@ -4726,8 +4766,8 @@
     // Each scan is converted once into plain text with [Scan page N] markers and
     // kept on its Knowledge Bay item (ocrText), so the tutor sends searchable text
     // instead of the PDF. The browser splits the PDF into small pieces, so file
-    // size isn't bound by any single request; n8n caches each piece in Redis by
-    // content hash, so another device or a re-upload never pays for OCR twice.
+    // size isn't bound by any single request; n8n caches each piece in Redis under the
+    // file's server key (serverKey), so a re-upload on this device never pays for OCR twice.
     const ocr = {
       _progressStore: null,
       jobs: new Map(),
@@ -4796,7 +4836,7 @@
           if (pageRange(start, end).every(p => p in pages)) { done(); continue; }
 
           listeners.forEach(fn => fn(start - 1, total));
-          const payload = { mode: 'ocr', contentHash: item.contentHash, startPage: start, endPage: end };
+          const payload = { mode: 'ocr', contentHash: await serverKey(item.contentHash), startPage: start, endPage: end };
           if (source) payload.pdfBase64 = await this.extractPages(source, start, end);
           let result = await this.request(payload);
           if (result.missing && !source) {
@@ -6273,7 +6313,7 @@
             // Rasterized PDF — flatten page images into documents
             for (const page of doc) documents.push(page);
           } else if (doc && doc.type === 'scanned_pdf_upload') {
-            const meta = { name: doc.name, role: doc.role, pageCount: doc.pageCount || null, contentHash: doc.contentHash || null };
+            const meta = { name: doc.name, role: doc.role, pageCount: doc.pageCount || null, contentHash: doc.contentHash ? await serverKey(doc.contentHash) : null };
             meta.fieldName = `scanned_${binaryFiles.length}`;
             binaryFiles.push({ fieldName: meta.fieldName, blob: doc.originalFile, filename: doc.name });
             scannedPdfDocs.push(meta);
@@ -7802,6 +7842,7 @@
         // Scanned PDFs travel as original file bytes (multipart), never rasterized —
         // n8n uploads them to Gemini's Files API server-side. See scannedPdfDocs below.
         const scannedPdfDocs = [];
+        const rawHashByServerKey = new Map(); // replies name server keys; the chat's lists keep the raw fingerprints
         const binaryFiles = [];
 
         // Scanned PDFs are read into text once (see ocr). Wait for any attached
@@ -7866,7 +7907,8 @@
             // successfully uploaded this exact document before; otherwise
             // just reference it by hash so n8n can reuse its Gemini file.
             const alreadyUploaded = (c.uploadedScannedPdfFingerprints || []).includes(item.contentHash);
-            const docMeta = { name: item.name, pageCount: item.pageCount || null, contentHash: item.contentHash };
+            const docMeta = { name: item.name, pageCount: item.pageCount || null, contentHash: await serverKey(item.contentHash) };
+            rawHashByServerKey.set(docMeta.contentHash, item.contentHash);
             const needsConversion = item.type === 'doc';
             if (needsConversion && !state.driveSyncToken) {
               // .doc conversion happens via the user's own Google Drive —
@@ -7990,9 +8032,9 @@
           if (scannedPdfDocs.length > 0) {
             const uploaded = new Set(c.uploadedScannedPdfFingerprints || []);
             for (const doc of scannedPdfDocs) {
-              if (doc.fieldName) uploaded.add(doc.contentHash);
+              if (doc.fieldName) uploaded.add(rawHashByServerKey.get(doc.contentHash));
             }
-            for (const hash of ((data && data.reuploadScannedPdfs) || [])) uploaded.delete(hash);
+            for (const key of ((data && data.reuploadScannedPdfs) || [])) uploaded.delete(rawHashByServerKey.get(key));
             c.uploadedScannedPdfFingerprints = [...uploaded];
           }
           // These attachments have now been delivered as part of the conversation —
