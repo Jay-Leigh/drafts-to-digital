@@ -9443,6 +9443,7 @@
       loginError.style.color = '#9b2226';
       if (e.key === 'AUTH-429') loginError.textContent = e.message;
       else if (e.key === 'NET-000') loginError.textContent = withCode(e.message, e);
+      else if (e.key === 'SRV-500') loginError.textContent = `Sign-in is temporarily unavailable. Something went wrong on our side. Please try again shortly. (Code ${e.code})`;
       else loginError.textContent = `Sign-in is temporarily unavailable. ${withCode(e.message, e)}`;
       loginInput.focus();
     }
