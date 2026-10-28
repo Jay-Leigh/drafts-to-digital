@@ -9,6 +9,12 @@ Orchestrator (main session) = decision maker + architect. Delegates work to sub-
 4. Test: 3 iterations via sub-agents (different routes each). Orchestrator confirms results.
 5. User does final test and signs off. Only then merge.
 
+## Lean mode (usage budget, owner request 2026-10-28)
+- Development and integration first; tests small and targeted. One combined test pass per PR by a single Sonnet agent (journeys + legal-vs-code check in one), not three parallel rounds.
+- Builders run only the suites that cover code they changed, plus a gate/sync smoke; the full flat suite only before a risky merge.
+- Opus only for design review of high-risk areas (auth, jobs, security) and for hard debugging; no Opus diff reviews of routine PRs. Haiku or Sonnet for mechanical checks.
+- No redundant parallel agents on the same files; no screenshot marathons.
+
 ## Model routing
 - Opus: architecture, reviewer, GCP/auth diagnosis, async-job design, final PR review
 - Sonnet: legal drafts (use legal:brief), studio build, n8n branches
