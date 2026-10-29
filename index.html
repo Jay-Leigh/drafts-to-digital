@@ -946,8 +946,16 @@
     body.studio-fs-lock { overflow: hidden; }
     .tutor-back-map { margin-top: 8px; align-self: flex-start; }
     .tutor-back-map[hidden] { display: none; }
+    #viewStudio:has(#studioViewer.is-map) > .view-header { display: none; }
+    .studio-mm-fullbtn { gap: 6px; }
     @media (max-width: 640px) {
-      .studio-mm-title { font-size: 18px; }
+      .studio-mm-title { order: 5; flex: 1 0 100%; font-size: 17px; }
+      .studio-mm-bar .studio-mm-back { order: 1; }
+      .studio-mm-bar #studioMmReport { order: 2; margin-left: auto; padding: 0 12px; font-size: 12px; }
+      .studio-mm-bar .studio-menu { order: 3; }
+      .studio-mm-fullbtn span { display: none; }
+      .studio-mm-fullbtn { width: 44px; padding: 0; }
+      .studio-mm-hint[data-on="0"] { display: none; }
       .studio-mm-seg button { padding: 0 14px; }
       .studio-mm-body { height: 460px; height: clamp(360px, calc(100dvh - 400px), 640px); }
     }
@@ -3198,7 +3206,6 @@
                 </div>
               </div>
               <div class="tutor-attached" id="tutorAttachedSummary" style="margin-top:6px">No resources attached</div>
-              <a id="tutorBackToMap" class="studio-btn ghost tutor-back-map" href="#studio" hidden>&larr; Back to mind map</a>
             </div>
 
             <div id="chatSearchWrap" class="chat-search-wrap" style="display:none; padding-top:10px">
@@ -3892,7 +3899,6 @@
       btnScrollBottom:      $('btnScrollBottom'),
       tutorBookmarks:       $('tutorBookmarks'),
       tutorInput:           $('tutorInput'),
-      tutorBackToMap:       $('tutorBackToMap'),
       btnTutorSend:         $('btnTutorSend'),
       btnTutorAttach:       $('btnTutorAttach'),
       btnRenameChat:        $('btnRenameChat'),
@@ -10208,9 +10214,18 @@
         } else put();
       },
 
+      // The "Back to mind map" link in the tutor header: made only when a chat is linked to a study aid
       syncTutorBack(chat) {
-        const link = dom.tutorBackToMap;
         const item = chat && chat.studioItemId && this.enabled() ? this.items.find(i => i.id === chat.studioItemId) : null;
+        let link = document.getElementById('tutorBackToMap');
+        if (!link) {
+          if (!item) return;
+          link = document.createElement('a');
+          link.id = 'tutorBackToMap';
+          link.className = 'studio-btn ghost tutor-back-map';
+          link.textContent = '← Back to mind map';
+          dom.tutorAttachedSummary.after(link);
+        }
         link.hidden = !item;
         if (item) link.setAttribute('href', `#studio/${item.id}`);
       },
@@ -10572,7 +10587,7 @@
         this.el('studioViewerCard').innerHTML = `
           <div class="studio-mm" id="studioMm">
             <div class="studio-mm-bar">
-              <a class="studio-btn ghost studio-mm-back" href="#studio">&larr; Study aids</a>
+              <a class="studio-btn ghost studio-mm-back" href="#studio" aria-label="Back to Study Studio">&larr; Back</a>
               <h2 class="studio-mm-title" id="studioMmTitle"></h2>
               <a class="studio-btn ghost" id="studioMmReport" href="${STUDIO_REPORT_HREF}">Report a problem</a>
               <details class="studio-menu" id="studioMmMenu">
@@ -10590,7 +10605,7 @@
                 <button type="button" id="studioMmViewMap" aria-pressed="true">Map</button>
                 <button type="button" id="studioMmViewOutline" aria-pressed="false">Outline</button>
               </div>
-              <button type="button" class="studio-btn ghost" id="studioMmFull" aria-pressed="false">Fullscreen</button>
+              <button type="button" class="studio-btn ghost studio-mm-fullbtn" id="studioMmFull" aria-pressed="false" aria-label="Fullscreen" title="Fullscreen"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><span>Fullscreen</span></button>
               <button type="button" class="studio-btn ghost" id="studioMmNewChat" aria-pressed="false">New chat instead</button>
               <p class="studio-mm-hint" id="studioMmHint"></p>
             </div>
@@ -10622,8 +10637,7 @@
         this.ro = new ResizeObserver(() => this.onResize());
         this.ro.observe(this.mapEl);
         this.syncNewChat();
-        this.citeSig = null;
-        this.refreshCites();
+        this.citeSig = this.citeSigNow();
         this.draw();
       },
 
@@ -10751,9 +10765,11 @@
         }
       },
 
+      citeSigNow() { return this.item.sourceIds.map(id => kb.loading || kb.cache.some(k => k.id === id) ? '1' : '0').join(''); },
+
       refreshCites() {
         if (!this.item || !this.model) return;
-        const sig = this.item.sourceIds.map(id => kb.loading || kb.cache.some(k => k.id === id) ? '1' : '0').join('');
+        const sig = this.citeSigNow();
         if (sig === this.citeSig) return;
         this.citeSig = sig;
         for (const [id, b] of this.boxes) if (b.chips) this.fillChips(b.chips, this.model.byId.get(id));
@@ -10765,7 +10781,7 @@
         if (!mapEl.clientWidth || !mapEl.clientHeight) { this.dirty = true; return; }
         this.dirty = false;
         const hadFocus = mapEl.contains(document.activeElement) && document.activeElement !== mapEl;
-        const widths = mapEl.clientWidth < 600 ? [240, 220, 200] : [340, 300, 280];
+        const widths = mapEl.clientWidth < 420 ? [200, 180, 170] : mapEl.clientWidth < 600 ? [240, 220, 200] : [340, 300, 280];
         const vis = studioMapVisible(model, vs.expanded);
         const keep = new Set(vis);
         for (const [id, b] of this.boxes) if (!keep.has(id)) { b.el.remove(); this.boxes.delete(id); }
@@ -10894,7 +10910,7 @@
         studio.announce('All ideas closed except the first level.');
       },
 
-      // After opening a branch: bring it into view, the idea at a quarter from the left, its children centred (or top-aligned when taller than the view)
+      // After opening a branch: bring it into view, the idea at a quarter from the left, its children centred, or top-aligned when taller than the view (centred on the idea itself when that would push it off screen)
       reveal(id) {
         const { vs, layout, mapEl, model } = this;
         if (!layout) return;
@@ -10906,8 +10922,9 @@
         const inside = p.x * z + vs.px >= 0 && right * z + vs.px <= W && top * z + vs.py >= 0 && bottom * z + vs.py <= H;
         if (inside) return;
         const hs = (bottom - top) * z;
-        vs.px = W * 0.25 - p.x * z;
-        vs.py = hs <= H - 32 ? (H - hs) / 2 - top * z : 16 - top * z;
+        vs.px = Math.min(W * 0.25 - p.x * z, Math.max(W - 16 - right * z, 12 - p.x * z));
+        const topAligned = 16 - top * z, nodeY = (p.y + p.bh / 2) * z;
+        vs.py = hs <= H - 32 ? (H - hs) / 2 - top * z : nodeY + topAligned <= H - 16 ? topAligned : H / 2 - nodeY;
         this.animate();
         this.applyTransform();
       },
@@ -11181,6 +11198,7 @@
       syncHint() {
         const hint = this.el('studioMmHint');
         if (!hint || !this.vs) return;
+        hint.dataset.on = this.vs.newChat ? '1' : '0';
         hint.textContent = this.vs.newChat
           ? 'The next idea you choose opens a new tutor chat.'
           : 'Choose an idea’s name to ask your tutor about it. Use the arrow to open or close it.';
@@ -11197,7 +11215,13 @@
         const full = this.isFull();
         root.classList.toggle('is-full', full);
         const btn = this.el('studioMmFull');
-        if (btn) { btn.setAttribute('aria-pressed', String(full)); btn.textContent = full ? 'Exit fullscreen' : 'Fullscreen'; }
+        if (btn) {
+          const name = full ? 'Exit fullscreen' : 'Fullscreen';
+          btn.setAttribute('aria-pressed', String(full));
+          btn.setAttribute('aria-label', name);
+          btn.title = name;
+          btn.querySelector('span').textContent = name;
+        }
         if (!full) { document.body.classList.remove('studio-fs-lock'); root.classList.remove('studio-pseudo-fullscreen'); }
       },
 
