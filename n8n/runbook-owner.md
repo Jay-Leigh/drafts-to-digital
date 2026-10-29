@@ -333,7 +333,7 @@ Gemini limits on the new path: tutor `maxOutputTokens 16384` (old 49152) and thi
 
 ## 18. Study Studio (mind map): import v3 INSTEAD of v2
 
-`sth-workflow-v3-studio.json` = v2 + one new mode, `studio_mindmap`, on the same JWT path (`/webhook/student-tools-v2`). It replaces v2: you import v3 once, at the moment you would have imported v2. Never import v2 and then v3 on top of a v1 you still need open; v3 also removes the legacy path, so the same gate applies.
+`sth-workflow-v3-studio.json` = v2 + one new mode, `studio_mindmap`, on the same JWT path (`/webhook/student-tools-v2`). It replaces v2: you import v3 once, at the moment you would have imported v2. v3 contains everything v2 does (it also removes the open legacy path and the old Drive branch), so import one or the other, never both, and the same gate applies.
 
 **Prerequisites (identical to step 12):** at least 72 hours since the new client was live, and `stats:legacy:*` at 0 (or only your own calls) for the last 24 hours. Same credentials, nothing new to create. The new node `Studio - Call Gemini` uses your existing `Gemini API Key` credential; open it once after the import and check it is selected.
 
@@ -347,7 +347,7 @@ Also check once: Cloud Run > your n8n service > Edit > "Request timeout" is 300 
 | `STH-STU-413` | more than 10 sources or 5 pictures, description over 1000 characters, or too much material (over 120,000 tokens, or a picture over about 6 MB) |
 | `STH-INPUT-400` | not a valid request (wrong version/tool/language, no sources, malformed source) |
 | `STH-STU-409` | Gemini busy or unreachable after the tries (rate limit, 5xx, time-out); safe to try again later |
-| `STH-STU-422` | the answer could not be used (cut off, not JSON, fewer than 4 nodes after repair, blocked as empty) |
+| `STH-STU-422` | the answer could not be used (cut off, not JSON, fewer than 4 nodes after repair, or an empty answer) |
 | `STH-AI-451` / `STH-AI-452` | Gemini declined the material (safety / looks like published text) |
 | `STH-AI-403` | Gemini refused the API key (check the `Gemini API Key` credential) |
 | `STH-QUOTA-430` | the daily ceiling `cfg:daily_units` is reached (same as the other Gemini modes) |
