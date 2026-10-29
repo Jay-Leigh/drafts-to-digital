@@ -6,6 +6,7 @@ Files (in the `n8n/` folder of the repo):
 |---|---|
 | `sth-workflow-v1-additive.json` | Import first. Old clients keep working (old path stays open and is counted). |
 | `sth-workflow-v2-enforce.json` | Import later (step 12). Removes the old open path and the old Drive branch. |
+| `sth-workflow-v3-studio.json` | Import INSTEAD of v2 (step 18) when you also want Study Studio. It is v2 plus the mind map branch; never import both. |
 
 Tested against n8n 2.29.7 (the version you run). Nothing below needs n8n server environment variables.
 
@@ -250,10 +251,13 @@ Import `sth-workflow-v2-enforce.json` only when both hold:
 
 Procedure: repeat steps 1, 4, 5 (re-select `STH JWT` unless you edited the id in step 2.4), 6, 7, then repeat tests 8.1 to 8.6, 8.10, 8.12 and 8.13 and check the settings again (step 6b). Also expect: `POST /webhook/student-tools` now answers 404, and DOC conversion through Drive is gone (the browser does it).
 
+With Study Studio (the mind map) you import `sth-workflow-v3-studio.json` here instead of `sth-workflow-v2-enforce.json`: same conditions, same procedure, see step 18.
+
 ## 13. Rollback
 
 - Back to before PR-B: import `backup-before-prb.json` (step 1) over the workflow, redo step 6, publish; also revert index.html (the new client would call paths that no longer exist).
 - v2 back to v1: import `sth-workflow-v1-additive.json` again (re-select `STH JWT`).
+- v3 back to v2: import `sth-workflow-v2-enforce.json` again (re-select `STH JWT`). The mind map then answers like an unknown mode, so switch the Studio flag off in the client first.
 - All existing tokens die immediately if you change the secret in the `STH JWT` credential.
 
 ## 14. One-off purge of legacy OCR cache keys in Upstash
@@ -289,7 +293,7 @@ Leave `gemini-file:*` (47-hour expiry) and `session:*` (3-hour expiry) alone.
 |---|---|---|---|
 | `auth:code` | you (step 3) | none | the access code, plain text |
 | `cfg:daily_units` | you (optional) | none | daily ceiling in weighted units; unset, empty or not a number = no ceiling; `0` blocks all new-path Gemini calls |
-| `usage:YYYYMMDD` | workflow (after each Gemini answer, both paths) | 3 days | weighted units used on that UTC day |
+| `usage:YYYYMMDD` | workflow (after each Gemini answer, both paths; v3: Study Studio answers too) | 3 days | weighted units used on that UTC day |
 | `auth:fail:<ip>` | workflow | 600 s (window starts at the first attempt) | attempts by that IP; above 10 = blocked; cleared by a correct code |
 | `auth:ok:<ip>` | workflow | 3600 s | successful sign-ins by that IP; above 20 = refused; never cleared |
 | `err:YYYYMMDD` | workflow | 2 days | error e-mails (reports + workflow errors), cap 50 |
@@ -313,7 +317,7 @@ SET cfg:daily_units 0          (stop all new-path Gemini calls now)
 KEYS usage:*                   (the last 3 days)
 ```
 
-Behaviour of the ceiling: checked only for requests on the new path and only for modes that call Gemini (tutor, transcribe, template, reviewer, reference); the old path is not checked (it is metered). Reached = usage at or above the ceiling. A tutor request that needed retries is metered for its final answer only. If the Redis read fails, the request goes ahead.
+Behaviour of the ceiling: checked only for requests on the new path and only for modes that call Gemini (tutor, transcribe, template, reviewer, reference, and in v3 studio_mindmap); the old path is not checked (it is metered). Reached = usage at or above the ceiling. A tutor request that needed retries is metered for its final answer only. If the Redis read fails, the request goes ahead.
 
 ## 17. For the client PR: tutor fields on the new path
 
@@ -326,3 +330,81 @@ Now ignored or forced on the new path (the client may stop sending them):
 - `cacheName`, `cacheExpiresAt`, `knowledgeIds`, `chatTitle`: not read by the workflow on either path.
 
 Gemini limits on the new path: tutor `maxOutputTokens 16384` (old 49152) and thinking budget 2048; transcribe, template and reviewer keep 8192 output tokens and gain thinking budget 2048; `reference` is unchanged (800 output tokens). The flash-lite fallback keeps the same settings.
+
+## 18. Study Studio (mind map): import v3 INSTEAD of v2
+
+`sth-workflow-v3-studio.json` = v2 + one new mode, `studio_mindmap`, on the same JWT path (`/webhook/student-tools-v2`). It replaces v2: you import v3 once, at the moment you would have imported v2. v3 contains everything v2 does (it also removes the open legacy path and the old Drive branch), so import one or the other, never both, and the same gate applies.
+
+**Prerequisites (identical to step 12):** at least 72 hours since the new client was live, and `stats:legacy:*` at 0 (or only your own calls) for the last 24 hours. Same credentials, nothing new to create. The new node `Studio - Call Gemini` uses your existing `Gemini API Key` credential; open it once after the import and check it is selected.
+
+**Procedure:** exactly step 12 with v3 instead of v2: steps 1, 4 (file `sth-workflow-v3-studio.json`), 5, 6, 7, then the tests of step 12 (8.1 to 8.6, 8.10, 8.12, 8.13), then the settings check **6b again** (Do not save for successful and failed executions, error workflow set), then the three tests below.
+Also check once: Cloud Run > your n8n service > Edit > "Request timeout" is 300 seconds or more. A mind map can take 1 to 3 minutes; the workflow always answers before 270 seconds (first Gemini call limited to 240 s, retries only while time is left), so a lower Cloud Run timeout would cut maps off.
+
+**What the mode does:** one request, one answer (no background job). The browser sends the sources it has already read (text, plus up to 5 pictures); n8n re-checks the limits itself (1 to 10 sources, at most 5 pictures, description up to 1000 characters, language from the app's list of 16, estimated size at most 120,000 tokens counting text as characters / 4 and 1,600 per picture), asks `gemini-2.5-flash` for the map in JSON mode, repairs and validates it, and answers `{"ok":true,"artifact":{...}}`. If the model is rate limited or fails (429, 5xx, empty answer, time-out) it is tried again up to 3 times; only the third and last try uses `gemini-2.5-flash-lite`. Like every other mode it answers HTTP 200 and reports failures as `{"ok":false,"error":{"code":"..."}}`:
+
+| Code | When |
+|---|---|
+| `STH-STU-413` | more than 10 sources or 5 pictures, description over 1000 characters, or too much material (over 120,000 tokens, or a picture over about 6 MB) |
+| `STH-INPUT-400` | not a valid request (wrong version/tool/language, no sources, malformed source) |
+| `STH-STU-409` | Gemini busy or unreachable after the tries (rate limit, 5xx, time-out); safe to try again later |
+| `STH-STU-422` | the answer could not be used (cut off, not JSON, fewer than 4 nodes after repair, or an empty answer) |
+| `STH-AI-451` / `STH-AI-452` | Gemini declined the material (safety / looks like published text) |
+| `STH-AI-403` | Gemini refused the API key (check the `Gemini API Key` credential) |
+| `STH-QUOTA-430` | the daily ceiling `cfg:daily_units` is reached (same as the other Gemini modes) |
+
+Error answers carry a short fixed `reason` tag for your own debugging (for example `truncated`, `parse`, `too_many_sources`); they never contain text from the student's material, and nothing from a request can reach an error mail (the nodes never throw and execution data is not saved).
+
+**Cost meter and the one number to set.** Studio uses the same meter and ceiling as the other modes, with the price-true weight for a big-input JSON call:
+
+```
+units = prompt tokens + 8.33 x (output tokens + thinking tokens)       (1 unit = 1 input token = USD 0.30 per million)
+```
+
+(8.33 = 2.50 / 0.30, the real Gemini 2.5 Flash output-to-input price ratio. The other modes keep their factor 4.) The ceiling is checked before Gemini is called; the units are added after Gemini answers (also when the answer later turns out unusable, because Google bills it; never for 429/5xx/time-outs, which are not billed).
+
+Your budget of R500 a month at R18 to the dollar is USD 27.8 a month, about USD 0.93 a day. USD 0.93 / (USD 0.30 per million) = 3,100,000 units. In the Upstash CLI:
+
+```
+SET cfg:daily_units 3100000
+```
+
+What that means: a mind map of 50,000 tokens of material costs about 140,000 units (USD 0.04, R0.8); one of 100,000 tokens about 195,000 units (USD 0.06, R1.05). So about 16 to 22 maps a day, or fewer if the tutor and the other tools are also busy (they share the counter). A call that starts just under the ceiling can finish above it, so the real daily spend can exceed USD 0.93 by about one map (USD 0.06). Because the older modes weigh output at 4 instead of 8.33, a day dominated by tutor traffic can cost a little more than the matching dollar figure (at most about 2x for pure output); watch the first week.
+
+To change the ceiling to another daily amount: units = dollars per day x 3,333,333 (for example USD 2 a day is `SET cfg:daily_units 6666666`). `DEL cfg:daily_units` removes it; `SET cfg:daily_units 0` stops all Gemini modes at once. Read today's use with `GET usage:YYYYMMDD` (UTC date).
+
+**Tests (cmd.exe; `%TOKEN%` from 8.2).** Create the two small files in Notepad first (one line each, no extra spaces).
+
+`studio-413.json` (eleven tiny sources, one too many; no Gemini call, free):
+
+```
+{"mode":"studio_mindmap","v":1,"tool":"mindmap","language":{"code":"en"},"description":"","sources":[{"id":"S1","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S2","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S3","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S4","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S5","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S6","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S7","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S8","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S9","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S10","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S11","name":"a","kind":"txt","markers":"none","text":"x"}]}
+```
+
+`studio-ok.json` (one small source, a real mind map):
+
+```
+{"mode":"studio_mindmap","v":1,"tool":"mindmap","language":{"code":"en"},"description":"Biology revision","sources":[{"id":"S1","name":"notes.txt","kind":"txt","markers":"none","text":"Photosynthesis. Plants make sugar from light. Light reactions happen in the thylakoid membranes and make ATP and NADPH. The Calvin cycle happens in the stroma and uses ATP and NADPH to fix carbon dioxide into sugar. Respiration. Cells release energy from sugar. Glycolysis happens in the cytoplasm and splits glucose into two pyruvate. The Krebs cycle happens in the mitochondrial matrix and makes carbon dioxide, NADH and FADH2. The electron transport chain on the inner membrane makes most of the ATP. Ecology. Energy flows through food chains. Producers such as plants capture solar energy. Consumers eat producers or other consumers. Decomposers recycle nutrients back into the soil."}]}
+```
+
+**18.1 No token gives 401**
+
+```
+curl.exe -i -X POST "%N8N%/webhook/student-tools-v2" -H "Content-Type: application/json" --data-binary @studio-413.json
+```
+Expect `HTTP/1.1 401`, body `No token provided`. (A wrong token gives 403, as in 8.5.)
+
+**18.2 Over the limit gives 413 in the answer (HTTP 200)**
+
+```
+curl.exe -s -X POST "%N8N%/webhook/student-tools-v2" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary @studio-413.json
+```
+Expect `{"ok":false,"error":{"code":"STH-STU-413","retryable":false,"reason":"too_many_sources"}}`. No Gemini call, the usage counter does not move.
+
+**18.3 One real mind map (costs money: about R1 for a map; this small source a little less; run it ONCE)**
+
+```
+curl.exe -s -X POST "%N8N%/webhook/student-tools-v2" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary @studio-ok.json
+```
+Expect, after 20 to 90 seconds, `{"ok":true,"artifact":{"envelope":"sth.studio/1","tool":"mindmap","schema":"sth.mindmap/1","promptVersion":"studio-2026-11-a","model":"gemini-2.5-flash","strategy":"direct","generatedAt":"...","usage":{"inputTokens":...,"outputTokens":...,"thinkingTokens":...,"calls":1},"repairs":[...],"data":{"schema":"sth.mindmap/1","title":"...","notices":[],"nodes":[{"id":"n1","parent":"",...}]}}}`: one root (`parent` empty), at least 4 nodes, `calls` 1. Then in the Upstash CLI `GET usage:YYYYMMDD` has grown by roughly 10,000 to 60,000 units. If you get `STH-STU-422` the model answered but the map was unusable (try once more); `STH-STU-409` means Gemini was busy or unreachable. Delete the two JSON files when done.
+
+Clean-up note: Studio keeps nothing in Upstash except the usage counter; the sources and the map exist only inside the one request.
