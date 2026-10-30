@@ -7,6 +7,7 @@ Files (in the `n8n/` folder of the repo):
 | `sth-workflow-v1-additive.json` | Import first. Old clients keep working (old path stays open and is counted). |
 | `sth-workflow-v2-enforce.json` | Import later (step 12). Removes the old open path and the old Drive branch. |
 | `sth-workflow-v3-studio.json` | Import INSTEAD of v2 (step 18) when you also want Study Studio. It is v2 plus the mind map branch; never import both. |
+| `sth-workflow-v4-jobs.json` | Import INSTEAD of v3 (step 19) for background jobs (tutor and mind map keep running after the app is closed). It is v3 plus the job webhooks; never import both. |
 
 Tested against n8n 2.29.7 (the version you run). Nothing below needs n8n server environment variables.
 
@@ -302,6 +303,12 @@ Leave `gemini-file:*` (47-hour expiry) and `session:*` (3-hour expiry) alone.
 | `session:<chatId>` | workflow | 3 h | tutor session, last 30 entries |
 | `ocr:*` | workflow | 30 days (new), none (legacy: purge, step 14) | OCR cache |
 | `gemini-file:*` | workflow | 47 h | Gemini file handles |
+| `cfg:jobs_max_running` | you (optional, v4) | none | total cap of background jobs running at once, 0..12 (default 4); `0` = jobs off at once (step 19); junk = default |
+| `sth:job:<jobId>` | workflow (v4) | 72 h from start and from finish; 1 h when refused or cancelled; deleted when the app collects the result | job record: key hash, mode, state, attempt, times, error code, n8n execution id, result size. No text of the request |
+| `sth:jobr:<jobId>` | workflow (v4) | 72 h from finish; deleted on pickup or cancel | the finished answer (at most 512 KB), exactly what the direct request would have returned |
+| `sth:jobx:<executionId>` | workflow (v4) | deadline + 1 h | maps a failed n8n execution to its job (`jobId\|attempt\|mode`) |
+| `sth:jobs:run:tutor`, `sth:jobs:run:studio_mindmap` | workflow (v4) | 1 d | jobs currently running (sorted set); entries free themselves after deadline + 60 s |
+| `sth:jobs:n:YYYYMMDD` | workflow (v4) | 30 days | daily counts (admitted, busy, succeeded, failed), no content |
 
 `<ip>` is the last hop of `X-Forwarded-For` (added by Cloud Run).
 
@@ -424,3 +431,74 @@ curl.exe -s -X POST "%N8N%/webhook/student-tools-v2" -H "Content-Type: applicati
 Expect, after 20 to 90 seconds, `{"ok":true,"artifact":{"envelope":"sth.studio/1","tool":"mindmap","schema":"sth.mindmap/1","promptVersion":"studio-2026-11-a","model":"gemini-2.5-flash","strategy":"direct","generatedAt":"...","usage":{"inputTokens":...,"outputTokens":...,"thinkingTokens":...,"calls":1},"repairs":[...],"data":{"schema":"sth.mindmap/1","title":"...","notices":[],"nodes":[{"id":"n1","parent":"",...}]}}}`: one root (`parent` empty), at least 4 nodes, `calls` 1. Then in the Upstash CLI `GET usage:YYYYMMDD` has grown by roughly 10,000 to 60,000 units. If you get `STH-STU-422` the model answered but the map was unusable (try once more); `STH-STU-409` means Gemini was busy or unreachable. Delete the two JSON files when done.
 
 Clean-up note: Studio keeps nothing in Upstash except the usage counter; the sources and the map exist only inside the one request.
+
+## 19. Background jobs: import v4 INSTEAD of v3
+
+`sth-workflow-v4-jobs.json` = v3 + background jobs for two modes: the tutor and the Study Studio mind map. The app can then start a request, you can close it, and the answer waits in Upstash (up to 3 days, or until the app collects it). It replaces v3: import v4 in place of v3, never both. The synchronous requests (`/webhook/student-tools-v2`) answer exactly as before; the app only uses jobs for people who switch the feature on (testers), and falls back to the normal request when the job paths do not exist (404).
+
+**What is new**
+
+- Two JWT webhooks: `/webhook/sth-job-start` (node `Job Start Endpoint`: starts a job and answers `{"ok":true,"accepted":true}` at once, the run continues) and `/webhook/sth-job` (node `Job Endpoint`: hello, status, result, ack, cancel). Both need the same token as the other paths.
+- 26 new nodes, all named `Job - ...` (plus the two webhooks); five existing nodes changed a little (`Normalize Multipart Body`, `Prep — Tutor`, `Save Session Builder`, `Tutor Retry Check`, `Studio - Retry Check`).
+- Limits (node `Job - Read Request`, top of the code): a tutor job may run 7 minutes (3 at the same time), a mind map job 10 minutes (1 at a time), 4 jobs in total. A job that is still running a minute after its deadline is shown to the app as lost, and the app starts it again (at most 3 attempts).
+- Workflow setting `Timeout Workflow` is set to 720 seconds in the file (memory safety net only).
+- Privacy: no text of a request is ever stored for a job (only in n8n memory while it runs). What is stored is in the key table of step 16. A job that fails stores only an error code.
+
+**Procedure** (same as step 12, with v4)
+
+1. Back up (step 1). 2. Import `sth-workflow-v4-jobs.json` in place (step 4). 3. Credentials (step 5): the two new webhooks `Job Start Endpoint` and `Job Endpoint` must show `STH JWT` selected (red triangle = not selected). Also open `Job - Admit` once and confirm `Upstash Redis REST` is selected (same for the other `Job - ...` Redis nodes). 4. Settings (step 6 and 6b): Do not save for successful and failed executions, error workflow = this workflow. `Timeout Workflow` should read 720 seconds; if the import dropped it, set it. 5. Publish (step 7).
+
+**Tests (cmd.exe; `%TOKEN%` from 8.2; the id and key below are examples: any `j_` + 22 characters and any 43 characters of letters, digits, `-` or `_`)**
+
+```
+set JID=j_AAAAAAAAAAAAAAAAAAAAAA
+set JKEY=kAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+```
+
+19.1 No token gives 401, a wrong token 403, on both paths:
+
+```
+curl.exe -i -X POST "%N8N%/webhook/sth-job" -H "Content-Type: application/json" --data-binary "{\"v\":1,\"op\":\"status\",\"jobs\":[]}"
+curl.exe -i -X POST "%N8N%/webhook/sth-job-start" -H "Content-Type: application/json" -H "Authorization: Bearer garbage" --data-binary "{}"
+```
+Expect `HTTP/1.1 401` and `HTTP/1.1 403`.
+
+19.2 Hello (free, no Upstash call):
+
+```
+curl.exe -s -X POST "%N8N%/webhook/sth-job" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary "{\"v\":1,\"op\":\"status\",\"jobs\":[]}"
+```
+Expect `{"ok":true,"jobsEnabled":true,"modes":["tutor","studio_mindmap"],"now":...}`.
+
+19.3 One real tutor job (costs a few cents; run it ONCE). Create, wait about 10 seconds, ask for the status, fetch the result, then collect (ack):
+
+```
+curl.exe -s -X POST "%N8N%/webhook/sth-job-start" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary "{\"mode\":\"tutor\",\"chatId\":\"runbook-19\",\"messages\":[{\"role\":\"user\",\"text\":\"Say hello in five words.\"}],\"attachedContext\":[],\"documentFingerprints\":[],\"job\":{\"v\":1,\"op\":\"create\",\"id\":\"%JID%\",\"key\":\"%JKEY%\",\"attempt\":1,\"mode\":\"tutor\"}}"
+curl.exe -s -X POST "%N8N%/webhook/sth-job" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary "{\"v\":1,\"op\":\"status\",\"jobs\":[{\"id\":\"%JID%\",\"key\":\"%JKEY%\"}]}"
+curl.exe -s -X POST "%N8N%/webhook/sth-job" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary "{\"v\":1,\"op\":\"result\",\"jobs\":[{\"id\":\"%JID%\",\"key\":\"%JKEY%\"}]}"
+curl.exe -s -X POST "%N8N%/webhook/sth-job" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary "{\"v\":1,\"op\":\"ack\",\"jobs\":[{\"id\":\"%JID%\",\"key\":\"%JKEY%\"}]}"
+```
+Expect, in order: `{"ok":true,"accepted":true}`; a status with `"state":"succeeded"` (or `"running"` if you were quick: ask again); `{"ok":true,"id":"j_...","mode":"tutor","result":{"result":"...","reuploadScannedPdfs":[]}}`; `{"ok":true,"acked":["j_..."]}`. Asking for the status again now gives `"state":"unknown"` (collected and deleted). A wrong key always gives `unknown` / `STH-JOB-404`, never an error. The mind map is tested from the app (testers flag, see the client PR), because its request is large.
+
+19.4 In the Upstash CLI: `HGETALL sth:job:<your id>` shows no text of the request, only `kh` (a hash of the key), `m`, `st`, `a` and times. `GET sth:jobs:n:YYYYMMDD` is not a string: use `HGETALL sth:jobs:n:YYYYMMDD` (admitted / busy / succeeded / failed counts for that UTC day).
+
+**Load test (do it once before testers switch the feature on)**
+
+1. In the app (tester flag on) start 2 tutor questions with a document attached, 1 mind map and, a few seconds later, 1 normal OCR upload, all at the same time. 2. All four must finish and the app must show every answer. 3. Watch Cloud Run > your n8n service > Metrics: memory must stay clearly under its limit and the instance must not restart. 4. If memory gets close to the limit, lower the total cap right away (below), or set it to 1.
+
+**The cap you can change without importing: `cfg:jobs_max_running`**
+
+```
+SET cfg:jobs_max_running 2      (at most 2 jobs at once in total, 0..12; the per-mode limits tutor 3 and mind map 1 still apply)
+SET cfg:jobs_max_running 0      (jobs OFF now: new requests are refused, the app sends them the normal way)
+DEL cfg:jobs_max_running        (back to 4)
+```
+Takes effect on the next request. Jobs already running finish and their answers can still be collected.
+
+**Kill switch 2 (needs a re-publish):** in node `Job - Read Request` change `const JOBS_ENABLED = true;` to `false` and publish. Same effect as `SET cfg:jobs_max_running 0` and it survives a re-import only if you repeat it.
+
+**If something goes wrong:** the app falls back to normal requests when the job paths answer 404 or when jobs are off. Rollback: import `sth-workflow-v3-studio.json` again (step 13; re-select `STH JWT`); answers still stored in Upstash expire by themselves within 72 hours.
+
+**Error codes a job can end with** (shown to the app by status): `STH-JOB-429` (busy, the app waits and re-sends), `STH-JOB-503` (jobs off), `STH-JOB-504` (lost, re-sent), `STH-JOB-413` (answer over 512 KB), `STH-JOB-404` (answer already gone), `STH-SRV-503` (Upstash did not answer the status call), plus the codes the same request would give directly (`STH-AI-429/451/452/204/500/503/504`, `STH-STU-409/413/422`, `STH-QUOTA-430`, `STH-INPUT-400`, `STH-SRV-500`).
+
+**Limits you should know:** a restart or crash of the n8n service loses the jobs that were running; the app notices after the deadline plus a minute (up to 8 minutes for the tutor, 11 for a mind map) and starts them again. Upstash commands: about 37 per job (a direct tutor request is about 6). On the free plan (500,000 commands a month) that is roughly 10,000 jobs a month; set the Upstash alert at 60 percent of the plan.
