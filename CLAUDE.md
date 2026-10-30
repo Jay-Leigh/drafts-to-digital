@@ -34,16 +34,14 @@ Orchestrator (main session) = decision maker + architect. Delegates work to sub-
 - OCR cache: no expiry until PR-A3, then 30 days (owner decision). No postal address published; not registered as Information Officer.
 
 ## Roadmap
-1a. DONE (PR #10): privacy.html + terms.html match the app as it was
-1b. Verification hardening, split into PRs (owner decisions in brackets):
-  - PR-A1 (PR #11): access gate (description, links, 18+/terms tick stored in browser), sign-in hardening (error_callback, include_granted_scopes false, revoke on sign-out, single-flight sign-in), scrubbed error reports, README (all rights reserved), legal text updated
-  - PR-A2: Drive token stays in the browser (client-side .doc conversion and Drive-only scans), drop `documents` scope (create Docs with drive.file; append only to Docs the app created), policies updated
-  - PR-A3: cache keys tied to a per-account secret kept in the sync file (HMAC on send), OCR/gemini-file cache 30-day expiry [owner: A], policies updated
-  - PR-C: Google Picker for appending to any Doc (preloaded, so iOS popups still work) [owner: add Picker]
-  - PR-B (n8n + client): webhook auth with n8n JWT Auth (owner creates JWT + Header Auth credentials), remove encrypted blob from the page, safe URL fetch for all three fetchers, escape/rate-limit error emails, execution data saving off for success and failure, set errorWorkflow, legacy path removed after a 72 h transition window, purge old ocr:* keys; owner keeps the current access code for now [deprioritised]
-  - Owner console tasks: rename consent screen, Branding URLs, declare drive.appdata/userinfo scopes (remove documents after PR-A2), rotate API keys, Search Console property (user-site repo jay-leigh.github.io with the verification tag), Gmail 90-day filters on both mailboxes
-  - Known follow-ups: with all browser storage blocked, tutor New chat and Knowledge Bay saves fail; no sign-out control when the sync row shows "Re-connect Google"; iOS Safari may block opening the exported Doc tab; Escape does not close the result modal
-2. background jobs (async n8n: respond with jobId, result in Redis, poll on return)
-3. error codes (D2D-NET-503 style) + loading states + global status banner
-4. Study Studio: mind map, quiz, infographic (HTML/SVG first, image model later), slide deck, flashcards last
-5. OAuth verification submission and publish (parallel, after 1b)
+DONE (live): 1a legal pages (PR #10); 1b hardening: PR-A1 gate/sign-in, A2 Drive token in browser and no `documents` scope, A3 per-device HMAC cache keys, PR-B JWT auth + server hardening (n8n v1 then v3), PR-C Google Picker; J1 error codes + status banner + loading states; Study Studio S1a shell + S1b mind map (n8n v3, owner cap `cfg:studio_max_tokens`, ceiling `cfg:daily_units`); J2/J3 background jobs (n8n v4 `sth-workflow-v4-jobs.json`, client `jobs` engine, testers-only flag `sth_flag_jobs`). Google Search Console verified (user-site repo jay-leigh.github.io).
+IN PROGRESS: J3b tutor on jobs (client).
+NEXT, in this order (owner decision 2026-10-30):
+  1. J6 legal rows for server-side job results (72 h); release blocker for enabling jobs beyond testers
+  2. Flashcards (job mode + viewer + review + TSV), one n8n import
+  3. Quiz (multiple choice, true/false), one n8n import
+  4. S1c release: Drive sync of study aids, privacy/terms update, TERMS_VERSION bump, studio flag removed, Home card
+  5. After that: Infographic (HTML/SVG; image mode later), then Slide deck (still to decide: in or out)
+LATER / optional: J4 transcribe/template/reviewer on jobs; map-reduce worker for true 1M-token runs; email notices, cross-device pickup, quotas (none for now); Upstash pay-as-you-go cap about USD 5 if usage passes 60%.
+OWNER TASKS: Google branding re-verification (retry after Search Console verified), publish the OAuth app after S1c (Testing mode expires sign-ins in 7 days), purge old `ocr:*` and `gemini-file:*` keys, Gmail 90-day filters on both mailboxes.
+Known follow-ups: with all browser storage blocked, tutor New chat and Knowledge Bay saves fail; no sign-out control when sync shows "Re-connect Google"; iOS Safari may block opening the exported Doc tab; Escape does not close the result modal; 401 after export does not re-auth; error-report scrubber mangles ".docx or PDF"; stale test s1a G5 (placeholder text).
