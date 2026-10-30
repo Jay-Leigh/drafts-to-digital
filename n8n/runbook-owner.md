@@ -293,6 +293,7 @@ Leave `gemini-file:*` (47-hour expiry) and `session:*` (3-hour expiry) alone.
 |---|---|---|---|
 | `auth:code` | you (step 3) | none | the access code, plain text |
 | `cfg:daily_units` | you (optional) | none | daily ceiling in weighted units; unset, empty or not a number = no ceiling; `0` blocks all new-path Gemini calls |
+| `cfg:studio_max_tokens` | you (optional) | none | Studio mind map input cap in estimated tokens; unset, junk or negative = 400000; values are clamped to 50000..900000 (higher values risk timeouts and Gemini 429s) |
 | `usage:YYYYMMDD` | workflow (after each Gemini answer, both paths; v3: Study Studio answers too) | 3 days | weighted units used on that UTC day |
 | `auth:fail:<ip>` | workflow | 600 s (window starts at the first attempt) | attempts by that IP; above 10 = blocked; cleared by a correct code |
 | `auth:ok:<ip>` | workflow | 3600 s | successful sign-ins by that IP; above 20 = refused; never cleared |
@@ -340,11 +341,11 @@ Gemini limits on the new path: tutor `maxOutputTokens 16384` (old 49152) and thi
 **Procedure:** exactly step 12 with v3 instead of v2: steps 1, 4 (file `sth-workflow-v3-studio.json`), 5, 6, 7, then the tests of step 12 (8.1 to 8.6, 8.10, 8.12, 8.13), then the settings check **6b again** (Do not save for successful and failed executions, error workflow set), then the three tests below.
 Also check once: Cloud Run > your n8n service > Edit > "Request timeout" is 300 seconds or more. A mind map can take 1 to 3 minutes; the workflow always answers before 270 seconds (first Gemini call limited to 240 s, retries only while time is left), so a lower Cloud Run timeout would cut maps off.
 
-**What the mode does:** one request, one answer (no background job). The browser sends the sources it has already read (text, plus up to 5 pictures); n8n re-checks the limits itself (1 to 10 sources, at most 5 pictures, description up to 1000 characters, language from the app's list of 16, estimated size at most 120,000 tokens counting text as characters / 4 and 1,600 per picture), asks `gemini-2.5-flash` for the map in JSON mode, repairs and validates it, and answers `{"ok":true,"artifact":{...}}`. If the model is rate limited or fails (429, 5xx, empty answer, time-out) it is tried again up to 3 times; only the third and last try uses `gemini-2.5-flash-lite`. Like every other mode it answers HTTP 200 and reports failures as `{"ok":false,"error":{"code":"..."}}`:
+**What the mode does:** one request, one answer (no background job). The browser sends the sources it has already read (text, plus up to 5 pictures); n8n re-checks the limits itself (1 to 10 sources, at most 5 pictures, description up to 1000 characters, language from the app's list of 16, estimated size at most the token cap below, counting text as characters / 4 and 1,600 per picture), asks `gemini-2.5-flash` for the map in JSON mode, repairs and validates it, and answers `{"ok":true,"artifact":{...}}`. If the model is rate limited or fails (429, 5xx, empty answer, time-out) it is tried again up to 3 times; only the third and last try uses `gemini-2.5-flash-lite`. The exception is a large request (estimate above 300,000 tokens): a repeat would be billed in full a second time, so after a time-out, a 5xx or an empty answer it is **not** tried again at all; only a 429 (refused before any work was done) is repeated, once, if there is time left. Like every other mode it answers HTTP 200 and reports failures as `{"ok":false,"error":{"code":"..."}}`:
 
 | Code | When |
 |---|---|
-| `STH-STU-413` | more than 10 sources or 5 pictures, description over 1000 characters, or too much material (over 120,000 tokens, or a picture over about 6 MB) |
+| `STH-STU-413` | more than 10 sources or 5 pictures, description over 1000 characters, or too much material (over the token cap, or a picture over about 6 MB). For too much material the answer also carries `"maxTokens":<the cap now in force>` so the app can show it |
 | `STH-INPUT-400` | not a valid request (wrong version/tool/language, no sources, malformed source) |
 | `STH-STU-409` | Gemini busy or unreachable after the tries (rate limit, 5xx, time-out); safe to try again later |
 | `STH-STU-422` | the answer could not be used (cut off, not JSON, fewer than 4 nodes after repair, or an empty answer) |
@@ -353,6 +354,21 @@ Also check once: Cloud Run > your n8n service > Edit > "Request timeout" is 300 
 | `STH-QUOTA-430` | the daily ceiling `cfg:daily_units` is reached (same as the other Gemini modes) |
 
 Error answers carry a short fixed `reason` tag for your own debugging (for example `truncated`, `parse`, `too_many_sources`); they never contain text from the student's material, and nothing from a request can reach an error mail (the nodes never throw and execution data is not saved).
+
+**The token cap you can set (`cfg:studio_max_tokens`).** How much material one mind map may use is an owner setting, read from Upstash on every Studio request in the same round trip as the daily ceiling (no extra call):
+
+```
+SET cfg:studio_max_tokens 800000
+```
+
+- Value: a whole number of estimated tokens (the server estimate is characters / 4 plus 1,600 per picture, so it is rough; 100,000 tokens is about 165 pages of text).
+- **Unset, empty or not a whole number: the default 400000 applies.** `DEL cfg:studio_max_tokens` goes back to the default.
+- The value is clamped to 50000 .. 900000: `SET cfg:studio_max_tokens 300` acts as 50000, `SET cfg:studio_max_tokens 2000000` acts as 900000. 900000 is a hard limit in the workflow itself (the model accepts 1,048,576 tokens including its own answer, and the estimate can be off), so it cannot be raised from Upstash.
+- A change takes effect on the next request, no re-import. If Upstash cannot be read, the default applies.
+- The other limits do not change: 10 sources, 5 pictures, a 1000-character description.
+- Large values have costs. A run near 800,000 tokens costs about R5 (see the formula below, plus the answer), takes several minutes (the workflow always answers before 270 seconds; a map that is not ready by then fails and is not retried when the request was large), and can hit Gemini rate limits: the Tier 1 limit is 1,000,000 tokens per minute for the whole project, shared with the tutor, so a single big run can use most of a minute's allowance and a 429 (`STH-STU-409`) is likely if the tutor is busy at the same time. Start at 400000 or 600000 and watch `STH-STU-409` before going higher.
+
+**Updating from the previous v3:** import v3.1 over v3: same file name (`sth-workflow-v3-studio.json`), same procedure as importing v3 (open the `Gemini API Key` credential on `Studio - Call Gemini` once and republish). Only the nodes `Quota Read` (one more key in the same read), `Studio - Validate Request`, `Studio - Reject` and `Studio - Retry Check` differ from the first v3. Until you set the key, the cap is 400000 (it was 120000 in the first v3).
 
 **Cost meter and the one number to set.** Studio uses the same meter and ceiling as the other modes, with the price-true weight for a big-input JSON call:
 

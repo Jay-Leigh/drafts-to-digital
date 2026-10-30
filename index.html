@@ -808,6 +808,7 @@
     .studio-meter { flex-shrink: 0; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(212,201,168,0.55); background: #fcfbf7; }
     .studio-meter[hidden] { display: none; }
     .studio-meter-text { margin: 0 0 6px; font-size: 12.5px; line-height: 1.4; color: rgba(26,46,28,0.75); overflow-wrap: anywhere; }
+    #studioDialogCost { margin: 6px 0 0; }
     .studio-meter-bar { height: 8px; border-radius: 999px; background: rgba(212,201,168,0.45); overflow: hidden; }
     .studio-meter-fill { display: block; height: 100%; width: 0; border-radius: 999px; background: #2c5f2d; transition: width 0.25s ease; }
     .studio-meter.is-near .studio-meter-fill { background: #b7791f; }
@@ -3137,7 +3138,7 @@
                 <p id="studioSourceHint" class="studio-hint"></p>
                 <div id="studioMeter" class="studio-meter">
                   <p id="studioMeterText" class="studio-meter-text"></p>
-                  <div id="studioMeterBar" class="studio-meter-bar" role="meter" aria-label="Amount of source material" aria-valuemin="0" aria-valuemax="120000" aria-valuenow="0" aria-valuetext=""><span id="studioMeterFill" class="studio-meter-fill"></span></div>
+                  <div id="studioMeterBar" class="studio-meter-bar" role="meter" aria-label="Amount of source material" aria-valuemin="0" aria-valuemax="900000" aria-valuenow="0" aria-valuetext=""><span id="studioMeterFill" class="studio-meter-fill"></span></div>
                   <p id="studioSourcesReason" class="studio-reason"></p>
                 </div>
               </section>
@@ -3470,7 +3471,8 @@
       <div class="modal-foot studio-dialog-foot">
         <div id="studioDialogMeter" class="studio-meter">
           <p id="studioDialogMeterText" class="studio-meter-text"></p>
-          <div class="studio-meter-bar" role="meter" id="studioDialogMeterBar" aria-label="Amount of source material" aria-valuemin="0" aria-valuemax="120000" aria-valuenow="0" aria-valuetext=""><span class="studio-meter-fill" id="studioDialogMeterFill"></span></div>
+          <div class="studio-meter-bar" role="meter" id="studioDialogMeterBar" aria-label="Amount of source material" aria-valuemin="0" aria-valuemax="900000" aria-valuenow="0" aria-valuetext=""><span class="studio-meter-fill" id="studioDialogMeterFill"></span></div>
+          <p id="studioDialogCost" class="studio-meter-text" hidden></p>
           <p id="studioDialogReason" class="studio-reason" role="status"></p>
         </div>
         <div class="studio-foot-actions">
@@ -4589,6 +4591,10 @@
       if (!data || typeof data !== 'object') return null;
       if (data.ok === false) {
         const envKey = data.error && errorKeyFromCode(data.error.code);
+        if (envKey === 'STU-413' && data.error.reason === 'too_much_material' && Number.isInteger(data.error.maxTokens)) {
+          studioNoteServerCap(data.error.maxTokens); // the Studio sources meter now uses the server's cap
+          return new AppError(envKey, { message: studioCapMessage(Math.min(data.error.maxTokens, STUDIO_MAX_TOKENS)) });
+        }
         return new AppError(envKey || 'SRV-500', { retryAfterMs: Number(data.error && data.error.retryAfterMs) || undefined, safeMessage: envKey ? undefined : 'Server answered ok:false' });
       }
       if (!markers) return null;
@@ -9368,13 +9374,18 @@
     const STUDIO_FLAG_KEY = 'sth_flag_studio';
     const STUDIO_SELECTION_KEY = 'sth_studio_selection';
     const STUDIO_LANG_KEY = 'sth_studio_lang';
-    const STUDIO_MAX_TOKENS = 120000; // one direct request: about 200 pages
+    const STUDIO_MAX_TOKENS = 900000; // hard ceiling (the server's own hard ceiling; the model limit is 1,048,576 tokens including the answer). The owner can set a lower cap on the server.
+    const STUDIO_CAP_KEY = 'sth_studio_cap'; // the lower cap the server last reported, with the time it was reported
+    const STUDIO_CAP_MIN = 50000;
+    const STUDIO_CAP_TTL_MS = 24 * 60 * 60 * 1000; // the owner may raise the cap again, so a remembered one expires
+    const STUDIO_COST_FROM_TOKENS = 100000; // show a cost line above this
+    const STUDIO_LONG_RUN_TOKENS = 300000; // above this: several minutes, one attempt only (a repeat would be billed twice)
     const STUDIO_MAX_SOURCES = 10;
     const STUDIO_MAX_IMAGES = 5;
     const STUDIO_IMAGE_TOKENS = 1600;
     const STUDIO_TOKENS_PER_PAGE = 600;
     const STUDIO_TOPIC_MAX = 1000;
-    const STUDIO_TIMEOUT_MS = 6 * 60 * 1000;
+    const STUDIO_TIMEOUT_MS = 6 * 60 * 1000; // longer than the server's 300 s limit, for requests of any size
     const STUDIO_MAX_ATTEMPTS = 2;
     const STUDIO_REQUEST_VERSION = 1;
     const STUDIO_PROMPT_VERSION = 'studio-2026-11-a';
@@ -9410,6 +9421,38 @@
     const studioTokens = (chars) => Math.ceil(chars / 4);
     const studioFormatTokens = (n) => n < 1000 ? String(n) : n < 10000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : `${Math.round(n / 1000)}k`;
     const studioPages = (tokens) => Math.max(tokens ? 1 : 0, Math.round(tokens / STUDIO_TOKENS_PER_PAGE));
+    const studioGroup = (n) => String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+    // The cap in force: the hard ceiling, or the lower cap the server last told us about
+    let studioServerCap = 0, studioCapLoaded = false;
+    function studioCap() {
+      if (!studioCapLoaded) {
+        studioCapLoaded = true;
+        try {
+          const saved = JSON.parse(storageGet(STUDIO_CAP_KEY));
+          if (saved && Number.isInteger(saved.cap) && saved.cap >= STUDIO_CAP_MIN && saved.cap <= STUDIO_MAX_TOKENS && Date.now() - saved.at < STUDIO_CAP_TTL_MS && Date.now() >= saved.at) studioServerCap = saved.cap;
+        } catch { /* nothing saved */ }
+      }
+      return studioServerCap && studioServerCap < STUDIO_MAX_TOKENS ? studioServerCap : STUDIO_MAX_TOKENS;
+    }
+    // The server refused a request as too large and named its current cap: remember it
+    function studioNoteServerCap(maxTokens) {
+      if (!Number.isInteger(maxTokens) || maxTokens < STUDIO_CAP_MIN) return;
+      studioCap();
+      studioServerCap = Math.min(maxTokens, STUDIO_MAX_TOKENS);
+      storageSet(STUDIO_CAP_KEY, JSON.stringify({ cap: studioServerCap, at: Date.now() }));
+      if (typeof studio !== 'undefined' && studio.wired) studio.syncSelectionViews();
+    }
+    const studioCapMessage = (cap) => `The Studio is currently limited to about ${studioGroup(cap)} tokens (about ${studioGroup(studioPages(cap))} pages). Choose fewer sources.`;
+    // Rough rand cost of one run: input at $0.30 per million tokens plus about 12,000 answer tokens at $2.50 per million, at R18 to the dollar; nearest R0.50, at least R1
+    function studioCostRand(tokens) {
+      const rand = Math.max(1, Math.round((tokens / 1e6 * 0.30 + 12000 / 1e6 * 2.50) * 18 * 2) / 2);
+      return Number.isInteger(rand) ? String(rand) : rand.toFixed(1);
+    }
+    function studioCostText(tokens) {
+      if (!(tokens > STUDIO_COST_FROM_TOKENS)) return '';
+      return `About R${studioCostRand(tokens)} on this run.${tokens > STUDIO_LONG_RUN_TOKENS ? ' Large runs can take several minutes. Keep this tab open.' : ''}`;
+    }
     const studioKind = (item) => item.type === 'scanned_pdf' ? 'pdf' : item.type;
     const studioError = (message, safeMessage) => new AppError('INPUT-400', { message, safeMessage });
 
@@ -9484,7 +9527,9 @@
     }
 
     function studioSend(request) {
-      return webhookRequest(request, { timeoutMs: STUDIO_TIMEOUT_MS, maxAttempts: STUDIO_MAX_ATTEMPTS, quiet: true });
+      // A long run is sent once: if it times out on the way back, a repeat would be billed a second time
+      const long = request.clientEstimate > STUDIO_LONG_RUN_TOKENS;
+      return webhookRequest(request, { timeoutMs: STUDIO_TIMEOUT_MS, maxAttempts: long ? 1 : STUDIO_MAX_ATTEMPTS, quiet: true });
     }
 
     // Puts the server's answer on the item. The viewer (and the full validator) arrive with the server side.
@@ -9966,8 +10011,9 @@
           if (est.state === 'needsReading') p.unread.push(it);
           else if (est.state === 'needsDrive') p.needsDrive.push(it);
         }
-        const over = p.tokens > STUDIO_MAX_TOKENS || p.count > STUDIO_MAX_SOURCES || p.images > STUDIO_MAX_IMAGES;
-        p.level = over ? 'over' : p.tokens >= STUDIO_MAX_TOKENS * 0.75 ? 'near' : 'ok';
+        const cap = studioCap();
+        const over = p.tokens > cap || p.count > STUDIO_MAX_SOURCES || p.images > STUDIO_MAX_IMAGES;
+        p.level = over ? 'over' : p.tokens >= cap * 0.75 ? 'near' : 'ok';
         if (!p.count && !p.unusable.length) p.reason = 'Pick at least one source.';
         else if (over) p.reason = 'Choose fewer sources.';
         else if (p.unusable.length) p.reason = 'Untick the sources that cannot be used.';
@@ -10049,14 +10095,17 @@
         const box = this.el(ids.box), bar = this.el(ids.bar);
         const word = plan.level === 'over' ? 'Too much' : plan.level === 'near' ? 'Nearly full' : 'Fits';
         const pages = studioPages(plan.tokens);
+        const cap = studioCap();
         box.classList.toggle('is-near', plan.level === 'near');
         box.classList.toggle('is-over', plan.level === 'over');
         this.el(ids.text).textContent = plan.count
-          ? `${word}: ${plan.approx ? '≈' : ''}${studioFormatTokens(plan.tokens)} of ${studioFormatTokens(STUDIO_MAX_TOKENS)} tokens (about ${pages} page${pages === 1 ? '' : 's'}) · ${plan.count} of ${STUDIO_MAX_SOURCES} sources${plan.images ? ` · ${plan.images} of ${STUDIO_MAX_IMAGES} images` : ''}`
+          ? `${word}: ${plan.approx ? '≈' : ''}${studioFormatTokens(plan.tokens)} of ${studioFormatTokens(cap)} tokens (about ${pages} page${pages === 1 ? '' : 's'}) · ${plan.count} of ${STUDIO_MAX_SOURCES} sources${plan.images ? ` · ${plan.images} of ${STUDIO_MAX_IMAGES} images` : ''}`
           : 'Tick the sources you want to use.';
-        this.el(ids.fill).style.width = `${Math.min(100, Math.round(plan.tokens / STUDIO_MAX_TOKENS * 100))}%`;
-        bar.setAttribute('aria-valuenow', String(Math.min(plan.tokens, STUDIO_MAX_TOKENS)));
-        bar.setAttribute('aria-valuetext', `${word}: ${Math.round(plan.tokens / 1000)} thousand of ${STUDIO_MAX_TOKENS / 1000} thousand tokens, about ${pages} pages`);
+        this.el(ids.fill).style.width = `${Math.min(100, Math.round(plan.tokens / cap * 100))}%`;
+        bar.setAttribute('aria-valuemax', String(cap));
+        bar.setAttribute('aria-valuenow', String(Math.min(plan.tokens, cap)));
+        bar.setAttribute('aria-valuetext', `${word}: ${Math.round(plan.tokens / 1000)} thousand of ${Math.round(cap / 1000)} thousand tokens, about ${pages} pages`);
+        if (ids.cost) { const cost = this.el(ids.cost), line = plan.count ? studioCostText(plan.tokens) : ''; cost.textContent = line; cost.hidden = !line; }
       },
 
       renderTools() {
@@ -10344,7 +10393,7 @@
         this.el('studioDialogSourcesCount').textContent = `${n} source${n === 1 ? '' : 's'}`;
         this.el('studioDialogSourcesBtn').setAttribute('aria-expanded', String(d.expanded));
         this.el('studioDialogSources').hidden = !d.expanded;
-        this.drawMeter(plan, { box: 'studioDialogMeter', text: 'studioDialogMeterText', bar: 'studioDialogMeterBar', fill: 'studioDialogMeterFill' });
+        this.drawMeter(plan, { box: 'studioDialogMeter', text: 'studioDialogMeterText', bar: 'studioDialogMeterBar', fill: 'studioDialogMeterFill', cost: 'studioDialogCost' });
         this.el('studioDialogReason').textContent = plan.reason;
         this.el('studioGenerateBtn').setAttribute('aria-disabled', String(!!plan.reason));
         const len = this.el('studioTopic').value.length, count = this.el('studioTopicCount');
