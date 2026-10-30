@@ -683,7 +683,9 @@
       font-size: 13px; display: flex; align-items: center; gap: 8px;
       font-variant-numeric: tabular-nums;
     }
-    .chat-bubble.job-wait { flex-wrap: wrap; font-style: normal; }
+    .chat-bubble.job-wait { flex-wrap: wrap; align-items: flex-start; font-style: normal; }
+    .chat-bubble.job-wait > span:not(.job-wait-actions) { flex: 1 1 0; min-width: 0; }
+    .chat-bubble.job-wait .reading-link-spinner { margin-top: 4px; }
     .job-wait-actions { display: flex; flex-wrap: wrap; gap: 6px; flex-basis: 100%; }
     .job-wait-actions button { min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font: 500 12px 'Outfit', sans-serif; font-style: normal; color: #1a2e1c; cursor: pointer; }
     .reading-link-spinner {
