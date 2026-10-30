@@ -2426,6 +2426,35 @@
       .main-area.tutor-mode .tutor-shell, .main-area.tutor-mode .tutor-landing.active { margin-top: 64px; }
     }
     @media (max-height: 520px) and (orientation: landscape) { .main-area.tutor-mode .tutor-shell, .main-area.tutor-mode .tutor-landing.active { margin-top: 58px; } }
+
+    /* ───────── BACKGROUND JOBS (tray + badge) ───────── */
+    .jobs-tray-btn { position: absolute; top: calc(var(--gap) + (var(--bar-h) - 44px) / 2); right: 148px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: rgba(26,46,28,0.65); background: #fff; border: 1px solid var(--line); border-radius: 50%; box-shadow: 0 6px 24px rgba(26,46,28,0.06); cursor: pointer; }
+    .jobs-tray-btn[hidden] { display: none; }
+    .jobs-tray-btn:hover, .jobs-tray-btn[aria-expanded="true"] { color: #2c5f2d; border-color: rgba(44,95,45,0.45); }
+    .jobs-badge { position: absolute; top: -4px; right: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #2c5f2d; color: #fff; font: 600 11px/18px 'Outfit', sans-serif; text-align: center; }
+    .jobs-badge[hidden] { display: none; }
+    .main-area.tutor-mode .jobs-tray-btn { right: 20px; }
+    .jobs-tray { position: fixed; top: calc(var(--gap) + var(--bar-h) + 8px); right: 20px; width: min(380px, calc(100vw - 24px)); max-height: min(70vh, 520px); overflow-y: auto; padding: 12px 14px 14px; background: #fff; border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: 0 12px 40px rgba(26,46,28,0.18); font-family: 'Outfit', sans-serif; font-size: 13px; line-height: 1.4; color: #1a2e1c; }
+    .jobs-tray[hidden] { display: none; }
+    .jobs-tray:focus { outline: none; }
+    .jobs-tray-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .jobs-tray-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
+    .jobs-tray-close { width: 36px; height: 36px; border: none; border-radius: 50%; background: transparent; font-size: 18px; line-height: 1; color: inherit; cursor: pointer; }
+    .jobs-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .jobs-row { padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: #faf8f1; }
+    .jobs-row-label { display: block; font-weight: 600; overflow-wrap: anywhere; }
+    .jobs-row-state { display: block; margin-top: 2px; color: rgba(26,46,28,0.75); overflow-wrap: anywhere; }
+    .jobs-row.is-failed .jobs-row-state { color: #7a1a1d; }
+    .jobs-row-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .jobs-row-actions a, .jobs-row-actions button { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font: 500 12px 'Outfit', sans-serif; color: #1a2e1c; text-decoration: none; cursor: pointer; }
+    .jobs-empty { margin: 4px 0; color: rgba(26,46,28,0.7); }
+    @media (max-width: 900px) {
+      .jobs-tray-btn, .main-area.tutor-mode .jobs-tray-btn { top: var(--gap); }
+      .jobs-tray-btn { right: calc(var(--gap) + 118px); }
+      .main-area.tutor-mode .jobs-tray-btn { right: var(--gap); }
+      .jobs-tray { top: calc(var(--gap) + 52px); right: 12px; }
+    }
+    @media (max-width: 480px) { .jobs-tray-btn { right: calc(var(--gap) + 52px); } }
   </style>
   <style id="ux-fix">
     /* header never changes height while scrolling: shadow only */
@@ -2750,6 +2779,17 @@
           History
           <span class="hist-dot"></span>
         </button>
+        <button type="button" id="jobsTrayBtn" class="jobs-tray-btn" aria-label="Background jobs" aria-haspopup="dialog" aria-expanded="false" aria-controls="jobsTray" hidden>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/></svg>
+          <span id="jobsTrayBadge" class="jobs-badge" aria-hidden="true" hidden></span>
+        </button>
+        <div id="jobsTray" class="jobs-tray" role="dialog" aria-labelledby="jobsTrayTitle" tabindex="-1" hidden>
+          <div class="jobs-tray-head"><h2 id="jobsTrayTitle">Background jobs</h2><button type="button" id="jobsTrayClose" class="jobs-tray-close" aria-label="Close background jobs">&times;</button></div>
+          <ul id="jobsTrayList" class="jobs-list"></ul>
+          <p id="jobsTrayEmpty" class="jobs-empty">Nothing here yet. Finished jobs stay for 7 days.</p>
+          <div id="jobsLive" class="studio-sr" aria-live="polite"></div>
+          <div id="jobsAlert" class="studio-sr" role="alert"></div>
+        </div>
       </div>
 
       <main class="content">
@@ -3623,6 +3663,8 @@
     const CONFIG = {
       authUrl: 'https://n8n-67295956827.africa-south1.run.app/webhook/student-tools-auth',
       n8nWebhookUrl: 'https://n8n-67295956827.africa-south1.run.app/webhook/student-tools-v2',
+      jobStartUrl: 'https://n8n-67295956827.africa-south1.run.app/webhook/sth-job-start',
+      jobUrl: 'https://n8n-67295956827.africa-south1.run.app/webhook/sth-job',
       googleClientId: '730237345425-i08jvribm9k9rgm26ui0jq4gdvcjbplb.apps.googleusercontent.com',
       googleScopes: 'https://www.googleapis.com/auth/drive.file',
       pickerApiKey: 'AIzaSyC-M93yy6270pQUZCmU6Plf7SGGFCluy9M',
@@ -4502,6 +4544,15 @@
       'STU-409':   { title: 'Study Studio busy', message: 'Study Studio is busy making other study aids right now. Please try again in a few minutes.', retryable: true, auto: 'none' },
       'STU-413':   { title: 'Too much material', message: 'That is too much material for one study aid. Choose fewer sources, or name a chapter in the topic.', retryable: false, auto: 'none' },
       'STU-422':   { title: 'Answer not usable', message: 'The AI’s answer didn’t come out right. Try again, or narrow the topic.', retryable: true, auto: 'none' },
+      'JOB-404':   { title: 'Result expired', message: 'This result is no longer kept (results stay for 3 days). Please send it again.', retryable: false, auto: 'none' },
+      'JOB-409':   { title: 'Request clash', message: 'That request clashed with another one. Please try again.', retryable: false, auto: 'none' },
+      'JOB-410':   { title: 'Cancelled', message: 'You cancelled this.', retryable: false, auto: 'none' },
+      'JOB-413':   { title: 'Result too large', message: 'The result came out too large to keep. Try fewer or smaller sources.', retryable: false, auto: 'none' },
+      'JOB-429':   { title: 'Busy', message: 'Too many background jobs are running. It starts by itself when there is room.', retryable: true, auto: 'none' },
+      'JOB-502':   { title: 'Could not start', message: 'This could not be started in the background. Please try again.', retryable: true, auto: 'none' },
+      'JOB-503':   { title: 'Background jobs off', message: 'Background jobs are switched off right now, so this runs directly.', retryable: true, auto: 'none' },
+      'JOB-504':   { title: 'Stopped', message: 'The job stopped before it finished. Trying again.', retryable: true, auto: 'none' },
+      'SRV-503':   { title: 'Background service down', message: 'Background answers are paused. New requests run while this tab stays open.', retryable: true, auto: 'none' },
       'DRIVE-401': { title: 'Google sign-in expired', message: 'Your Google sign-in expired. Reconnect Google and try again.', retryable: false, auto: 'reauth' },
       'DRIVE-403': { title: 'Google said no', message: 'Google did not allow that. Check the permission boxes in the Google window and try again.', retryable: false, auto: 'none' },
       'DRIVE-404': { title: 'File not found', message: 'That file was not found in Google Drive.', retryable: false, auto: 'none' },
@@ -4923,6 +4974,740 @@
       receive(msg) {
         if (!msg || msg.tab === TAB_ID || !this.handlers[msg.type]) return;
         Promise.resolve(this.handlers[msg.type]()).catch(err => console.warn('[STH] Cross-tab refresh failed:', err));
+      },
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    // ─── BACKGROUND JOBS (testers-only: localStorage sth_flag_jobs = '1') ──
+    // ═══════════════════════════════════════════════════════════
+    // The server keeps running a request after the page is closed and holds the answer. The registry of requests lives in
+    // IndexedDB; one tab (the leader) asks for their state in batches, applies each answer once and acknowledges it.
+    // Anything off, blocked or missing on the server falls back to the direct request.
+    const JOBS_FLAG_KEY = 'sth_flag_jobs';
+    const JOBS_LEADER_LOCK = 'sth-jobs-leader';
+    const JOBS_MODES = ['studio_mindmap'];
+    const JOBS_CADENCE_S = { tutor: [5, 5, 8, 13, 20], studio_mindmap: [10, 15, 20, 30] };
+    const JOBS_SLOW_MS = { tutor: 90000, studio_mindmap: 4 * 60 * 1000 };
+    const JOBS_FIRST_POLL_MS = 3000;
+    const JOBS_HIDDEN_POLL_MS = 60000;
+    const JOBS_KICK_MS = 2000;
+    const JOBS_HELLO_MS = 30 * 60 * 1000;
+    const JOBS_SERVER_OFF_MS = 30 * 60 * 1000;
+    const JOBS_UNKNOWN_GRACE_MS = 45000;
+    const JOBS_CREATE_TRIES = 3;
+    const JOBS_RETRY_MIN_MS = 20000;
+    const JOBS_BUSY_FIRST_MS = 20000;
+    const JOBS_BUSY_MAX_MS = 60000;
+    const JOBS_BUSY_GIVE_UP_MS = 15 * 60 * 1000;
+    const JOBS_UNSENT_MS = 24 * 60 * 60 * 1000;
+    const JOBS_KEEP_MS = 7 * 24 * 60 * 60 * 1000;
+        const JOBS_AWAY_MS = 30000;
+    const JOBS_CREATE_TIMEOUT_MS = 300000;
+    const JOBS_CALL_TIMEOUT_MS = 20000;
+    const JOBS_ACTIVE = new Set(['preparing', 'submitting', 'submitted', 'running', 'waiting', 'succeeded', 'syncing', 'needsConfirm']);
+    const JOBS_SIGNIN_MESSAGE = 'Sign in again to collect your results.';
+    const JOBS_B64URL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    // random bytes as unpadded base64url (16 bytes give 22 characters, 32 give 43)
+    const jobsRandom = (bytes) => {
+      const b = crypto.getRandomValues(new Uint8Array(bytes));
+      let out = '';
+      for (let i = 0; i < b.length; i += 3) {
+        const n = (b[i] << 16) | ((b[i + 1] || 0) << 8) | (b[i + 2] || 0);
+        out += JOBS_B64URL[(n >> 18) & 63] + JOBS_B64URL[(n >> 12) & 63] + (i + 1 < b.length ? JOBS_B64URL[(n >> 6) & 63] : '') + (i + 2 < b.length ? JOBS_B64URL[n & 63] : '');
+      }
+      return out;
+    };
+    const jobsElapsed = (since) => { const s = Math.max(0, Math.floor((Date.now() - since) / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+
+    const jobs = {
+      store: null, recs: new Map(), available: false, flagMemory: false, wired: false, loadP: null, initP: null,
+      leader: false, ticking: false, timer: null, kickT: null, uiTimer: null, busy: new Set(),
+      serverOffUntil: 0, modes: null, lastHello: 0, authPaused: false, authAsked: false, ackBlockedUntil: 0,
+      away: null, awayUntil: 0, baseTitle: '', slowKey: '', acking: false,
+      el: (id) => document.getElementById(id),
+      enabled() { return this.flagMemory || storageGet(JOBS_FLAG_KEY) === '1'; },
+
+      // #jobs?flag=1 turns the flag on for this browser, #jobs?flag=0 turns it off
+      applyFlagHash() {
+        const m = /^#jobs\?flag=([01])$/.exec(location.hash);
+        if (!m) return;
+        if (m[1] === '1') { if (!storageSet(JOBS_FLAG_KEY, '1')) this.flagMemory = true; }
+        else { storageRemove(JOBS_FLAG_KEY); this.flagMemory = false; clearTimeout(this.timer); }
+        history.replaceState(null, '', `${location.pathname}${location.search}#${studio.enabled() ? 'studio' : 'home'}`);
+        if (m[1] === '1') this.init();
+      },
+
+      // The job path is used only with the flag on, a working registry, a server that has not said no, and an allowed mode
+      useFor(mode) {
+        if (!this.enabled() || !this.available || Date.now() < this.serverOffUntil) return false;
+        return JOBS_MODES.includes(mode) && (!this.modes || this.modes.includes(mode));
+      },
+      isLive(id) { const r = this.recs.get(id); return !!r && JOBS_ACTIVE.has(r.state); },
+      hasActive(kind, refId) {
+        return [...this.recs.values()].some(r => r.kind === kind && JOBS_ACTIVE.has(r.state) && r.ref && (r.ref.itemId === refId || r.ref.chatId === refId));
+      },
+
+      // ── registry (IndexedDB only: a localStorage fallback would keep the job keys where nothing else does) ──
+      ensureLoad() {
+        if (!this.enabled()) return Promise.resolve();
+        this.loadP ??= (async () => {
+          try {
+            this.store = localforage.createInstance({ name: 'sth_jobs', storeName: 'jobs', driver: localforage.INDEXEDDB });
+            await this.store.setItem('probe', 1);
+            await this.store.removeItem('probe');
+            for (const k of await this.store.keys()) {
+              if (!k.startsWith('job:')) continue;
+              const r = await this.store.getItem(k);
+              if (r && r.v === 1 && r.id) this.recs.set(r.id, r);
+            }
+            this.available = true;
+          } catch (err) {
+            console.warn('[STH] Background jobs unavailable:', err && err.name);
+            this.available = false;
+          }
+        })();
+        return this.loadP;
+      },
+
+      async add(rec) {
+        this.recs.set(rec.id, rec);
+        try { await withStoreLock('jobs', () => this.store.setItem(`job:${rec.id}`, rec)); } catch { /* kept in memory for this visit */ }
+        tabSync.post('jobs');
+        this.render();
+      },
+
+      // Read-modify-write on the freshest copy; fn returns false to leave the record alone. Resolves to the record, or null when not changed.
+      async update(id, fn) {
+        let out = null;
+        await withStoreLock('jobs', async () => {
+          let rec = null;
+          try { rec = await this.store.getItem(`job:${id}`); } catch { /* use memory */ }
+          rec = rec || this.recs.get(id);
+          if (!rec) return;
+          const old = this.recs.get(id);
+          if (old && old.state === rec.state) { rec.nextPollAt = old.nextPollAt; rec.pollStep = old.pollStep; rec.createTries = Math.max(rec.createTries || 0, old.createTries || 0); }
+          if (fn(rec) === false) { this.recs.set(id, rec); return; }
+          try { await this.store.setItem(`job:${id}`, rec); } catch { /* kept in memory */ }
+          out = rec;
+        });
+        if (out) { this.recs.set(id, out); tabSync.post('jobs'); this.render(); this.schedule(); }
+        return out;
+      },
+
+      async drop(id) {
+        this.recs.delete(id);
+        try { await withStoreLock('jobs', async () => { await this.store.removeItem(`job:${id}`); await this.store.removeItem(`in:${id}`); }); } catch { /* nothing to remove */ }
+        tabSync.post('jobs');
+        this.render();
+      },
+
+      inputsOf(id) { return this.store.getItem(`in:${id}`).catch(() => null); },
+      deleteInputs(id) { return this.store.removeItem(`in:${id}`).catch(() => {}); },
+
+      // Another tab wrote the registry
+      async reload() {
+        if (!this.available) return;
+        try {
+          const next = new Map();
+          for (const k of await this.store.keys()) {
+            if (!k.startsWith('job:')) continue;
+            const r = await this.store.getItem(k);
+            if (!r || !r.id) continue;
+            const old = this.recs.get(r.id);
+            if (old && old.state === r.state) { r.nextPollAt = old.nextPollAt; r.pollStep = old.pollStep; r.createTries = Math.max(r.createTries || 0, old.createTries || 0); }
+            next.set(r.id, r);
+          }
+          this.recs = next;
+        } catch (err) { console.warn('[STH] Background jobs refresh failed:', err && err.name); }
+        this.render();
+        this.schedule();
+      },
+
+      // ── lifecycle ──
+      init() {
+        if (!this.enabled()) return Promise.resolve();
+        this.initP ??= (async () => {
+          await this.ensureLoad();
+          if (!this.available) return;
+          this.wire();
+          const now = Date.now();
+          this.away = new Set();
+          this.awayUntil = now + JOBS_AWAY_MS;
+          for (const r of [...this.recs.values()]) {
+            if (!JOBS_ACTIVE.has(r.state) && now - (r.finishedAt || r.createdAt || now) > JOBS_KEEP_MS) { await this.drop(r.id); continue; }
+            if (r.state === 'preparing') { await this.resumePrepared(r); continue; }
+            if (r.state === 'submitting' && now - (r.submittedAt || r.createdAt) > JOBS_UNSENT_MS) { await this.giveUpUnsent(r); continue; }
+            if (JOBS_ACTIVE.has(r.state) && r.state !== 'needsConfirm') { r.nextPollAt = now; this.away.add(r.id); }
+          }
+          this.elect(false);
+          this.hello();
+          this.render();
+        })();
+        return this.initP;
+      },
+
+      // A request whose preparation died: a handler that can rebuild it sends it again (under 24 h), otherwise it is dropped or the person is asked
+      async resumePrepared(r) {
+        const h = this.handlers[r.kind];
+        if (h && h.resumeUnsent) {
+          if (Date.now() - r.createdAt < JOBS_UNSENT_MS) { h.resumeUnsent(r); return; }
+          await this.update(r.id, x => { x.state = 'needsConfirm'; });
+          return;
+        }
+        await this.drop(r.id);
+      },
+      async giveUpUnsent(r) {
+        if (this.handlers[r.kind].resumeUnsent) await this.update(r.id, x => { x.state = 'needsConfirm'; });
+        else await this.finalFail(r, new AppError('JOB-502'), false);
+      },
+
+      async hello() {
+        if (!this.available || navigator.onLine === false) return;
+        this.lastHello = Date.now();
+        try { this.noteHello(await this.call({ v: 1, op: 'status', jobs: [] })); }
+        catch (err) { if (this.looksAbsent(errorFromException(err))) this.serverOffUntil = Date.now() + JOBS_SERVER_OFF_MS; }
+      },
+      noteHello(d) {
+        if (!d || typeof d !== 'object') return;
+        this.lastHello = Date.now();
+        if (d.jobsEnabled === false) this.serverOffUntil = Date.now() + JOBS_SERVER_OFF_MS;
+        const m = d.modes;
+        this.modes = Array.isArray(m) ? m.map(String) : m && typeof m === 'object' ? Object.keys(m) : null;
+      },
+      // No job endpoint on the server (404), or the browser could not tell a refused token from a missing path
+      looksAbsent(e) { return e.status === 404 || !!e.guessed; },
+
+      call(body) {
+        return webhookRequest(body, { url: CONFIG.jobUrl, timeoutMs: JOBS_CALL_TIMEOUT_MS, maxAttempts: 1, idempotent: true, authPrompt: false, quiet: true });
+      },
+
+      // ── tabs: the leader polls, applies and acknowledges ──
+      elect(steal) {
+        if (!navigator.locks || !navigator.locks.request) { this.leader = true; return; }
+        if (steal && this.leader) return;
+        navigator.locks.request(JOBS_LEADER_LOCK, steal ? { steal: true } : {}, () => {
+          this.leader = true;
+          this.tick();
+          return new Promise(() => {});
+        }).catch(e => { if (e && e.name === 'AbortError') { this.leader = false; this.elect(false); } });
+      },
+
+      canWork() { return this.enabled() && this.available && this.leader && !this.authPaused && navigator.onLine !== false; },
+
+      // Ask again soon (events: visible, pageshow, online, focus)
+      kick() {
+        if (!this.available) return;
+        this.resumeAuth();
+        if (this.kickT) return;
+        this.kickT = setTimeout(() => {
+          this.kickT = null;
+          const now = Date.now();
+          for (const r of this.recs.values()) if (['submitting', 'submitted', 'running', 'succeeded', 'syncing'].includes(r.state)) r.nextPollAt = Math.min(r.nextPollAt || 0, now);
+          this.tick();
+        }, JOBS_KICK_MS);
+      },
+
+      schedule() {
+        clearTimeout(this.timer);
+        this.timer = null;
+        if (!this.canWork()) return;
+        let next = Infinity;
+        for (const r of this.recs.values()) {
+          if (this.busy.has(r.id) || !JOBS_ACTIVE.has(r.state) || r.state === 'preparing' || r.state === 'needsConfirm') continue;
+          next = Math.min(next, r.nextPollAt || 0);
+          if (next <= Date.now()) break;
+        }
+        if ([...this.recs.values()].some(r => r.ackDue)) next = Math.min(next, this.ackBlockedUntil);
+        if (next === Infinity) return;
+        this.timer = setTimeout(() => this.tick(), Math.max(0, next - Date.now()));
+      },
+
+      stepPoll(rec, floorMs = 0) {
+        const seq = JOBS_CADENCE_S[rec.mode] || JOBS_CADENCE_S.studio_mindmap;
+        const base = Math.max(seq[Math.min(rec.pollStep || 0, seq.length - 1)] * 1000, floorMs);
+        rec.pollStep = (rec.pollStep || 0) + 1;
+        let ms = base * (0.8 + Math.random() * 0.4);
+        if (document.hidden) ms = Math.max(ms, JOBS_HIDDEN_POLL_MS);
+        rec.nextPollAt = Date.now() + ms;
+      },
+
+      spawn(rec, fn) {
+        if (this.busy.has(rec.id)) return;
+        this.busy.add(rec.id);
+        Promise.resolve().then(fn)
+          .catch(err => console.warn('[STH] Background job step failed:', errorFromException(err).code))
+          .finally(() => {
+            this.busy.delete(rec.id);
+            const cur = this.recs.get(rec.id);
+            if (cur && JOBS_ACTIVE.has(cur.state) && (cur.nextPollAt || 0) <= Date.now()) cur.nextPollAt = Date.now() + 5000;
+            this.schedule();
+          });
+      },
+
+      async tick() {
+        if (!this.canWork()) return;
+        clearTimeout(this.timer);
+        this.timer = null;
+        if (this.ticking) return;
+        this.ticking = true;
+        try {
+          const now = Date.now();
+          if (this.hasLiveServerJobs() && now - this.lastHello > JOBS_HELLO_MS) this.hello();
+          const due = [...this.recs.values()].filter(r => !this.busy.has(r.id) && JOBS_ACTIVE.has(r.state) && (r.nextPollAt || 0) <= now);
+          for (const r of due) {
+            if (r.state === 'submitting' || r.state === 'waiting') this.spawn(r, () => this.create(r, false));
+            else if (r.state === 'succeeded') this.spawn(r, () => this.fetchApplyAck(r));
+            else if (r.state === 'syncing') this.spawn(r, () => this.runSync(r));
+          }
+          const pollable = [...this.recs.values()].filter(r => !this.busy.has(r.id) && (r.state === 'submitted' || r.state === 'running'));
+          if (pollable.some(r => due.includes(r))) await this.pollBatch(pollable);
+          await this.ackBatch();
+          this.checkAway();
+        } finally {
+          this.ticking = false;
+          this.schedule();
+        }
+      },
+      hasLiveServerJobs() { return [...this.recs.values()].some(r => ['submitted', 'running', 'succeeded'].includes(r.state)); },
+
+      async pollBatch(list) {
+        for (let i = 0; i < list.length; i += 10) {
+          const part = list.slice(i, i + 10);
+          let data;
+          try { data = await this.call({ v: 1, op: 'status', jobs: part.map(r => ({ id: r.id, key: r.key })) }); }
+          catch (err) { this.onPollError(part, errorFromException(err)); continue; }
+          this.authAsked = false;
+          this.noteHello(data);
+          const by = new Map(((data && data.jobs) || []).filter(j => j && j.id).map(j => [j.id, j]));
+          for (const r of part) {
+            try { await this.onStatus(r, by.get(r.id) || { state: 'unknown' }); }
+            catch (err) { console.warn('[STH] Background job status failed:', errorFromException(err).code); }
+            const cur = this.recs.get(r.id);
+            if (cur && JOBS_ACTIVE.has(cur.state) && (cur.nextPollAt || 0) <= Date.now() && !this.busy.has(cur.id)) cur.nextPollAt = Date.now() + 5000;
+          }
+        }
+      },
+
+      onPollError(part, e) {
+        const refused = (e.status === 401 || e.status === 403) && !e.guessed;
+        const absent = this.looksAbsent(e);
+        if (refused) this.pauseForSignIn();
+        else if (absent) this.serverOffUntil = Date.now() + JOBS_SERVER_OFF_MS;
+        for (const r of part) this.stepPoll(r, refused || absent ? JOBS_HIDDEN_POLL_MS : JOBS_RETRY_MIN_MS);
+      },
+
+      // The token is no longer usable: polls stop, one banner, one sign-in request when the tab is in view
+      pauseForSignIn() {
+        if (this.authAsked && tokenUsable(authToken)) { this.serverOffUntil = Date.now() + JOBS_SERVER_OFF_MS; return; }
+        this.authPaused = true;
+        setServiceStatus('degraded', new AppError('AUTH-401').code, JOBS_SIGNIN_MESSAGE);
+        this.askSignIn();
+      },
+      askSignIn() {
+        if (!this.authPaused || this.authAsked || document.hidden) return;
+        this.authAsked = true;
+        requireSignIn(authToken && authToken.t).then(() => { this.authPaused = false; this.kick(); });
+      },
+      resumeAuth() {
+        if (!this.authPaused) return;
+        const other = tokenUsable(authToken) ? authToken : loadStoredToken();
+        if (other) { authToken = other; this.authPaused = false; } else this.askSignIn();
+      },
+
+      // ── making a job ──
+      async prepare({ mode, kind, ref, label, maxAttempts = 2 }) {
+        const rec = { v: 1, id: `j_${jobsRandom(16)}`, key: jobsRandom(32), mode, kind, ref, label, attempt: 1, maxAttempts, state: 'preparing', error: null, createdAt: Date.now(), submittedAt: null, lastCreateAt: null, createTries: 0, finishedAt: null, nextPollAt: 0, pollStep: 0, applyCtx: null, seen: false, appliedAt: null };
+        await this.add(rec);
+        return rec;
+      },
+
+      // Stores the request on this device, then asks the server to start it. Resolves to the job id, or null when the caller must run the request directly.
+      async submit(job, payload, binaryFiles, applyCtx) {
+        try { await this.store.setItem(`in:${job.id}`, { payload, files: binaryFiles || [] }); }
+        catch { await this.drop(job.id); return null; }
+        const now = Date.now();
+        await this.update(job.id, x => { x.state = 'submitting'; x.submittedAt = now; x.applyCtx = applyCtx || null; x.nextPollAt = now + 10000; });
+        const rec = this.recs.get(job.id);
+        this.busy.add(job.id);
+        let res;
+        try { res = await this.create(rec, true); } finally { this.busy.delete(job.id); this.schedule(); }
+        if (res === 'direct') { await this.drop(job.id); return null; }
+        return job.id;
+      },
+
+      // POST create (the same id and attempt are safe to repeat). Resolves 'sent' | 'retry' | 'paused' | 'direct' (interactive only: caller runs it directly);
+      // an interactive call throws when the server refuses for good.
+      async create(rec, interactive) {
+        const inputs = await this.inputsOf(rec.id);
+        if (!inputs) { if (!interactive) await this.finalFail(rec, new AppError('JOB-502'), false); return 'direct'; }
+        if (navigator.onLine === false) { rec.nextPollAt = Date.now() + 10000; return 'retry'; }
+        const live = this.recs.get(rec.id) || rec;
+        live.createTries = (live.createTries || 0) + 1;
+        const tries = live.createTries;
+        const head = { v: 1, op: 'create', id: rec.id, key: rec.key, attempt: rec.attempt, mode: rec.mode };
+        const files = inputs.files && inputs.files.length ? inputs.files : null;
+        try {
+          await webhookRequest(files ? inputs.payload : { ...inputs.payload, job: head }, { url: CONFIG.jobStartUrl, binaryFiles: files, fields: files ? { job: JSON.stringify(head) } : undefined, timeoutMs: JOBS_CREATE_TIMEOUT_MS, idempotent: true, authPrompt: false, quiet: true });
+        } catch (err) {
+          return this.onCreateError(rec, errorFromException(err), interactive, tries);
+        }
+        const now = Date.now();
+        await this.update(rec.id, x => {
+          if (x.state !== 'submitting' && x.state !== 'waiting') return false;
+          x.state = 'submitted'; x.lastCreateAt = now; x.createTries = tries; x.pollStep = 0; x.nextPollAt = now + JOBS_FIRST_POLL_MS; x.waitKind = null;
+        });
+        return 'sent';
+      },
+
+      async onCreateError(rec, e, interactive, tries) {
+        const expired = (e.status === 401 || e.status === 403) && !e.guessed;
+        if (expired || this.looksAbsent(e)) {
+          if (!expired) this.serverOffUntil = Date.now() + JOBS_SERVER_OFF_MS;
+          if (interactive) return 'direct';
+          if (expired) { this.pauseForSignIn(); return 'paused'; }
+          await this.update(rec.id, x => { if (x.state !== 'submitting' && x.state !== 'waiting') return false; x.state = 'syncing'; x.nextPollAt = 0; });
+          return 'direct';
+        }
+        const transient = e.noResponse || ERRORS[e.key].retryable || e.status >= 500 || e.status === 408 || e.status === 429;
+        if (!transient) {
+          if (interactive) { await this.update(rec.id, x => { x.state = 'failed'; x.error = { code: e.code, message: e.message }; x.finishedAt = Date.now(); x.seen = true; }); await this.deleteInputs(rec.id); throw e; }
+          await this.finalFail(rec, e, false);
+          return 'sent';
+        }
+        if (tries >= JOBS_CREATE_TRIES) {
+          this.serverOffUntil = Date.now() + JOBS_SERVER_OFF_MS;
+          const down = new AppError('SRV-503');
+          setServiceStatus('degraded', down.code, down.message);
+          await this.finalFail(rec, new AppError('JOB-502'), false);
+          return 'sent';
+        }
+        const wait = 10000 * tries;
+        await this.update(rec.id, x => { if (x.state !== 'submitting' && x.state !== 'waiting') return false; x.nextPollAt = Date.now() + wait; });
+        return 'retry';
+      },
+
+      // ── what the server says ──
+      async onStatus(r, s) {
+        const cur = this.recs.get(r.id);
+        if (!cur || (cur.state !== 'submitted' && cur.state !== 'running')) return;
+        const stale = Number.isInteger(s.attempt) && s.attempt < cur.attempt && s.state !== 'unknown';
+        const state = stale ? 'unknown' : s.state;
+        if (state === 'running') {
+          if (cur.state !== 'running' || !cur.sawServer) await this.update(cur.id, x => { if (x.state !== 'submitted' && x.state !== 'running') return false; x.state = 'running'; x.sawServer = true; });
+          this.stepPoll(this.recs.get(cur.id) || cur);
+        } else if (state === 'succeeded') {
+          await this.update(cur.id, x => { if (x.state !== 'submitted' && x.state !== 'running') return false; x.state = 'succeeded'; x.sawServer = true; x.nextPollAt = 0; });
+          const next = this.recs.get(cur.id);
+          if (next && next.state === 'succeeded') this.spawn(next, () => this.fetchApplyAck(next));
+        } else if (state === 'failed' || state === 'lost') {
+          await this.onFailed(cur, s, state === 'lost');
+        } else if (state === 'cancelled') {
+          await this.finalFail(cur, new AppError('JOB-410'), true);
+        } else if (state === 'rejected') {
+          await this.onRejected(cur, s);
+        } else {
+          await this.onUnknown(cur);
+        }
+      },
+
+      async onUnknown(cur) {
+        if (cur.sawServer) { await this.onFailed(cur, { error: null }, true); return; }
+        if (Date.now() - (cur.lastCreateAt || 0) < JOBS_UNKNOWN_GRACE_MS) { this.stepPoll(cur); return; }
+        if ((cur.createTries || 0) >= JOBS_CREATE_TRIES) {
+          this.serverOffUntil = Date.now() + JOBS_SERVER_OFF_MS;
+          const down = new AppError('SRV-503');
+          setServiceStatus('degraded', down.code, down.message);
+          await this.finalFail(cur, new AppError('JOB-502'), false);
+          return;
+        }
+        await this.update(cur.id, x => { if (x.state !== 'submitted') return false; x.state = 'waiting'; x.waitKind = 'resend'; x.nextPollAt = 0; });
+      },
+
+      async onFailed(cur, s, lost) {
+        const server = s.error || {};
+        const err = errorFromPayload({ ok: false, error: { ...server, code: server.code || 'STH-JOB-504' } });
+        const retryable = lost || server.retryable === true;
+        const inputs = retryable && cur.attempt < cur.maxAttempts ? await this.inputsOf(cur.id) : null;
+        if (!inputs) { await this.finalFail(cur, err, true); return; }
+        const wait = Math.max(Number(server.retryAfterMs) || 0, JOBS_RETRY_MIN_MS);
+        await this.update(cur.id, x => {
+          if (x.state !== 'submitted' && x.state !== 'running') return false;
+          x.state = 'waiting'; x.waitKind = 'retry'; x.attempt = cur.attempt + 1; x.createTries = 0; x.pollStep = 0; x.sawServer = false;
+          x.error = { code: err.code, message: err.message }; x.nextPollAt = Date.now() + wait;
+        });
+      },
+
+      async onRejected(cur, s) {
+        const code = s.error && s.error.code;
+        if (code === 'STH-JOB-503') {
+          this.serverOffUntil = Date.now() + JOBS_SERVER_OFF_MS;
+          await this.update(cur.id, x => { if (x.state !== 'submitted' && x.state !== 'running') return false; x.state = 'syncing'; x.nextPollAt = 0; });
+          const next = this.recs.get(cur.id);
+          if (next && next.state === 'syncing') this.spawn(next, () => this.runSync(next));
+          return;
+        }
+        if (code !== 'STH-JOB-429') { await this.finalFail(cur, errorFromPayload({ ok: false, error: { code: code || 'STH-SRV-500' } }), true); return; }
+        const since = cur.busySince || Date.now();
+        if (Date.now() - since > JOBS_BUSY_GIVE_UP_MS) { await this.finalFail(cur, new AppError('JOB-429'), true); return; }
+        const n = cur.busyTries || 0;
+        const wait = Math.min(JOBS_BUSY_MAX_MS, JOBS_BUSY_FIRST_MS * Math.pow(1.5, n)) * (0.8 + Math.random() * 0.4);
+        await this.update(cur.id, x => {
+          if (x.state !== 'submitted' && x.state !== 'running') return false;
+          x.state = 'waiting'; x.waitKind = 'busy'; x.busySince = since; x.busyTries = n + 1; x.createTries = 0; x.nextPollAt = Date.now() + wait;
+        });
+      },
+
+      async finalFail(rec, err, server) {
+        const e = errorFromException(err);
+        const r = await this.update(rec.id, x => {
+          if (!JOBS_ACTIVE.has(x.state)) return false;
+          x.state = 'failed'; x.error = { code: e.code, message: e.message }; x.finishedAt = Date.now(); x.seen = false; x.ackDue = !!server;
+        });
+        if (!r) return;
+        await this.deleteInputs(rec.id);
+        try { await this.handlers[rec.kind].fail(r, e); } catch (err2) { console.warn('[STH] Background job handler failed:', errorFromException(err2).code); }
+        this.el('jobsAlert').textContent = `${r.label}: could not be finished. ${e.message} (Code ${e.code})`;
+        if (server) await this.ackBatch();
+      },
+
+      // Fetch the answer, apply it once, then acknowledge so the server deletes it
+      async fetchApplyAck(rec) {
+        const cur = this.recs.get(rec.id);
+        if (!cur || cur.state !== 'succeeded') return;
+        let data;
+        try { data = await this.call({ v: 1, op: 'result', jobs: [{ id: cur.id, key: cur.key }] }); }
+        catch (err) {
+          const e = errorFromException(err);
+          if (e.key === 'JOB-404') { await this.expire(cur); return; }
+          if ((e.status === 401 || e.status === 403) && !e.guessed) { this.pauseForSignIn(); return; }
+          const live = this.recs.get(cur.id);
+          if (live) live.nextPollAt = Date.now() + 10000;
+          return;
+        }
+        const live = this.recs.get(cur.id);
+        if (!live || live.state !== 'succeeded') return;
+        const inner = data && data.result;
+        const bad = !inner || data.id !== cur.id ? new AppError('SRV-500', { safeMessage: 'Job result was not usable' }) : errorFromPayload(inner);
+        if (bad) { await this.finalFail(live, bad, true); return; }
+        let applied = true;
+        try { applied = await this.handlers[live.kind].apply(live, inner); }
+        catch (err) { await this.finalFail(live, errorFromException(err), true); return; }
+        const now = Date.now();
+        await this.update(live.id, x => { if (x.state !== 'succeeded') return false; x.state = 'applied'; x.appliedAt = now; x.finishedAt = now; x.ackDue = true; x.seen = applied === false; });
+        await this.deleteInputs(live.id);
+        this.el('jobsLive').textContent = `${live.label}: ready.`;
+        await this.ackBatch();
+      },
+
+      async expire(rec) {
+        const r = await this.update(rec.id, x => { if (x.state !== 'succeeded') return false; x.state = 'expired'; x.error = { code: 'STH-JOB-404', message: ERRORS['JOB-404'].message }; x.finishedAt = Date.now(); x.seen = false; });
+        if (!r) return;
+        await this.deleteInputs(rec.id);
+        try { await this.handlers[rec.kind].fail(r, new AppError('JOB-404')); } catch { /* handler gone */ }
+      },
+
+      async ackBatch() {
+        if (this.acking || Date.now() < this.ackBlockedUntil) return;
+        this.acking = true;
+        try {
+          for (;;) {
+            const part = [...this.recs.values()].filter(r => r.ackDue).slice(0, 10);
+            if (!part.length) return;
+            try { await this.call({ v: 1, op: 'ack', jobs: part.map(r => ({ id: r.id, key: r.key })) }); }
+            catch { this.ackBlockedUntil = Date.now() + 30000; return; }
+            for (const r of part) await this.update(r.id, x => { x.ackDue = false; if (x.state === 'applied') x.state = 'done'; });
+          }
+        } finally { this.acking = false; }
+      },
+
+      // Switched off on the server (JOB-503): the same request runs directly, applied by the same handler
+      async runSync(rec) {
+        if (!(navigator.locks && navigator.locks.request)) return this.syncNow(rec);
+        await navigator.locks.request(`sth-jobs-sync-${rec.id}`, { ifAvailable: true }, lock => (lock ? this.syncNow(rec) : null));
+      },
+      async syncNow(rec) {
+        const inputs = await this.inputsOf(rec.id);
+        if (!inputs) { await this.finalFail(rec, new AppError('JOB-502'), false); return; }
+        const h = this.handlers[rec.kind];
+        let data;
+        try { data = await h.send(rec, inputs.payload, inputs.files && inputs.files.length ? inputs.files : null); }
+        catch (err) { await this.finalFail(rec, errorFromException(err), false); return; }
+        try { await h.apply(rec, data); }
+        catch (err) { await this.finalFail(rec, errorFromException(err), false); return; }
+        const now = Date.now();
+        await this.update(rec.id, x => { if (x.state !== 'syncing') return false; x.state = 'done'; x.appliedAt = now; x.finishedAt = now; x.seen = false; });
+        await this.deleteInputs(rec.id);
+      },
+
+      // Cancel is a discard: the answer is never applied. silent: the caller handles the item itself.
+      async cancel(id, silent) {
+        if (!this.available) return;
+        const r = await this.update(id, x => { if (!JOBS_ACTIVE.has(x.state)) return false; x.state = 'cancelled'; x.error = { code: 'STH-JOB-410', message: ERRORS['JOB-410'].message }; x.finishedAt = Date.now(); x.seen = true; });
+        if (!r) return;
+        await this.deleteInputs(id);
+        if (!silent) { try { await this.handlers[r.kind].fail(r, new AppError('JOB-410')); } catch { /* handler gone */ } }
+        if (!r.lastCreateAt) return;
+        try {
+          const d = await this.call({ v: 1, op: 'cancel', jobs: [{ id, key: r.key }] });
+          if (d && d.state && d.state !== 'cancelled') await this.update(id, x => { x.ackDue = true; });
+        } catch { /* the server drops it after 72 hours */ }
+      },
+
+      // Past the usual time: stop the old job and start the same request again under a new id
+      async retryNow(id) {
+        const old = this.recs.get(id);
+        if (!old || !JOBS_ACTIVE.has(old.state) || old.state === 'preparing') return;
+        const inputs = await this.inputsOf(id);
+        if (!inputs) return;
+        const nu = await this.prepare({ mode: old.mode, kind: old.kind, ref: old.ref, label: old.label, maxAttempts: old.maxAttempts });
+        await this.store.setItem(`in:${nu.id}`, inputs);
+        const now = Date.now();
+        await this.update(nu.id, x => { x.state = 'submitting'; x.submittedAt = now; x.applyCtx = old.applyCtx; x.nextPollAt = now; });
+        const h = this.handlers[old.kind];
+        if (h.rebind) await h.rebind(old, nu);
+        await this.cancel(id, true);
+        const fresh = this.recs.get(nu.id);
+        this.spawn(fresh, () => this.create(fresh, false));
+      },
+
+      async markSeen(id) {
+        const r = this.recs.get(id);
+        if (r && !r.seen) await this.update(id, x => { x.seen = true; });
+      },
+
+      // "While you were away": results that finished while the page was closed
+      checkAway() {
+        if (!this.away) return;
+        let ready = 0, failed = 0;
+        for (const id of this.away) {
+          const r = this.recs.get(id);
+          if (!r) continue;
+          if (r.state === 'applied' || r.state === 'done') ready++;
+          else if (r.state === 'failed' || r.state === 'expired') failed++;
+        }
+        if (!ready && !failed) { if (Date.now() > this.awayUntil) this.away = null; return; }
+        this.away = null;
+        const parts = [];
+        if (ready) parts.push(`${ready} result${ready === 1 ? ' is' : 's are'} ready`);
+        if (failed) parts.push(`${failed} could not be finished`);
+        showToast(`While you were away: ${parts.join(' and ')}.`, 'success', { actionLabel: 'View', action: () => this.openTray(true), persistent: true });
+      },
+
+      // ── UI ──
+      wire() {
+        if (this.wired) return;
+        this.wired = true;
+        this.baseTitle = document.title;
+        this.el('jobsTrayBtn').hidden = false;
+        this.el('jobsTrayBtn').addEventListener('click', () => this.openTray(this.el('jobsTray').hidden));
+        this.el('jobsTrayClose').addEventListener('click', () => this.openTray(false, true));
+        this.el('jobsTray').addEventListener('click', (e) => this.onTrayClick(e));
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !this.el('jobsTray').hidden) this.openTray(false, true); });
+        document.addEventListener('click', (e) => { const t = this.el('jobsTray'); if (!t.hidden && !t.contains(e.target) && !this.el('jobsTrayBtn').contains(e.target) && !e.target.closest('#toast')) this.openTray(false); });
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) { this.elect(true); this.kick(); } });
+        window.addEventListener('pageshow', () => { this.elect(true); this.kick(); });
+        window.addEventListener('online', () => this.kick());
+        window.addEventListener('focus', () => this.kick());
+      },
+
+      openTray(open, restoreFocus) {
+        const tray = this.el('jobsTray'), btn = this.el('jobsTrayBtn');
+        tray.hidden = !open;
+        btn.setAttribute('aria-expanded', String(!!open));
+        if (open) { this.render(); tray.focus(); } else if (restoreFocus) btn.focus();
+      },
+
+      onTrayClick(e) {
+        const act = e.target.closest('[data-jobs-act]');
+        const link = e.target.closest('a[data-jobs-id]');
+        if (link) { this.markSeen(link.dataset.jobsId); this.openTray(false); return; }
+        if (!act) return;
+        const id = act.dataset.id, r = this.recs.get(id);
+        if (!r) return;
+        if (act.dataset.jobsAct === 'cancel') this.cancel(id);
+        else if (act.dataset.jobsAct === 'again') this.retryNow(id);
+        else if (act.dataset.jobsAct === 'retry') { this.drop(id); this.handlers[r.kind].retry(r); }
+        else if (act.dataset.jobsAct === 'dismiss') this.drop(id);
+      },
+
+      count() {
+        let n = 0;
+        for (const r of this.recs.values()) if (JOBS_ACTIVE.has(r.state) || (!r.seen && ['applied', 'done', 'failed', 'expired'].includes(r.state))) n++;
+        return n;
+      },
+
+      slow(r) { return (r.state === 'submitted' || r.state === 'running') && Date.now() - (r.submittedAt || r.createdAt) > (JOBS_SLOW_MS[r.mode] || 240000); },
+
+      stateText(r) {
+        const since = `<span data-jobs-since="${r.submittedAt || r.createdAt}">${jobsElapsed(r.submittedAt || r.createdAt)}</span>`;
+        if (r.state === 'preparing' || r.state === 'submitting') return `Sending (${since})`;
+        if (r.state === 'submitted' || r.state === 'running') return this.slow(r) ? `Taking longer than usual (${since})` : `Working on it (${since})`;
+        if (r.state === 'waiting') return r.waitKind === 'busy' ? 'Busy right now. It starts by itself.' : r.waitKind === 'retry' ? 'Stopped. Trying again.' : `Sending (${since})`;
+        if (r.state === 'succeeded') return 'Almost ready';
+        if (r.state === 'syncing') return 'Running now. Keep this tab open.';
+        if (r.state === 'needsConfirm') return 'Not sent yet';
+        if (r.state === 'applied' || r.state === 'done') return 'Ready';
+        if (r.state === 'cancelled') return 'Cancelled';
+        return r.error ? `${escapeHtml(r.error.message)} (Code ${escapeHtml(r.error.code)})` : 'Could not be finished';
+      },
+
+      // The Study Studio card text while its job runs
+      noteFor(r) {
+        const since = `<span data-jobs-since="${r.submittedAt || r.createdAt}">${jobsElapsed(r.submittedAt || r.createdAt)}</span>`;
+        if (r.state === 'waiting' && r.waitKind === 'busy') return 'Busy right now. It starts by itself, and you can leave.';
+        if (r.state === 'waiting' && r.waitKind === 'retry') return 'Stopped. Trying again. You can leave.';
+        if (r.state === 'syncing') return 'Running now. Keep this tab open until it is ready.';
+        return `${this.slow(r) ? 'Taking longer than usual' : 'Working on it'} (${since}). You can leave; the result is kept for 3 days.`;
+      },
+
+      rowHtml(r) {
+        const d = this.handlers[r.kind].describe(r);
+        const id = escapeHtml(r.id);
+        const acts = [];
+        const active = JOBS_ACTIVE.has(r.state);
+        if (r.state === 'applied' || r.state === 'done') acts.push(`<a href="${escapeHtml(d.href)}" data-jobs-id="${id}">Open</a>`);
+        if (this.slow(r)) acts.push(`<button type="button" data-jobs-act="again" data-id="${id}">Try again now</button>`);
+        if (active && r.state !== 'preparing') acts.push(`<button type="button" data-jobs-act="cancel" data-id="${id}">Cancel</button>`);
+        if (r.state === 'failed' || r.state === 'expired') acts.push(`<button type="button" data-jobs-act="retry" data-id="${id}">Try again</button>`);
+        if (!active) acts.push(`<button type="button" data-jobs-act="dismiss" data-id="${id}">Dismiss</button>`);
+        return `<li class="jobs-row${r.state === 'failed' || r.state === 'expired' ? ' is-failed' : ''}" data-jobs-row="${id}"><span class="jobs-row-label">${escapeHtml(d.label)}</span><span class="jobs-row-state">${this.stateText(r)}</span><div class="jobs-row-actions">${acts.join('')}</div></li>`;
+      },
+
+      render() {
+        if (!this.wired) return;
+        const n = this.count();
+        const badge = this.el('jobsTrayBadge');
+        badge.textContent = n > 9 ? '9+' : String(n);
+        badge.hidden = !n;
+        this.el('jobsTrayBtn').setAttribute('aria-label', n ? `Background jobs, ${n} need${n === 1 ? 's' : ''} attention` : 'Background jobs');
+        document.title = (n ? `(${n}) ` : '') + this.baseTitle;
+        if (!this.el('jobsTray').hidden) {
+          const list = [...this.recs.values()].filter(r => r.state !== 'preparing').sort((a, b) => b.createdAt - a.createdAt);
+          this.el('jobsTrayList').innerHTML = list.map(r => this.rowHtml(r)).join('');
+          this.el('jobsTrayEmpty').hidden = list.length > 0;
+        }
+        const running = [...this.recs.values()].some(r => JOBS_ACTIVE.has(r.state));
+        if (running && !this.uiTimer) this.uiTimer = setInterval(() => this.tickClock(), 1000);
+        else if (!running && this.uiTimer) { clearInterval(this.uiTimer); this.uiTimer = null; }
+        if (this.away && this.leader) this.checkAway();
+        if (studio.wired) studio.refreshViews();
+      },
+
+      tickClock() {
+        document.querySelectorAll('[data-jobs-since]').forEach(el => { el.textContent = jobsElapsed(Number(el.dataset.jobsSince)); });
+        const slow = [...this.recs.values()].filter(r => this.slow(r)).map(r => r.id).join();
+        if (slow !== this.slowKey) { this.slowKey = slow; this.render(); }
+      },
+
+      handlers: {
+        studio: {
+          describe: (j) => ({ label: j.label, href: `#studio/${j.ref.itemId}` }),
+          apply: (j, data) => studio.applyJobResult(j.ref.itemId, data),
+          fail: (j, err) => studio.failJob(j.ref.itemId, err),
+          send: (j, payload) => studioSend(payload),
+          retry: (j) => studio.retry(j.ref.itemId),
+          rebind: (oldJob, newJob) => studio.rebindJob(oldJob.ref.itemId, newJob.id),
+        },
       },
     };
 
@@ -5804,6 +6589,7 @@
     async function navigate() {
       const token = ++navigationToken;
       studio.applyFlagHash();
+      jobs.applyFlagHash();
       const { name, arg } = parseHash();
       const cfg = ROUTES[name];
       state.currentRoute = name;
@@ -6588,10 +7374,10 @@
 
     // Milliseconds to wait before the next attempt, or -1 when this failure must not be retried.
     // Only requests that cannot have changed anything on the server are repeated.
-    function retryDelayMs(err, mode, attempt, maxAttempts) {
+    function retryDelayMs(err, mode, attempt, maxAttempts, repeatable = false) {
       if (attempt >= maxAttempts) return -1;
       if (err.status === 401 || err.status === 403) return -1; // a rejected sign-in never gets better by waiting
-      const idempotent = IDEMPOTENT_MODES.has(mode);
+      const idempotent = repeatable || IDEMPOTENT_MODES.has(mode);
       let retry = false;
       if (err.noResponse) retry = !err.clientTimeout || idempotent;
       else if (err.status === 408 || err.status === 429 || err.status === 502 || err.status === 503 || err.status === 504) retry = true;
@@ -6605,11 +7391,14 @@
     // One logical request: at most WEBHOOK_MAX_ATTEMPTS fetches, each with its own timeout.
     // Every fetch carries the sign-in token. A missing or expired token, or an answer 401/403 (the server checks the
     // token before it runs anything), shows the gate again, then the same request is sent once more with the new token.
-    async function webhookRequest(payload, { binaryFiles, timeoutMs = REQUEST_TIMEOUT_MS, maxAttempts = WEBHOOK_MAX_ATTEMPTS, quiet = false } = {}) {
+    // url: another endpoint. idempotent: repeating this exact request is harmless, so timeouts are retried too (job calls carry their own id).
+    // authPrompt false: never open the gate, throw AUTH-401 instead. fields: extra multipart text fields.
+    async function webhookRequest(payload, { binaryFiles, fields, url = CONFIG.n8nWebhookUrl, timeoutMs = REQUEST_TIMEOUT_MS, maxAttempts = WEBHOOK_MAX_ATTEMPTS, quiet = false, idempotent = false, authPrompt = true } = {}) {
       let body, headers;
       if (binaryFiles && binaryFiles.length > 0) {
         const form = new FormData();
         form.append('payload', JSON.stringify(payload));
+        if (fields) for (const [name, value] of Object.entries(fields)) form.append(name, value);
         for (const f of binaryFiles) form.append(f.fieldName, f.blob, f.filename);
         body = form;
         headers = {}; // let the browser set the multipart boundary
@@ -6626,6 +7415,7 @@
           await waitForOnline();
         }
         if (!tokenUsable(authToken)) {
+          if (!authPrompt) throw new AppError('AUTH-401', { status: 401, safeMessage: 'Sign-in expired' });
           if (!quiet) updateProgress(null, 'Your sign-in expired. Enter your access code to carry on…');
           await requireSignIn(authToken && authToken.t);
         }
@@ -6633,7 +7423,7 @@
         const timer = setTimeout(() => controller.abort(), timeoutMs);
         let err = null, data;
         try {
-          const res = await fetch(CONFIG.n8nWebhookUrl, { method: 'POST', headers: { ...headers, ...authHeaders() }, body, signal: controller.signal });
+          const res = await fetch(url, { method: 'POST', headers: { ...headers, ...authHeaders() }, body, signal: controller.signal });
           if (res.ok) data = await res.json();
           else err = errorFromResponse(res, await res.text());
         } catch (e) {
@@ -6651,17 +7441,19 @@
         // network failure. If the sign-in endpoint still answers, the server is up and the token was refused.
         if (err.key === 'NET-503' && err.noResponse && !signedInAgain && authToken && await authEndpointReachable()) {
           err = new AppError('AUTH-401', { status: 401 });
+          err.guessed = true; // the browser could not tell a refused token from an unreachable path
         }
         noteServerResult(err);
         err.attempts = attempt;
         if ((err.status === 401 || err.status === 403) && !signedInAgain) {
+          if (!authPrompt) throw err;
           signedInAgain = true;
           if (!quiet) updateProgress(null, 'Your sign-in was not accepted. Enter your access code to carry on…');
           await requireSignIn(authToken && authToken.t);
           attempt--; // signing in again is not a retry
           continue;
         }
-        const wait = retryDelayMs(err, mode, attempt, maxAttempts);
+        const wait = retryDelayMs(err, mode, attempt, maxAttempts, idempotent);
         if (wait < 0) throw err;
         if (!quiet) updateProgress(null, `Retrying in ${Math.round(wait / 1000)}s (attempt ${attempt + 1}/${maxAttempts})…`);
         await new Promise(r => setTimeout(r, wait));
@@ -10133,7 +10925,10 @@
       },
 
       noteHtml(item) {
-        if (item.status === 'queued' || item.status === 'generating') return `<span class="studio-item-note">${STUDIO_KEEP_OPEN}</span><span class="skeleton studio-item-skeleton" aria-hidden="true"></span>`;
+        if (item.status === 'queued' || item.status === 'generating') {
+          const job = item.jobId && jobs.recs.get(item.jobId);
+          return `<span class="studio-item-note">${job && jobs.isLive(job.id) ? jobs.noteFor(job) : STUDIO_KEEP_OPEN}</span><span class="skeleton studio-item-skeleton" aria-hidden="true"></span>`;
+        }
         if (item.status === 'failed' && item.error) return `<span class="studio-item-note is-error">${escapeHtml(item.error.message)}${item.error.code ? ` (Code ${escapeHtml(item.error.code)})` : ''}</span>`;
         return '';
       },
@@ -10282,7 +11077,7 @@
       renderViewer() {
         const item = this.items.find(i => i.id === this.viewerId);
         if (!item) return;
-        if (item.status === 'ready' && !item.seen) { item.seen = true; this.save(item); return; }
+        if (item.status === 'ready' && !item.seen) { item.seen = true; if (item.jobId) jobs.markSeen(item.jobId); this.save(item); return; }
         const viewer = this.el('studioViewer');
         let cannot = '';
         if (item.status === 'ready' && item.tool === 'mindmap') {
@@ -10434,8 +11229,12 @@
         const params = { tool, language: this.el('studioLanguage').value, topic: this.el('studioTopic').value.trim().slice(0, STUDIO_TOPIC_MAX), sourceIds: this.orderedSelection() };
         storageSet(STUDIO_LANG_KEY, params.language);
         this.closeDialog();
+        const background = jobs.useFor(STUDIO_TOOLS[tool].mode);
         const item = await this.generate(params);
-        if (item) {
+        if (item && background) {
+          showToast(`${STUDIO_TOOLS[tool].label} started. You can leave; it will be ready here.`);
+          this.announce(`${STUDIO_TOOLS[tool].label} started. You can leave; it will be ready here.`);
+        } else if (item) {
           showToast(`${STUDIO_TOOLS[tool].label} started. Keep this tab open until it is ready.`);
           this.announce(`${STUDIO_TOOLS[tool].label} started. ${STUDIO_KEEP_OPEN}`);
         }
@@ -10484,9 +11283,13 @@
           await this.save(item);
           const request = await this.hooks.buildRequest(item);
           if (!this.items.includes(item)) return;
+          const jobId = jobs.useFor(request.mode) ? await jobs.submit(await jobs.prepare({ mode: request.mode, kind: 'studio', ref: { itemId: item.id }, label: item.title, maxAttempts: request.clientEstimate > STUDIO_LONG_RUN_TOKENS ? 1 : STUDIO_MAX_ATTEMPTS }), request, null, null) : null;
+          if (!this.items.includes(item)) { if (jobId) jobs.cancel(jobId, true); return; }
           item.status = 'generating';
+          if (jobId) item.jobId = jobId; else delete item.jobId;
           await this.save(item);
-          this.announce(`${item.title}: generating. ${STUDIO_KEEP_OPEN}`);
+          this.announce(`${item.title}: generating. ${jobId ? 'You can leave; it will be ready here.' : STUDIO_KEEP_OPEN}`);
+          if (jobId) return;
           const data = await this.hooks.send(request);
           if (!this.items.includes(item)) return;
           this.hooks.applyResult(item, data);
@@ -10507,6 +11310,33 @@
         this.announce(`${item.title}: could not be made. ${e.message}`);
       },
 
+      // The job engine's side: the item may have been deleted, or already filled (then there is nothing to do)
+      async findForJob(itemId) {
+        await this.ensureInit();
+        let item = this.items.find(i => i.id === itemId);
+        if (!item) { await this.reload(); item = this.items.find(i => i.id === itemId); }
+        return item;
+      },
+      async applyJobResult(itemId, data) {
+        const item = await this.findForJob(itemId);
+        if (!item) return false;
+        if (item.status === 'ready') return true;
+        this.hooks.applyResult(item, data);
+        await this.save(item);
+        this.announce(`${item.title}: ready.`);
+        return true;
+      },
+      async failJob(itemId, err) {
+        const item = await this.findForJob(itemId);
+        if (item && item.status !== 'ready') await this.fail(item, err);
+      },
+      async rebindJob(itemId, jobId) {
+        const item = await this.findForJob(itemId);
+        if (!item) return;
+        item.jobId = jobId;
+        await this.save(item);
+      },
+
       async retry(id) {
         const item = this.items.find(i => i.id === id);
         if (!item || item.status !== 'failed' || this.running.has(id)) return;
@@ -10516,6 +11346,7 @@
         item.status = 'queued';
         item.error = null;
         item.artifact = null;
+        delete item.jobId;
         this.viewState.delete(id);
         this.refreshViews();
         this.run(item);
@@ -10524,6 +11355,7 @@
       async remove(id) {
         const item = this.items.find(i => i.id === id);
         if (!item || !(await showConfirm(`Delete <strong>${escapeHtml(item.title)}</strong>? This removes it from this device.`))) return;
+        if (item.jobId) await jobs.cancel(item.jobId, true);
         this.items = this.items.filter(i => i !== item);
         this.viewState.delete(id);
         await this.persist(null, id);
@@ -10540,9 +11372,12 @@
 
       // An item still waiting or generating whose tab is gone (no lock held) was cut off: the result is lost
       async sweepInterrupted() {
+        await jobs.ensureLoad();
         for (const item of this.items) {
           if ((item.status !== 'generating' && item.status !== 'queued') || this.running.has(item.id)) continue;
           if (await this.lockHeld(item.id)) continue;
+          if (item.jobId && !jobs.recs.has(item.jobId)) await jobs.reload();
+          if ((item.jobId && jobs.isLive(item.jobId)) || jobs.hasActive('studio', item.id)) continue;
           item.status = 'failed';
           item.error = { code: null, message: STUDIO_INTERRUPTED, interrupted: true };
           item.updatedAt = Date.now();
@@ -12063,7 +12898,7 @@
       }
 
       // Init KB + Tutor stores
-      tabSync.handlers = { kb: () => kb.reload(), tutor: () => tutor.reload(), history: refreshHistoryUi, studio: () => studio.reload() };
+      tabSync.handlers = { kb: () => kb.reload(), tutor: () => tutor.reload(), history: refreshHistoryUi, studio: () => studio.reload(), jobs: () => jobs.reload() };
       tabSync.init();
       renderKbGrid();
       tutor.renderSidebarList();
@@ -12073,6 +12908,7 @@
       await tutor.init();
       ocr.resumePending();
       studio.boot();
+      jobs.init();
       wireKbDropzone();
       wireComposerAttach();
 
