@@ -884,8 +884,8 @@
     .studio-viewer-card { padding: 20px; background: rgba(255,255,255,0.7); border: 1px solid rgba(212,201,168,0.55); border-radius: 18px; }
     .studio-viewer-card h2 { margin: 0 0 4px; font-size: 22px; line-height: 1.25; overflow-wrap: anywhere; }
     .studio-viewer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; }
-    #studioViewer.is-map > .view-header { display: none; }
-    #studioViewer.is-map .studio-viewer-card { padding: 0; background: none; border: 0; border-radius: 0; }
+    #studioViewer.is-map > .view-header, #studioViewer.is-fc > .view-header { display: none; }
+    #studioViewer.is-map .studio-viewer-card, #studioViewer.is-fc .studio-viewer-card { padding: 0; background: none; border: 0; border-radius: 0; }
     .studio-mm { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
     .studio-mm-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
     .studio-mm-title { flex: 1 1 200px; min-width: 0; margin: 0; font-size: 20px; line-height: 1.25; overflow-wrap: anywhere; }
@@ -952,7 +952,7 @@
     body.studio-fs-lock { overflow: hidden; }
     .tutor-back-map { margin-top: 8px; align-self: flex-start; }
     .tutor-back-map[hidden] { display: none; }
-    #viewStudio:has(#studioViewer.is-map) > .view-header { display: none; }
+    #viewStudio:has(#studioViewer.is-map) > .view-header, #viewStudio:has(#studioViewer.is-fc) > .view-header { display: none; }
     .studio-mm-fullbtn { gap: 6px; }
     @media (max-width: 640px) {
       .studio-mm-title { order: 5; flex: 1 0 100%; font-size: 17px; }
@@ -1020,6 +1020,74 @@
     @media (prefers-reduced-motion: reduce) {
       .studio-dot.is-generating { animation: none; }
       .studio-meter-fill, .studio-sources-toggle svg { transition: none; }
+    }
+
+    .studio-fieldset { min-width: 0; margin: 0 0 16px; padding: 0; border: 0; }
+    .studio-fieldset[hidden] { display: none; }
+    .studio-fieldset > legend { padding: 0; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: rgba(26,46,28,0.8); }
+    .studio-seg { display: flex; flex-wrap: wrap; gap: 8px; }
+    .studio-seg-opt { position: relative; flex: 1 1 0; min-width: 0; }
+    .studio-seg-opt span { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 10px; font-size: 14px; font-weight: 600; line-height: 1.2; text-align: center; color: #2c5f2d; background: white; border: 1px solid #2c5f2d; border-radius: 12px; cursor: pointer; }
+    .studio-seg-opt input:checked + span { color: white; background: #2c5f2d; }
+    .studio-seg-opt input:focus-visible + span { outline: 2px solid #2c5f2d; outline-offset: 2px; }
+    .studio-fc { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    .studio-fc-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+    .studio-fc-bar .studio-btn { min-height: 44px; }
+    .studio-fc-title { flex: 1 1 200px; min-width: 0; margin: 0; font-size: 20px; line-height: 1.25; overflow-wrap: anywhere; }
+    .studio-fc-play { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    .studio-fc-play[hidden], .studio-fc-done[hidden] { display: none; }
+    .studio-fc-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; width: min(100%, 560px); margin: 0 auto; font-size: 13.5px; color: rgba(26,46,28,0.75); }
+    .studio-fc-meta p { margin: 0; }
+    .studio-fc-count { font-weight: 600; }
+    .studio-fc-track { width: min(100%, 560px); height: 6px; margin: 0 auto; border-radius: 999px; background: rgba(212,201,168,0.45); overflow: hidden; }
+    .studio-fc-track span { display: block; width: 0; height: 100%; border-radius: 999px; background: #2c5f2d; transition: width 0.2s ease; }
+    .studio-fc-stage { width: min(100%, 560px); margin: 0 auto; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+    .studio-fc-stage:focus-visible { outline: 2px solid #2c5f2d; outline-offset: 6px; border-radius: 22px; }
+    .studio-fc-card { perspective: 1200px; }
+    .studio-fc-inner { position: relative; display: grid; aspect-ratio: 3 / 2; transform-style: preserve-3d; transition: transform 0.3s ease; cursor: pointer; }
+    .studio-fc-inner.no-anim { transition: none; }
+    .studio-fc-card.is-flipped .studio-fc-inner { transform: rotateY(180deg); }
+    .studio-fc-face { grid-area: 1 / 1; display: flex; flex-direction: column; justify-content: center; gap: 10px; min-width: 0; padding: 20px; background: white; border: 1px solid rgba(212,201,168,0.7); border-radius: 20px; box-shadow: 0 8px 24px rgba(26,46,28,0.08); backface-visibility: hidden; -webkit-backface-visibility: hidden; overflow-wrap: anywhere; }
+    .studio-fc-back { background: #f3f6ee; transform: rotateY(180deg); }
+    .studio-fc-topic { margin: 0; text-align: center; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #2c5f2d; }
+    .studio-fc-topic[hidden] { display: none; }
+    .studio-fc-text { margin: 0; font-size: 22px; font-weight: 600; line-height: 1.35; text-align: center; }
+    .studio-fc-back .studio-fc-text { font-size: 18px; font-weight: 400; line-height: 1.5; }
+    .studio-fc-back > div { display: flex; justify-content: center; }
+    .studio-fc-back .studio-mm-chip { min-height: 32px; font-size: 12.5px; }
+    .studio-fc-back .studio-btn { min-height: 44px; }
+    .studio-fc-controls { display: flex; gap: 8px; width: min(100%, 560px); margin: 0 auto; }
+    .studio-fc-controls .studio-btn { flex: 1 1 0; min-width: 0; min-height: 48px; padding: 0 8px; font-size: 15px; line-height: 1.15; text-align: center; }
+    .studio-fc-learn { color: #7a1a1d; border-color: #9b2226; }
+    .studio-fc-learn:hover { background: rgba(155,34,38,0.06); }
+    .studio-fc-tools { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+    .studio-fc-tools .studio-btn { min-height: 44px; }
+    .studio-fc-keys { width: min(100%, 560px); margin: 0 auto; font-size: 12.5px; line-height: 1.45; text-align: center; color: rgba(26,46,28,0.6); }
+    .studio-fc-done { width: min(100%, 560px); margin: 0 auto; padding: 20px; background: white; border: 1px solid rgba(212,201,168,0.7); border-radius: 20px; }
+    .studio-fc-done:focus-visible { outline: 2px solid #2c5f2d; outline-offset: 4px; }
+    .studio-fc-done h3 { margin: 0 0 6px; font-size: 20px; }
+    .studio-fc-done p { margin: 0 0 10px; font-size: 14px; line-height: 1.5; }
+    .studio-fc-next { font-weight: 600; }
+    .studio-fc-boxes { margin: 0 0 12px; padding: 0; list-style: none; font-size: 14px; line-height: 1.7; }
+    .studio-fc > .studio-mm-foot { text-align: center; }
+    @media (hover: none) { .studio-fc-keys { display: none; } }
+    @media (max-width: 640px) {
+      .studio-fc-title { order: 5; flex: 1 0 100%; font-size: 17px; }
+      .studio-fc-bar .studio-fc-home { order: 1; }
+      .studio-fc-bar #studioFcReport { order: 2; margin-left: auto; padding: 0 12px; font-size: 12px; }
+      .studio-fc-bar .studio-menu { order: 3; }
+      .studio-fc-face { padding: 16px; }
+      .studio-fc-text { font-size: 20px; }
+      .studio-fc-back .studio-fc-text { font-size: 16.5px; }
+      .studio-fc-controls .studio-btn { font-size: 14px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .studio-fc-inner, .studio-fc-card.is-flipped .studio-fc-inner { transform: none; transition: none; }
+      .studio-fc-face { backface-visibility: visible; -webkit-backface-visibility: visible; transition: opacity 0.15s linear; }
+      .studio-fc-back { transform: none; opacity: 0; pointer-events: none; }
+      .studio-fc-card.is-flipped .studio-fc-back { opacity: 1; pointer-events: auto; }
+      .studio-fc-card.is-flipped .studio-fc-front { opacity: 0; pointer-events: none; }
+      .studio-fc-track span { transition: none; }
     }
 
     /* ───────── TUTOR ───────── */
@@ -2770,6 +2838,12 @@
           <button type="button" id="statusBannerClose" class="status-banner-close" aria-label="Dismiss status message">&times;</button>
         </span>
       </div>
+      <div id="noticeBanner" class="status-banner" role="status" hidden>
+        <span class="status-banner-text">On 14 November 2026 Study Studio and background processing open to everyone, and the Privacy Policy and Terms are updated. <a href="privacy.html#upcoming" target="_blank" rel="noopener">What changes</a></span>
+        <span class="status-banner-actions">
+          <button type="button" id="noticeBannerClose" class="status-banner-close" aria-label="Dismiss update notice">&times;</button>
+        </span>
+      </div>
       <div class="topbar">
         <div class="flex items-center gap-3">
           <button id="btnHamburger" class="hamburger-btn" aria-label="Toggle sidebar">
@@ -3492,6 +3566,14 @@
         <button type="button" class="studio-close" id="studioDialogClose" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
+        <fieldset class="studio-fieldset" id="studioOptCountField" hidden>
+          <legend>Number of cards</legend>
+          <div class="studio-seg" id="studioOptCount"></div>
+        </fieldset>
+        <fieldset class="studio-fieldset" id="studioOptLevelField" hidden>
+          <legend>Level of difficulty</legend>
+          <div class="studio-seg" id="studioOptLevel"></div>
+        </fieldset>
         <div class="studio-field">
           <label for="studioLanguage">Language</label>
           <select id="studioLanguage"></select>
@@ -4987,7 +5069,7 @@
     // Anything off, blocked or missing on the server falls back to the direct request.
     const JOBS_FLAG_KEY = 'sth_flag_jobs';
     const JOBS_LEADER_LOCK = 'sth-jobs-leader';
-    const JOBS_MODES = ['tutor', 'studio_mindmap'];
+    const JOBS_MODES = ['tutor', 'studio_mindmap', 'studio_flashcards'];
     const JOBS_CADENCE_S = { tutor: [5, 5, 8, 13, 20], studio_mindmap: [10, 15, 20, 30] };
     const JOBS_SLOW_MS = { tutor: 90000, studio_mindmap: 4 * 60 * 1000 };
     const JOBS_FIRST_POLL_MS = 3000;
@@ -10363,7 +10445,7 @@
       quiz:        { label: 'Quiz',        enabled: false },
       infographic: { label: 'Infographic', enabled: false },
       slides:      { label: 'Slide deck',  enabled: false },
-      flashcards:  { label: 'Flashcards',  enabled: false },
+      flashcards:  { label: 'Flashcards',  mode: 'studio_flashcards', enabled: true, options: true, sub: 'Turn your sources into cards for active recall.', placeholder: 'Things to try\n\u2022 Only use one source (e.g. \'the prescribed summary\')\n\u2022 Focus on one topic, like \'HIV testing\'\n\u2022 Keep card fronts short (1-5 words) for memorising' },
     };
     const STUDIO_LANGUAGES = [
       { code: 'en', name: 'English' }, { code: 'af', name: 'Afrikaans' },
@@ -10372,6 +10454,17 @@
       { code: 'fr', name: 'French' }, { code: 'pt', name: 'Portuguese' }, { code: 'es', name: 'Spanish' }, { code: 'de', name: 'German' }, { code: 'nl', name: 'Dutch' },
       { code: 'sw', name: 'Swahili', beta: true }, { code: 'ar', name: 'Arabic' }, { code: 'zh-Hans', name: 'Chinese (Simplified)' }, { code: 'hi', name: 'Hindi' },
     ];
+    const STUDIO_FC_COUNTS = [{ value: 15, label: 'Fewer' }, { value: 30, label: 'Standard' }, { value: 50, label: 'More' }];
+    const STUDIO_FC_LEVELS = [{ value: 'easy', label: 'Easy' }, { value: 'medium', label: 'Medium' }, { value: 'hard', label: 'Hard' }];
+    const STUDIO_FC_DEFAULTS = { count: 30, difficulty: 'medium' };
+    function studioCleanOptions(tool, raw) {
+      if (tool !== 'flashcards') return {};
+      const o = raw && typeof raw === 'object' ? raw : {};
+      return {
+        count: STUDIO_FC_COUNTS.some(c => c.value === o.count) ? o.count : STUDIO_FC_DEFAULTS.count,
+        difficulty: STUDIO_FC_LEVELS.some(l => l.value === o.difficulty) ? o.difficulty : STUDIO_FC_DEFAULTS.difficulty,
+      };
+    }
     const STUDIO_STATUS_TEXT = { queued: 'Waiting to start', generating: 'Generating', ready: 'Ready', failed: 'Couldn’t finish' };
 
     const studioTokens = (chars) => Math.ceil(chars / 4);
@@ -10474,7 +10567,7 @@
         requestId: generateId(),
         tool: item.tool,
         language: { code: lang.code, name: lang.name },
-        options: {},
+        options: studioCleanOptions(item.tool, item.options),
         description: item.topic || '',
         sources,
         clientEstimate: sources.reduce((sum, s) => sum + s.tokens, 0),
@@ -10804,6 +10897,163 @@
       setTimeout(() => URL.revokeObjectURL(url), 4000);
     }
 
+    // ── Flashcards: what the viewer may trust, and the review schedule. The model's output is untrusted; every string passes through here and is shown with textContent only ──
+    const STUDIO_FC_SCHEMA = 'sth.flashcards/1';
+    const STUDIO_FC_MAX_CARDS = 80;
+    const STUDIO_FC_SCAN_LIMIT = 400;
+    const STUDIO_FC_INTERVALS = [0, 1, 3, 7, 14]; // days until a card in box 1 to 5 comes back
+    const STUDIO_FC_SESSION_MAX = 30;
+    const STUDIO_FC_NEW_EVERY = 3; // one new card after this many reviews
+    const STUDIO_FC_RETRY_GAP = 3; // a card marked "still learning" comes back after this many others
+    const STUDIO_FC_SWIPE_PX = 60;
+
+    // Pure: shape check, at most 80 cards, clean text, empty cards dropped, ids renumbered c1.. (the review state is kept under these ids)
+    function studioNormalizeFlashcards(data) {
+      if (!data || typeof data !== 'object' || !Array.isArray(data.cards)) return { ok: false, reason: 'shape' };
+      const text = (v) => typeof v === 'number' && isFinite(v) ? String(v) : v;
+      const cards = [];
+      for (const c of data.cards.slice(0, STUDIO_FC_SCAN_LIMIT)) {
+        if (cards.length >= STUDIO_FC_MAX_CARDS) break;
+        if (!c || typeof c !== 'object') continue;
+        const front = studioClean(text(c.front), 200), back = studioClean(text(c.back), 600);
+        if (!front || !back) continue;
+        cards.push({ id: `c${cards.length + 1}`, topic: studioClean(text(c.topic), 60), front, back, cites: studioMapCites(c.cites) });
+      }
+      if (!cards.length) return { ok: false, reason: 'empty' };
+      const repairs = [];
+      if (data.cards.length > cards.length) repairs.push(`kept ${cards.length} of ${data.cards.length} cards`);
+      return {
+        ok: true,
+        title: studioClean(data.title, 80) || 'Flashcards',
+        notices: Array.isArray(data.notices) ? data.notices.slice(0, 3).map(s => studioClean(s, 160)).filter(Boolean) : [],
+        cards, repairs,
+      };
+    }
+
+    const studioFcNormalized = new WeakMap();
+    function studioFcModel(artifact) {
+      if (!artifact || typeof artifact !== 'object') return { ok: false, reason: 'shape' };
+      const schema = artifact.schema || (artifact.data && artifact.data.schema);
+      if (schema && schema !== STUDIO_FC_SCHEMA) return { ok: false, reason: 'schema' };
+      if (!studioFcNormalized.has(artifact)) {
+        let model;
+        try { model = studioNormalizeFlashcards(artifact.data); } catch { model = { ok: false, reason: 'shape' }; }
+        studioFcNormalized.set(artifact, model);
+      }
+      return studioFcNormalized.get(artifact);
+    }
+    const studioFcCount = (item) => { const m = studioFcModel(item.artifact); return m.ok ? m.cards.length : 0; };
+
+    // Review schedule (Leitner, 5 boxes). Days are local calendar days as 'YYYY-MM-DD'; every function takes today as an argument.
+    const studioFcDay = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    function studioFcAddDays(day, n) {
+      const [y, m, d] = day.split('-').map(Number);
+      return studioFcDay(new Date(y, m - 1, d + n));
+    }
+    // The state after an answer. A card not seen before counts as box 1.
+    function studioFcReview(entry, knew, today) {
+      const box = knew ? Math.min(STUDIO_FC_INTERVALS.length, (entry ? entry.box : 1) + 1) : 1;
+      return { box, due: studioFcAddDays(today, STUDIO_FC_INTERVALS[box - 1]), seen: true };
+    }
+    // Reviews first in groups of NEW_EVERY, then one new card; when one kind runs out the other fills the rest
+    function studioFcInterleave(reviews, fresh, cap = STUDIO_FC_SESSION_MAX) {
+      const out = [];
+      let r = 0, f = 0, run = 0;
+      while (out.length < cap && (r < reviews.length || f < fresh.length)) {
+        if (f < fresh.length && (run >= STUDIO_FC_NEW_EVERY || r >= reviews.length)) { out.push(fresh[f++]); run = 0; }
+        else { out.push(reviews[r++]); run++; }
+      }
+      return out;
+    }
+    // Due cards (box ascending, then due ascending) with the new ones mixed in; ids are in deck order, cards maps id -> { box, due, seen }
+    function studioFcSession(ids, cards, today, cap = STUDIO_FC_SESSION_MAX) {
+      const place = new Map(ids.map((id, i) => [id, i]));
+      const reviews = ids.filter(id => cards[id] && cards[id].due <= today)
+        .sort((a, b) => cards[a].box - cards[b].box || (cards[a].due < cards[b].due ? -1 : cards[a].due > cards[b].due ? 1 : 0) || place.get(a) - place.get(b));
+      return studioFcInterleave(reviews, ids.filter(id => !cards[id]), cap);
+    }
+    function studioFcReinsert(queue, pos, gap = STUDIO_FC_RETRY_GAP) {
+      const at = Math.min(queue.length, pos + gap + 1);
+      return [...queue.slice(0, at), queue[pos], ...queue.slice(at)];
+    }
+    function studioFcShuffle(list, rand = Math.random) {
+      const out = list.slice();
+      for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
+      return out;
+    }
+    const studioFcNewSession = (queue, practice = false) => ({ queue, pos: 0, known: 0, learning: 0, practice, undo: [] });
+    // One answer for the card at the front of the queue. Practice runs leave the schedule alone. Returns new objects.
+    function studioFcAnswer(session, cards, knew, today) {
+      const id = session.queue[session.pos];
+      if (!id) return { session, cards };
+      const prev = cards[id] || null;
+      return {
+        cards: session.practice ? cards : { ...cards, [id]: studioFcReview(prev, knew, today) },
+        session: {
+          ...session,
+          queue: knew ? session.queue : studioFcReinsert(session.queue, session.pos),
+          pos: session.pos + 1,
+          known: session.known + (knew ? 1 : 0),
+          learning: session.learning + (knew ? 0 : 1),
+          undo: [...session.undo, { id, prev, knew, queue: session.queue, pos: session.pos }],
+        },
+      };
+    }
+    function studioFcUndo(session, cards) {
+      const last = session.undo[session.undo.length - 1];
+      if (!last) return { session, cards };
+      const next = { ...cards };
+      if (last.prev) next[last.id] = last.prev; else delete next[last.id];
+      return {
+        cards: session.practice ? cards : next,
+        session: { ...session, queue: last.queue, pos: last.pos, known: session.known - (last.knew ? 1 : 0), learning: session.learning - (last.knew ? 0 : 1), undo: session.undo.slice(0, -1) },
+      };
+    }
+    // Where the whole deck stands: cards per box, new cards, cards due now, and the next day with reviews (tomorrow first)
+    function studioFcSummary(ids, cards, today) {
+      const boxes = STUDIO_FC_INTERVALS.map(() => 0);
+      const upcoming = new Map();
+      let fresh = 0, dueNow = 0;
+      for (const id of ids) {
+        const c = cards[id];
+        if (!c) { fresh++; continue; }
+        boxes[c.box - 1]++;
+        if (c.due <= today) dueNow++; else upcoming.set(c.due, (upcoming.get(c.due) || 0) + 1);
+      }
+      const tomorrow = studioFcAddDays(today, 1);
+      const next = upcoming.has(tomorrow) ? tomorrow : [...upcoming.keys()].sort()[0] || '';
+      return { boxes, fresh, dueNow, tomorrow: upcoming.get(tomorrow) || 0, next, nextCount: next ? upcoming.get(next) : 0 };
+    }
+    function studioFcNextText(sum) {
+      const cards = (n) => `${n} card${n === 1 ? '' : 's'}`;
+      if (sum.tomorrow) return `Next review: ${cards(sum.tomorrow)} tomorrow`;
+      if (!sum.next) return '';
+      const [y, m, d] = sum.next.split('-').map(Number);
+      return `Next review: ${cards(sum.nextCount)} on ${new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })}`;
+    }
+    // Saved review state, kept only for cards that exist now and only when it is well formed
+    function studioFcCleanCards(raw, ids) {
+      const out = {};
+      if (!raw || typeof raw !== 'object') return out;
+      for (const id of ids) {
+        const c = Object.prototype.hasOwnProperty.call(raw, id) ? raw[id] : null;
+        if (c && typeof c === 'object' && Number.isInteger(c.box) && c.box >= 1 && c.box <= STUDIO_FC_INTERVALS.length && typeof c.due === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(c.due)) out[id] = { box: c.box, due: c.due, seen: true };
+      }
+      return out;
+    }
+
+    // Anki and Quizlet: front, back, topic; tabs and line breaks in a cell become spaces; a cell a spreadsheet would read as a formula gets a leading space
+    function studioFcTsv(model) {
+      const cell = (s) => { const t = String(s).replace(/[\t\r\n\u2028\u2029]/g, ' '); return /^[=+\-@]/.test(t) ? ` ${t}` : t; };
+      return `\ufeff${model.cards.map(c => [c.front, c.back, c.topic].map(cell).join('\t')).join('\n')}\n`;
+    }
+
+    // The editable text that lands in the tutor composer when "Ask tutor" is chosen on a card
+    function studioFcPrompt(card, nameOf) {
+      const cites = studioMapCiteText(card.cites, nameOf);
+      return `Help me understand and remember this: "${card.front}" = "${card.back}". Give me a memory hook and one example from my sources${cites ? ` (${cites})` : ''}.`;
+    }
+
     const studio = {
       store: null,
       items: [],
@@ -10816,6 +11066,7 @@
       running: new Set(),
       viewerId: null,
       viewState: new Map(),
+      progress: new Map(),
       pendingPrompt: null,
       dialog: { tool: null, opener: null, inerted: [], expanded: false },
       hooks: { buildRequest: studioBuildRequest, send: studioSend, applyResult: studioApplyResult },
@@ -10891,6 +11142,7 @@
               if (removeId) {
                 removed[removeId] = Date.now();
                 await this.store.removeItem(`item:${removeId}`);
+                await this.store.removeItem(`progress:${removeId}`);
               }
               const byId = new Map(this.items.map(i => [i.id, this.summaryOf(i)]));
               for (const s of (await this.store.getItem('index')) || []) if (s && s.id && !byId.has(s.id)) byId.set(s.id, s);
@@ -10913,6 +11165,27 @@
         item.updatedAt = Date.now();
         this.refreshViews();
         await this.persist(item);
+      },
+
+      // Review progress per study aid, in the same IndexedDB store (key progress:<id>); in memory when storage is blocked
+      async loadProgress(id) {
+        if (this.progress.has(id)) return this.progress.get(id);
+        let rec = null;
+        if (this.store && !this.memoryOnly) {
+          try { rec = await this.store.getItem(`progress:${id}`); } catch (err) { console.warn('[STH] Study Studio progress unavailable:', err); }
+        }
+        if (!this.progress.has(id)) this.progress.set(id, rec && typeof rec === 'object' ? rec : { updatedAt: 0 });
+        return this.progress.get(id);
+      },
+
+      async saveProgress(id) {
+        const rec = this.progress.get(id);
+        if (!rec) return;
+        rec.updatedAt = Date.now();
+        if (this.store && !this.memoryOnly) {
+          try { await this.store.setItem(`progress:${id}`, rec); return; } catch (err) { console.warn('[STH] Study Studio progress not saved:', err); this.memoryOnly = true; }
+        }
+        this.el('studioStoreNote').hidden = false;
       },
 
       // Another tab saved
@@ -11100,6 +11373,7 @@
       itemHtml(item) {
         const n = item.sourceIds.length;
         const id = escapeHtml(item.id);
+        const cards = item.status === 'ready' && item.tool === 'flashcards' ? studioFcCount(item) : 0;
         const actions = [];
         if (item.status === 'ready') actions.push(`<a href="#studio/${id}">Open</a>`);
         if (item.status === 'ready' || item.status === 'failed') actions.push(`<button type="button" data-studio-act="regenerate" data-id="${id}">Regenerate</button>`);
@@ -11109,7 +11383,7 @@
           <span class="studio-item-icon">${studioSvg(item.tool)}</span>
           <a class="studio-item-link" href="#studio/${id}">
             <span class="studio-item-title">${escapeHtml(item.title)}</span>
-            <span class="studio-item-meta">${n} source${n === 1 ? '' : 's'} · ${escapeHtml(formatRelativeDate(item.updatedAt || item.createdAt))}</span>
+            <span class="studio-item-meta">${n} source${n === 1 ? '' : 's'}${cards ? ` · ${cards} card${cards === 1 ? '' : 's'}` : ''} · ${escapeHtml(formatRelativeDate(item.updatedAt || item.createdAt))}</span>
             ${this.statusHtml(item)}
             ${this.noteHtml(item)}
           </a>
@@ -11171,6 +11445,7 @@
         if (!kbItem) {
           showToast('That source is no longer in your Knowledge Bay', 'error');
           studioMap.refreshCites();
+          studioFc.refreshCites();
           return;
         }
         studioMap.leaveFullscreen();
@@ -11179,25 +11454,26 @@
 
       // A node name opens this map's own tutor chat (made on first use, or again after "New chat instead") with the question ready to edit; nothing is sent
       async askTutor(item, model, node) {
+        await this.openTutorChat(item, `Mind map · ${model.title}`.slice(0, 60), studioMapPrompt(model, node, (n) => this.citeSource(item, n).name), this.viewStateFor(item.id), 'mind map');
+      },
+
+      async openTutorChat(item, title, text, vs, what) {
         if (this.asking) return;
         this.asking = true;
         try {
           studioMap.leaveFullscreen();
-          const vs = this.viewStateFor(item.id);
-          const text = studioMapPrompt(model, node, (n) => this.citeSource(item, n).name);
-          let chat = !vs.newChat && item.chatId ? tutor.chats.find(c => c.id === item.chatId) : null;
+          let chat = !(vs && vs.newChat) && item.chatId ? tutor.chats.find(c => c.id === item.chatId) : null;
           if (!chat) {
             chat = await tutor.newChatFor({
-              title: `Mind map · ${model.title}`.slice(0, 60),
+              title,
               attachedKnowledgeIds: item.sourceIds.filter(id => kb.cache.some(k => k.id === id)),
               studioItemId: item.id,
             });
             item.chatId = chat.id;
             await this.save(item);
           }
-          vs.newChat = false;
-          studioMap.syncNewChat();
-          this.pendingPrompt = { chatId: chat.id, text, at: Date.now() };
+          if (vs) { vs.newChat = false; studioMap.syncNewChat(); }
+          this.pendingPrompt = { chatId: chat.id, text, what, at: Date.now() };
           location.hash = `#tutor/${chat.id}`;
         } finally {
           this.asking = false;
@@ -11218,11 +11494,11 @@
           input.setSelectionRange(p.text.length, p.text.length);
         };
         if (input.value.trim() && input.value !== p.text) {
-          showConfirm('Replace your draft with the mind map question?', 'Replace').then(ok => { if (ok) put(); else input.focus(); });
+          showConfirm(`Replace your draft with the ${p.what || 'mind map'} question?`, 'Replace').then(ok => { if (ok) put(); else input.focus(); });
         } else put();
       },
 
-      // The "Back to mind map" link in the tutor header: made only when a chat is linked to a study aid
+      // The "Back to ..." link in the tutor header: made only when a chat is linked to a study aid
       syncTutorBack(chat) {
         const item = chat && chat.studioItemId && this.enabled() ? this.items.find(i => i.id === chat.studioItemId) : null;
         let link = document.getElementById('tutorBackToMap');
@@ -11231,11 +11507,13 @@
           link = document.createElement('a');
           link.id = 'tutorBackToMap';
           link.className = 'studio-btn ghost tutor-back-map';
-          link.textContent = '← Back to mind map';
           dom.tutorAttachedSummary.after(link);
         }
         link.hidden = !item;
-        if (item) link.setAttribute('href', `#studio/${item.id}`);
+        if (item) {
+          link.textContent = `← Back to ${item.tool === 'flashcards' ? 'flashcards' : 'mind map'}`;
+          link.setAttribute('href', `#studio/${item.id}`);
+        }
       },
 
       renderViewer() {
@@ -11244,16 +11522,30 @@
         if (item.status === 'ready' && !item.seen) { item.seen = true; if (item.jobId) jobs.markSeen(item.jobId); this.save(item); return; }
         const viewer = this.el('studioViewer');
         let cannot = '';
+        const isFc = item.status === 'ready' && item.tool === 'flashcards';
+        if (!isFc) studioFc.unmount();
+        if (isFc) {
+          const model = studioFcModel(item.artifact);
+          if (model.ok) {
+            studioMap.unmount();
+            viewer.classList.remove('is-map');
+            viewer.classList.add('is-fc');
+            if (studioFc.showing(item)) studioFc.refreshCites(); else studioFc.mount(item, model);
+            return;
+          }
+          cannot = model.reason === 'schema' ? 'This study aid was made by a newer version of the app. Reload the page.' : 'This study aid is damaged. Regenerate it.';
+        }
         if (item.status === 'ready' && item.tool === 'mindmap') {
           const model = studioMapModel(item.artifact);
           if (model.ok) {
+            viewer.classList.remove('is-fc');
             viewer.classList.add('is-map');
             if (studioMap.showing(item)) studioMap.refreshCites(); else studioMap.mount(item, model);
             return;
           }
           cannot = model.reason === 'schema' ? 'This study aid was made by a newer version of the app. Reload the page.' : 'This study aid is damaged. Regenerate it.';
         }
-        viewer.classList.remove('is-map');
+        viewer.classList.remove('is-map', 'is-fc');
         studioMap.unmount();
         const id = escapeHtml(item.id);
         const n = item.sourceIds.length;
@@ -11280,7 +11572,7 @@
       async show(arg) {
         this.wire();
         this.viewerId = arg || null;
-        if (!arg) studioMap.unmount();
+        if (!arg) { studioMap.unmount(); studioFc.unmount(); }
         this.el('studioMain').hidden = !!arg;
         this.el('studioViewer').hidden = !arg;
         this.renderSources();
@@ -11328,6 +11620,15 @@
         d.opener = document.activeElement;
         this.el('studioDialogTitle').textContent = t.label;
         this.el('studioDialogSub').textContent = t.sub;
+        const topic = this.el('studioTopic');
+        topic.dataset.placeholder ??= topic.placeholder;
+        topic.placeholder = t.placeholder || topic.dataset.placeholder;
+        this.el('studioOptCountField').hidden = this.el('studioOptLevelField').hidden = !t.options;
+        const opts = studioCleanOptions(tool, prefill.options);
+        if (t.options) {
+          this.el('studioOptCount').querySelector(`input[value="${opts.count}"]`).checked = true;
+          this.el('studioOptLevel').querySelector(`input[value="${opts.difficulty}"]`).checked = true;
+        }
         const savedLang = storageGet(STUDIO_LANG_KEY);
         const pick = [prefill.language, savedLang].find(c => STUDIO_LANGUAGES.some(l => l.code === c)) || 'en';
         this.el('studioLanguage').value = pick;
@@ -11343,7 +11644,7 @@
         this.el('studioDialog').classList.add('open');
         d.inerted = [...document.body.children].filter(el => el.id !== 'studioDialog' && !['toast', 'loginOverlay'].includes(el.id) && el.tagName !== 'SCRIPT' && !el.hasAttribute('inert'));
         d.inerted.forEach(el => el.setAttribute('inert', ''));
-        this.el('studioLanguage').focus();
+        (t.options ? this.el('studioOptCount').querySelector('input:checked') : this.el('studioLanguage')).focus();
       },
 
       drawDialogState(plan) {
@@ -11391,6 +11692,7 @@
         if (this.el('studioGenerateBtn').getAttribute('aria-disabled') === 'true') return;
         const tool = this.dialog.tool;
         const params = { tool, language: this.el('studioLanguage').value, topic: this.el('studioTopic').value.trim().slice(0, STUDIO_TOPIC_MAX), sourceIds: this.orderedSelection() };
+        if (STUDIO_TOOLS[tool].options) params.options = { count: Number(this.el('studioOptCount').querySelector('input:checked').value), difficulty: this.el('studioOptLevel').querySelector('input:checked').value };
         storageSet(STUDIO_LANG_KEY, params.language);
         this.closeDialog();
         const background = jobs.useFor(STUDIO_TOOLS[tool].mode);
@@ -11419,6 +11721,7 @@
           title: picked.length === 1 ? `${label}: ${stem(picked[0].name)}`.slice(0, 120) : `${label} of ${picked.length} sources`,
           language: params.language,
           topic: params.topic,
+          options: studioCleanOptions(params.tool, params.options),
           sourceIds: picked.map(i => i.id),
           sourceNames: picked.map(i => i.name),
           status: 'queued',
@@ -11512,6 +11815,7 @@
         item.artifact = null;
         delete item.jobId;
         this.viewState.delete(id);
+        studioFc.sessions.delete(id);
         this.refreshViews();
         this.run(item);
       },
@@ -11522,6 +11826,8 @@
         if (item.jobId) await jobs.cancel(item.jobId, true);
         this.items = this.items.filter(i => i !== item);
         this.viewState.delete(id);
+        this.progress.delete(id);
+        studioFc.sessions.delete(id);
         await this.persist(null, id);
         if (this.viewerId === id) location.hash = '#studio';
         this.refreshViews();
@@ -11554,6 +11860,9 @@
         if (this.wired) return;
         this.wired = true;
         this.renderTools();
+        const seg = (name, list, def) => list.map(o => `<label class="studio-seg-opt"><input type="radio" class="studio-sr" name="${name}" value="${o.value}"${o.value === def ? ' checked' : ''} /><span>${o.label}${typeof o.value === 'number' ? ` (${o.value})` : ''}</span></label>`).join('');
+        this.el('studioOptCount').innerHTML = seg('studioCount', STUDIO_FC_COUNTS, STUDIO_FC_DEFAULTS.count);
+        this.el('studioOptLevel').innerHTML = seg('studioLevel', STUDIO_FC_LEVELS, STUDIO_FC_DEFAULTS.difficulty);
         this.el('studioLanguage').innerHTML = STUDIO_LANGUAGES.map(l => `<option value="${l.code}">${l.name}${l.beta ? ' (beta)' : ''}</option>`).join('');
         const onRowChange = (e) => { const cb = e.target.closest('input[data-studio-source]'); if (cb) this.toggle(cb.dataset.studioSource, cb.checked); };
         this.el('studioSourceList').addEventListener('change', onRowChange);
@@ -11573,7 +11882,8 @@
           else if (act === 'delete') this.remove(id);
           else if (act === 'export-png') studioMap.exportPng();
           else if (act === 'export-md') studioMap.exportMd();
-          else if (act === 'regenerate') { const it = this.items.find(i => i.id === id); if (it) this.openDialog(it.tool, { language: it.language, topic: it.topic, sourceIds: it.sourceIds }); }
+          else if (act === 'export-tsv') studioFc.exportTsv();
+          else if (act === 'regenerate') { const it = this.items.find(i => i.id === id); if (it) this.openDialog(it.tool, { language: it.language, topic: it.topic, sourceIds: it.sourceIds, options: it.options }); }
         };
         this.el('studioItemList').addEventListener('click', onAct);
         this.el('studioViewerCard').addEventListener('click', onAct);
@@ -12324,6 +12634,335 @@
       },
     };
 
+    // ── Flashcards viewer: one card at a time, flip, answer, review schedule ──
+    const studioFc = {
+      item: null, model: null, art: null, byId: null, cards: null, rec: null, session: null,
+      flipped: false, view: '', token: 0, sessions: new Map(), clock: null, drag: null, swallow: false, keyHandler: null,
+      el: (id) => document.getElementById(id),
+      today() { return this.clock ? this.clock() : studioFcDay(); },
+      sig() { const c = this.model.cards; return `${c.length}|${this.model.title}|${c[c.length - 1].front}`; },
+      current() { return this.byId.get(this.session.queue[this.session.pos]); },
+      sourceName(n) { return studio.citeSource(this.item, n).name; },
+      showing(item) { return !!this.item && this.item.id === item.id && this.art === item.artifact && !!this.el('studioFc'); },
+
+      mount(item, model) {
+        this.unmount();
+        this.item = item; this.model = model; this.art = item.artifact;
+        this.byId = new Map(model.cards.map(c => [c.id, c]));
+        const token = ++this.token;
+        const id = escapeHtml(item.id);
+        const btn = (bid, label, cls = '', keys = '') => `<button type="button" class="studio-btn ${cls}" id="${bid}"${keys ? ` aria-keyshortcuts="${keys}"` : ''}>${label}</button>`;
+        this.el('studioViewerCard').innerHTML = `
+          <div class="studio-fc" id="studioFc">
+            <div class="studio-fc-bar">
+              <a class="studio-btn ghost studio-fc-home" href="#studio" aria-label="Back to Study Studio">&larr; Back</a>
+              <h2 class="studio-fc-title" id="studioFcTitle"></h2>
+              <a class="studio-btn ghost" id="studioFcReport" href="${STUDIO_REPORT_HREF}">Report a problem</a>
+              <details class="studio-menu" id="studioFcMenu">
+                <summary aria-label="More actions"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></summary>
+                <div class="studio-menu-list">
+                  <button type="button" data-studio-act="export-tsv" data-id="${id}">Download for Anki or Quizlet (TSV)</button>
+                  <button type="button" data-studio-act="regenerate" data-id="${id}">Regenerate</button>
+                  <button type="button" class="is-danger" data-studio-act="delete" data-id="${id}">Delete</button>
+                </div>
+              </details>
+            </div>
+            <p class="studio-mm-notice" id="studioFcNotice" hidden><span></span><button type="button" aria-label="Dismiss">&times;</button></p>
+            <div class="studio-fc-play" id="studioFcPlay" hidden>
+              <div class="studio-fc-meta"><p class="studio-fc-count" id="studioFcCount"></p><p class="studio-fc-tag" id="studioFcTag"></p></div>
+              <div class="studio-fc-track" aria-hidden="true"><span id="studioFcBar"></span></div>
+              <div class="studio-fc-stage" id="studioFcStage" tabindex="0" role="group" aria-roledescription="flashcard" aria-label="Flashcard" aria-describedby="studioFcKeys">
+                <div class="studio-fc-card" id="studioFcCard">
+                  <div class="studio-fc-inner" id="studioFcInner">
+                    <div class="studio-fc-face studio-fc-front" id="studioFcFront"><p class="studio-fc-topic" id="studioFcTopic"></p><p class="studio-fc-text" id="studioFcFrontText"></p></div>
+                    <div class="studio-fc-face studio-fc-back" id="studioFcBack"><p class="studio-fc-text" id="studioFcBackText"></p><div class="studio-mm-chips" id="studioFcChips"></div><div><button type="button" class="studio-btn" id="studioFcAsk">Ask tutor</button></div></div>
+                  </div>
+                </div>
+              </div>
+              <div class="studio-fc-controls" role="group" aria-label="Card controls">
+                ${btn('studioFcLearn', 'Still learning', 'studio-fc-learn', 'ArrowLeft L')}${btn('studioFcFlip', 'Flip', '', 'Space Enter')}${btn('studioFcKnow', 'I know it', 'primary', 'ArrowRight K')}
+              </div>
+              <p class="studio-fc-keys" id="studioFcKeys">Space flips the card. Left arrow or L: still learning. Right arrow or K: I know it. U: undo. On a touch screen, swipe a flipped card left or right.</p>
+            </div>
+            <section class="studio-fc-done" id="studioFcDone" tabindex="-1" aria-labelledby="studioFcDoneTitle" hidden></section>
+            <div class="studio-fc-tools" role="group" aria-label="Session">
+              ${btn('studioFcUndo', 'Undo last', 'ghost', 'U')}${btn('studioFcShuffle', 'Shuffle', 'ghost')}${btn('studioFcRestart', 'Restart', 'ghost')}
+            </div>
+            <p class="studio-mm-foot" id="studioFcFoot"></p>
+            <div class="studio-sr" id="studioFcLive" role="status" aria-live="polite"></div>
+          </div>`;
+        const root = this.el('studioFc');
+        if (/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(item.language || '')) root.setAttribute('lang', item.language);
+        this.el('studioFcTitle').textContent = model.title;
+        const names = item.sourceNames.map(studioStem);
+        this.el('studioFcFoot').textContent = `Made with Student Tools Hub${names.length ? ` from: ${names.join(', ')}` : ''}. AI-generated, so check it against your sources.`;
+        const notice = this.el('studioFcNotice');
+        if (model.notices.length) {
+          notice.firstElementChild.textContent = model.notices.join(' ');
+          notice.hidden = false;
+          notice.lastElementChild.addEventListener('click', () => { notice.hidden = true; });
+        }
+        this.wire();
+        this.begin(token);
+      },
+
+      unmount() {
+        if (this.keyHandler) document.removeEventListener('keydown', this.keyHandler);
+        this.token++;
+        this.keyHandler = null; this.item = null; this.model = null; this.art = null; this.byId = null; this.cards = null; this.rec = null; this.session = null;
+        this.drag = null; this.swallow = false; this.view = '';
+      },
+
+      // The review state comes from the progress store; the position inside a session survives a trip to the tutor
+      async begin(token) {
+        const item = this.item;
+        const rec = await studio.loadProgress(item.id);
+        if (token !== this.token) return;
+        this.rec = rec;
+        this.cards = studioFcCleanCards(rec.flashcards && rec.flashcards.cards, this.model.cards.map(c => c.id));
+        const saved = this.sessions.get(item.id);
+        if (saved && saved.sig === this.sig()) { this.session = saved.session; this.flipped = saved.flipped; }
+        else this.startSession(false);
+        this.draw();
+        this.say(this.view === 'card' ? `${this.countText()}. Question: ${this.current().front}` : this.el('studioFcDoneTitle').textContent);
+        this.el(this.view === 'card' ? 'studioFcStage' : 'studioFcDone').focus({ preventScroll: true });
+      },
+
+      wire() {
+        const click = (id, fn) => this.el(id).addEventListener('click', fn);
+        click('studioFcFlip', () => this.flip());
+        click('studioFcLearn', () => this.answer(false));
+        click('studioFcKnow', () => this.answer(true));
+        click('studioFcUndo', () => this.undo());
+        click('studioFcShuffle', () => this.shuffle());
+        click('studioFcRestart', () => this.restart());
+        click('studioFcAsk', () => this.ask());
+        const stage = this.el('studioFcStage');
+        stage.addEventListener('click', (e) => {
+          if (this.swallow) { this.swallow = false; return; }
+          if (!e.target.closest('a, button, summary, input')) this.flip();
+        });
+        this.el('studioFcChips').addEventListener('click', (e) => {
+          const chip = e.target.closest('button.studio-mm-chip');
+          if (chip) studio.openCite(this.item, Number(chip.dataset.n), Number(chip.dataset.page));
+        });
+        stage.addEventListener('pointerdown', (e) => this.onPointerDown(e));
+        stage.addEventListener('pointermove', (e) => this.onPointerMove(e));
+        for (const t of ['pointerup', 'pointercancel']) stage.addEventListener(t, (e) => this.onPointerEnd(e));
+        this.keyHandler = (e) => this.onKey(e);
+        document.addEventListener('keydown', this.keyHandler);
+      },
+
+      onKey(e) {
+        if (!this.item || !this.session || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+        if (!studio.active() || studio.viewerId !== this.item.id || document.querySelector('.modal-overlay.open, .confirm-overlay.open')) return;
+        const t = e.target;
+        if (t && t.closest && t.closest('input, select, textarea, [contenteditable="true"]')) return;
+        const own = t && t.closest && t.closest('button, a, summary');
+        const k = e.key;
+        if (k === ' ' || k === 'Enter') {
+          if (own) return;
+          e.preventDefault();
+          this.flip();
+        } else if (k === 'ArrowLeft' || k === 'l' || k === 'L') { e.preventDefault(); this.answer(false); }
+        else if (k === 'ArrowRight' || k === 'k' || k === 'K') { e.preventDefault(); this.answer(true); }
+        else if (k === 'u' || k === 'U') { e.preventDefault(); this.undo(); }
+      },
+
+      // ── touch: swipe a flipped card left (still learning) or right (I know it) ──
+      onPointerDown(e) {
+        this.swallow = false;
+        if (e.pointerType !== 'touch' || this.view !== 'card' || !e.isPrimary) return;
+        this.drag = { x: e.clientX, y: e.clientY, dx: 0, dy: 0 };
+      },
+      onPointerMove(e) {
+        const d = this.drag;
+        if (!d || !e.isPrimary) return;
+        d.dx = e.clientX - d.x; d.dy = e.clientY - d.y;
+        if (this.flipped && Math.abs(d.dx) > 10 && Math.abs(d.dx) > Math.abs(d.dy)) this.el('studioFcCard').style.transform = `translateX(${Math.round(d.dx * 0.5)}px)`;
+      },
+      onPointerEnd(e) {
+        const d = this.drag;
+        if (!d || !e.isPrimary) return;
+        this.drag = null;
+        this.el('studioFcCard').style.transform = '';
+        if (Math.abs(d.dx) > 10 || Math.abs(d.dy) > 10) this.swallow = true;
+        if (e.type === 'pointerup' && this.flipped && Math.abs(d.dx) >= STUDIO_FC_SWIPE_PX && Math.abs(d.dx) > Math.abs(d.dy) * 1.5) this.answer(d.dx > 0);
+      },
+
+      // ── what is on screen ──
+      countText() { return `Card ${this.session.pos + 1} of ${this.session.queue.length}`; },
+
+      say(message) { const live = this.el('studioFcLive'); if (live) live.textContent = message; },
+
+      remember() { if (this.item && this.session) this.sessions.set(this.item.id, { sig: this.sig(), session: this.session, flipped: this.flipped }); },
+
+      draw() {
+        const s = this.session;
+        this.view = s.pos < s.queue.length ? 'card' : 'done';
+        this.el('studioFcPlay').hidden = this.view !== 'card';
+        this.el('studioFcDone').hidden = this.view !== 'done';
+        if (this.view === 'card') this.drawCard(); else this.drawDone();
+        this.el('studioFcUndo').setAttribute('aria-disabled', String(!s.undo.length));
+        this.el('studioFcShuffle').setAttribute('aria-disabled', String(this.view !== 'card' || s.queue.length - s.pos < 2));
+        this.remember();
+      },
+
+      drawCard() {
+        const s = this.session, card = this.current(), state = this.cards[card.id];
+        const inner = this.el('studioFcInner');
+        inner.classList.add('no-anim');
+        this.el('studioFcTopic').textContent = card.topic;
+        this.el('studioFcTopic').hidden = !card.topic;
+        this.el('studioFcFrontText').textContent = card.front;
+        this.el('studioFcBackText').textContent = card.back;
+        this.fillChips();
+        this.el('studioFcCount').textContent = this.countText();
+        this.el('studioFcTag').textContent = `${s.practice ? 'Practice · ' : ''}${state ? `Box ${state.box}` : 'New'}`;
+        this.el('studioFcBar').style.width = `${Math.round(s.pos / s.queue.length * 100)}%`;
+        this.applyFlip();
+        void inner.offsetWidth;
+        inner.classList.remove('no-anim');
+      },
+
+      applyFlip() {
+        this.el('studioFcCard').classList.toggle('is-flipped', this.flipped);
+        for (const [id, hide] of [['studioFcFront', this.flipped], ['studioFcBack', !this.flipped]]) {
+          const face = this.el(id);
+          face.toggleAttribute('inert', hide);
+          face.setAttribute('aria-hidden', String(hide));
+        }
+        this.el('studioFcFlip').setAttribute('aria-label', this.flipped ? 'Flip back to the question' : 'Flip to see the answer');
+      },
+
+      // Citation chips: a button that opens the source, or plain text when the source is gone
+      fillChips() {
+        const box = this.el('studioFcChips');
+        if (!box || !this.session || this.view !== 'card') return;
+        box.replaceChildren();
+        for (const c of this.current().cites.filter(x => x.n <= this.item.sourceIds.length)) {
+          const src = studio.citeSource(this.item, c.n);
+          const name = src.name.length > 22 ? `${src.name.slice(0, 21)}…` : src.name;
+          const chip = document.createElement(src.exists ? 'button' : 'span');
+          chip.className = `studio-mm-chip${src.exists ? '' : ' is-gone'}${c.verified === false ? ' is-unverified' : ''}`;
+          chip.dataset.n = String(c.n); chip.dataset.page = String(c.page);
+          if (src.exists) {
+            chip.type = 'button';
+            chip.setAttribute('aria-label', `Open ${src.name}${c.page ? `, page ${c.page}` : ''}`);
+            chip.title = c.verified === false ? 'Check this in your source' : `Open ${src.name}`;
+          } else chip.title = 'Source removed';
+          if (c.verified === true) { const tick = document.createElement('span'); tick.setAttribute('aria-hidden', 'true'); tick.textContent = '✓'; chip.appendChild(tick); }
+          chip.appendChild(document.createTextNode(`${name}${c.page ? ` · p. ${c.page}` : ''}`));
+          box.appendChild(chip);
+        }
+      },
+
+      refreshCites() { this.fillChips(); },
+
+      drawDone() {
+        const s = this.session, ids = this.model.cards.map(c => c.id), today = this.today();
+        const sum = studioFcSummary(ids, this.cards, today);
+        const more = studioFcSession(ids, this.cards, today).length > 0;
+        const done = this.el('studioFcDone');
+        done.replaceChildren();
+        const add = (tag, text, attrs = {}) => { const e = document.createElement(tag); e.textContent = text; Object.assign(e, attrs); done.appendChild(e); return e; };
+        add('h3', s.queue.length ? 'Session complete' : 'You’re all caught up', { id: 'studioFcDoneTitle' });
+        if (s.queue.length) add('p', `${s.known} marked I know it · ${s.learning} marked still learning${s.practice ? ' (practice, not scheduled)' : ''}`, { className: 'studio-fc-done-line' });
+        else add('p', 'No cards are due and there are no new cards.', { className: 'studio-fc-done-line' });
+        const list = document.createElement('ul');
+        list.className = 'studio-fc-boxes';
+        sum.boxes.forEach((n, i) => { const li = document.createElement('li'); li.textContent = `Box ${i + 1}: ${n} card${n === 1 ? '' : 's'}`; list.appendChild(li); });
+        const fresh = document.createElement('li');
+        fresh.textContent = `New: ${sum.fresh} card${sum.fresh === 1 ? '' : 's'}`;
+        list.appendChild(fresh);
+        done.appendChild(list);
+        const next = studioFcNextText(sum);
+        if (next) add('p', next, { className: 'studio-fc-next', id: 'studioFcNext' });
+        if (sum.dueNow) add('p', `${sum.dueNow} card${sum.dueNow === 1 ? ' is' : 's are'} still due today.`, { className: 'studio-fc-done-line' });
+        const row = document.createElement('div');
+        row.className = 'studio-viewer-actions';
+        const action = (id, label, cls, fn) => { const b = document.createElement('button'); b.type = 'button'; b.id = id; b.className = `studio-btn ${cls}`; b.textContent = label; b.addEventListener('click', fn); row.appendChild(b); };
+        if (more) action('studioFcMore', 'Study more', 'primary', () => this.restart());
+        action('studioFcPractice', 'Practise all cards', more ? '' : 'primary', () => this.practice());
+        done.appendChild(row);
+      },
+
+      // ── actions ──
+      startSession(practice) {
+        const ids = this.model.cards.map(c => c.id);
+        this.session = studioFcNewSession(practice ? ids : studioFcSession(ids, this.cards, this.today()), practice);
+        this.flipped = false;
+      },
+
+      moved(prefix, focus) {
+        this.draw();
+        this.say(this.view === 'card' ? `${prefix} ${this.countText()}. Question: ${this.current().front}` : `${prefix} ${this.el('studioFcDoneTitle').textContent}. ${this.el('studioFcNext') ? this.el('studioFcNext').textContent : ''}`);
+        const at = document.activeElement;
+        if (focus && (!at || at === document.body || !at.getClientRects().length)) this.el(this.view === 'card' ? 'studioFcStage' : 'studioFcDone').focus({ preventScroll: true });
+      },
+
+      flip() {
+        if (this.view !== 'card') return;
+        this.flipped = !this.flipped;
+        this.applyFlip();
+        const card = this.current();
+        this.say(this.flipped ? `Answer: ${card.back}` : `Question: ${card.front}`);
+        this.remember();
+      },
+
+      answer(knew) {
+        if (this.view !== 'card') return;
+        const out = studioFcAnswer(this.session, this.cards, knew, this.today());
+        this.session = out.session;
+        this.flipped = false;
+        if (out.cards !== this.cards) { this.cards = out.cards; this.saveProgress(); }
+        this.moved(knew ? 'Marked as known.' : 'Marked as still learning.', true);
+      },
+
+      undo() {
+        if (!this.session || !this.session.undo.length) return;
+        const out = studioFcUndo(this.session, this.cards);
+        this.session = out.session;
+        this.flipped = false;
+        if (out.cards !== this.cards) { this.cards = out.cards; this.saveProgress(); }
+        this.moved('Last answer undone.', true);
+      },
+
+      shuffle() {
+        const s = this.session;
+        if (this.view !== 'card' || s.queue.length - s.pos < 2) return;
+        this.session = { ...s, queue: [...s.queue.slice(0, s.pos), ...studioFcShuffle(s.queue.slice(s.pos))] };
+        this.flipped = false;
+        this.moved('Shuffled.', true);
+      },
+
+      restart() {
+        this.startSession(false);
+        this.moved('Restarted.', true);
+      },
+
+      practice() {
+        this.startSession(true);
+        this.moved('Practice started.', true);
+      },
+
+      saveProgress() {
+        this.rec.flashcards = { cards: this.cards };
+        studio.saveProgress(this.item.id);
+      },
+
+      ask() {
+        if (this.view !== 'card') return;
+        studio.openTutorChat(this.item, `Flashcards · ${this.model.title}`.slice(0, 60), studioFcPrompt(this.current(), (n) => this.sourceName(n)), null, 'flashcard');
+      },
+
+      exportTsv() {
+        if (!this.item) return;
+        studioDownload(new Blob([studioFcTsv(this.model)], { type: 'text/tab-separated-values;charset=utf-8' }), `${studioSlug(this.model.title)}-flashcards.tsv`);
+        showToast('Cards downloaded');
+      },
+    };
+
     // ═══════════════════════════════════════════════════════════
     // ─── Export picker (reference list + tutor) ────────────────
     // ═══════════════════════════════════════════════════════════
@@ -13037,9 +13676,17 @@
       }
     });
 
+    const UPDATE_NOTICE_KEY = 'sth_notice_2026_11_14';
+    function showUpdateNotice() {
+      const el = document.getElementById('noticeBanner');
+      if (!el || Date.now() >= Date.UTC(2026, 10, 14) || storageGet(UPDATE_NOTICE_KEY) === '1') return;
+      el.hidden = false;
+      document.getElementById('noticeBannerClose').addEventListener('click', () => { storageSet(UPDATE_NOTICE_KEY, '1'); el.hidden = true; }, { once: true });
+    }
     async function initAfterAuth() {
       if (authInitDone) return;
       authInitDone = true;
+      showUpdateNotice();
 
       // Google OAuth init (deferred) — Docs export + Drive sync
       const gisInterval = setInterval(() => {
