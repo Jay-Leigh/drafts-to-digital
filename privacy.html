@@ -133,7 +133,7 @@
   <a class="back" href="https://jay-leigh.github.io/drafts-to-digital/">&larr; Back to Student Tools Hub</a>
 
   <h1>Privacy Policy</h1>
-  <p class="meta">Student Tools Hub &middot; Effective 27 October 2026</p>
+  <p class="meta">Student Tools Hub &middot; Effective 27 October 2026 &middot; Last updated 31 October 2026: background processing (a feature in testing)</p>
 
   <div class="summary" id="in-short">
     <strong>In short</strong>
@@ -141,9 +141,10 @@
       <li>The notes, PDFs, images and text you give the app are sent to Google's AI (Gemini and Cloud Vision) to be read and processed. Giving the app your files is your choice, but the features cannot work without them.</li>
       <li>Your information is not sold and not used to train AI. There are no ads, no analytics, and the site sets no cookies.</li>
       <li>The service is free today, and you will never be charged without agreeing first (<a href="#pricing">section 11</a>).</li>
-      <li>Your notes stay in your own browser and, if you connect Google, in a hidden sync file in your own Google Drive. Short-lived copies are also kept on the app's services while it works: tutor chats for 3 hours, and file pointers for 47 hours. Error emails are kept for 90 days.</li>
+      <li>Your notes stay in your own browser and, if you connect Google, in a hidden sync file in your own Google Drive. Short-lived copies are also kept on the app's services while it works: tutor chats for 3 hours, file pointers for 47 hours, and answers to background requests until you collect them (at most 72 hours). Error emails are kept for 90 days.</li>
       <li>Error reports are sent to me automatically when something fails. The app's own reports hold the time, your browser details, two short messages and sometimes an error code (messages with email addresses, tokens, web addresses and file names removed where they can be recognised), with no stack traces or server error text. The server does not save a record of requests, so your files and text are not kept there. If the server itself fails, its error email names the step that failed and a short message (cut to 300 characters); I can see these (<a href="#data">section 2</a>).</li>
       <li>Text read from scanned PDFs is kept for 30 days and then deleted by itself. It is filed under a key made from the file's fingerprint and a secret random key that lives only in your browser, not under your name, so nobody else can match it to a file, but the text itself may contain personal details.</li>
+      <li>Where available, the app can run some requests in the background ("background processing"). The request keeps running on the server if you close the app, and the answer waits there until your browser collects it, or for at most 72 hours (3 days), and is then deleted. The request itself is not saved on the server for this, apart from a tutor question joining the 3-hour tutor chat (<a href="#background">section 2</a>).</li>
       <li>The service is for people aged 18 and over, and the app asks you to confirm this with a tick box (<a href="#age">section 10</a>).</li>
       <li>Signing out of sync revokes the Google permissions you gave the app and clears your sync details and lists of exported Docs from the browser (the list comes back from your sync file when you connect again), but deletes none of your notes or files. To see, correct or delete your information, email <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a> and follow the steps in <a href="#rights">section 8</a>.</li>
       <li>Connecting Google lets the app use only its own hidden folder and the files it creates itself (such as the Docs you export), not the rest of your Drive. Your Google access stays in your browser and is not sent to the server.</li>
@@ -184,7 +185,7 @@
           <td data-label="Data">Files and text you give the app: handwritten-note images, PDFs, Word, Excel, PowerPoint and text files, typed notes, web links</td>
           <td data-label="Why">To transcribe, summarise, review and answer questions about your material</td>
           <td data-label="Where it goes">Your browser sends it to the app's server (n8n, on Google Cloud in Johannesburg), which passes it to Google Gemini and Google Cloud Vision. Copies also stay in your browser.</td>
-          <td data-label="How long">The server does not keep your files. It is set not to save a record of requests, so a file is held in its memory only while the request runs. Google's handling is in <a href="#others">section 5</a>.</td>
+          <td data-label="How long">The server does not keep your files. It is set not to save a record of requests, so a file is held in its memory only while the request runs, and this also holds for background requests (see below). Google's handling is in <a href="#others">section 5</a>.</td>
         </tr>
         <tr>
           <td data-label="Data">Technical logs of the hosting service (Google Cloud Run): time, address called, status and your IP address. The server's own execution record, which could hold what you send, is switched off for successful and failed requests, so your files and text are not written there</td>
@@ -197,6 +198,24 @@
           <td data-label="Why">So the tutor remembers the conversation</td>
           <td data-label="Where it goes">Upstash Redis</td>
           <td data-label="How long">Deleted automatically 3 hours after the last message</td>
+        </tr>
+        <tr>
+          <td data-label="Data">Background request record (only when the app runs a request in the background): a random id, a fingerprint (hash) of a random key your browser holds, the kind of request (for example tutor or mind map), times, state, attempt number, an error code if it failed, the ID of the server run and the size of the answer. It holds no text of your request</td>
+          <td data-label="Why">So the request can keep running if you leave, and your browser can ask how it is going</td>
+          <td data-label="Where it goes">Upstash Redis</td>
+          <td data-label="How long">Deleted when your browser has collected the answer; otherwise at most 72 hours after the request finishes (1 hour if it was refused or cancelled)</td>
+        </tr>
+        <tr>
+          <td data-label="Data">Background answer: the tutor's reply or the mind map (as structured text) made from your material</td>
+          <td data-label="Why">So the answer can wait for you until you open the app again</td>
+          <td data-label="Where it goes">Upstash Redis. The server gives it only to a browser that shows the random key for that request. It is not linked to your name or email.</td>
+          <td data-label="How long">Deleted when your browser has collected it, or when you cancel; otherwise at most 72 hours after it is ready. Because it carries no name, it cannot be found and removed earlier on request; it simply expires (<a href="#rights">section 8</a>).</td>
+        </tr>
+        <tr>
+          <td data-label="Data">Daily counts of background requests (started, busy, finished, failed). No content</td>
+          <td data-label="Why">To keep the service within its limits</td>
+          <td data-label="Where it goes">Upstash Redis</td>
+          <td data-label="How long">30 days</td>
         </tr>
         <tr>
           <td data-label="Data">A pointer to a file already uploaded to Gemini, filed under a key made from a hash (digital fingerprint) of the file combined with a secret random key that lives only in your browser. For a legacy <code>.doc</code> file the fingerprint is that of the original <code>.doc</code>, and the file sent to Gemini is its PDF conversion, which keeps the <code>.doc</code> file name.</td>
@@ -256,8 +275,12 @@
     </table>
   </div>
 
-  <p>Files you process are normally saved automatically to Knowledge Bay (your saved study library in the app) in your browser (unless an item with the same name is already there), and to your Drive if sync is on. Very large images and PDFs (over roughly 4.5 MB) are not saved automatically. Saved items stay until you delete them. Only the History list expires, after 30 days. Browser storage also holds original scanned-PDF and <code>.doc</code> files and the full result text.</p>
+  <p>Files you process are normally saved automatically to Knowledge Bay (your saved study library in the app) in your browser (unless an item with the same name is already there), and to your Drive if sync is on. Very large images and PDFs (over roughly 4.5 MB) are not saved automatically. Saved items stay until you delete them. Only the History list (30 days) and the list of background requests (7 days after each one ends) expire. Browser storage also holds original scanned-PDF and <code>.doc</code> files and the full result text.</p>
   <p>Cached text and file pointers on the server are filed under a key made from the file's fingerprint and a secret random key that lives only in your browser. Without that secret, a file or its hash is not enough to find or reuse an entry, so entries from other people cannot match yours. The secret stays on your device and is never sent to the server or saved to your Drive. Clearing this site's data in your browser deletes it (the copy of the results kept in your browser is not affected); signing out keeps it. After that, a scanned PDF you added before is read again the next time it is needed, and the old entries are no longer reachable and expire by themselves.</p>
+  <h3 id="background">Background processing</h3>
+  <p>Where available, the app can run some requests (so far a tutor question or a Study Studio mind map) in the background. This feature is still in testing. When it is used, the request keeps running on the server after you close or leave the app, and the answer waits there. Your browser collects it the next time you open the app (signed in) in the same browser, saves it as it would a direct answer, and the server then deletes its copy. If the answer is not collected within 72 hours (3 days) of being ready, it is deleted and you will need to send the request again. Using another browser or device, or clearing this site's data, means the answer cannot be collected; it is deleted on the same schedule.</p>
+  <p>The request itself (your question or material) is not written to the server's storage: it is held in the server's memory while it runs, and a copy stays in your browser until the answer is collected, the request fails or you cancel it. A tutor question also joins the tutor chat in the table above (3 hours), as with any tutor request. The server gives an answer only to a browser that shows the random key made for that request, and keeps only a fingerprint of that key. While an answer waits it is stored as readable text in the database, which I administer. It carries no name or email, and I do not look at answers except to investigate abuse or a fault, or where the law requires it. The app sends no email or push notification about answers; you see them in the app only. If a background request fails, the error email works like any other (see the error reports row above: they are limited in number and details are removed where they can be recognised).</p>
+
   <p>The app asks for a shared access code and a tick box (18 or older, and acceptance of the Terms of Service and this Privacy Policy) before it opens. The code is sent over HTTPS to the app's server, which compares it with a stored copy. If it matches, the server answers with a sign-in token, valid for 7 days, and your browser keeps that token instead of the code (see <a href="#security">section 7</a> and <a href="#technical">section 14</a>). To limit guessing, the server counts sign-in attempts per network (IP) address in Upstash: failed attempts for up to 10 minutes and successful sign-ins for up to 1 hour. The counters then disappear.</p>
   <p>Please do not upload other people's sensitive details (ID numbers, health or financial records) unless you must. If your notes contain information about other people, you are responsible for having the right to share it (<a href="#why">section 3</a>).</p>
 
@@ -317,8 +340,8 @@
         </tr>
         <tr>
           <td data-label="Service"><strong>Upstash</strong> (Redis)</td>
-          <td data-label="What it does">Tutor chat sessions, file caches and sign-in attempt counters</td>
-          <td data-label="What it receives">Chat text, file pointers and scanned-page text, as listed in <a href="#data">section 2</a>, and your IP address as part of the sign-in counters</td>
+          <td data-label="What it does">Tutor chat sessions, file caches, background request records and answers, and sign-in attempt counters</td>
+          <td data-label="What it receives">Chat text, file pointers, scanned-page text and background answers, as listed in <a href="#data">section 2</a>, and your IP address as part of the sign-in counters</td>
           <td data-label="Where">Cape Town, South Africa (AWS af-south-1)</td>
         </tr>
         <tr>
@@ -390,7 +413,7 @@
     <li>Google sign-in uses Google's own system, so the app never sees your Google password.</li>
     <li>The access code is a shared code that works as a simple gate. It is sent over HTTPS to the server when you sign in and compared there with a stored copy. The server then gives your browser a sign-in token, and every request to the server must carry that token. It is not strong protection: everyone who has the code can sign in, and the server does not know who is who. To limit guessing, the server counts sign-in attempts per network address (<a href="#data">section 2</a>).</li>
     <li>The tutor's instructions are kept on the server. Your browser does not send them.</li>
-    <li>Tutor sessions, Gemini file pointers and scanned-PDF text expire on a timer (<a href="#data">section 2</a>). Their keys include a secret that stays in your browser, so other users and anyone reading the stored keys cannot find or reuse your entries from a file.</li>
+    <li>Tutor sessions, Gemini file pointers, scanned-PDF text and background answers expire on a timer (<a href="#data">section 2</a>). The keys of pointers and scanned-PDF text include a secret that stays in your browser, so other users and anyone reading the stored keys cannot find or reuse your entries from a file. A background answer is handed only to the browser that holds its random key (the server keeps only a fingerprint of the key). That key sits in your browser's storage, so anyone who can use your browser profile can collect your waiting answers.</li>
     <li>Your synced data sits in your own Google Drive, protected by your Google account. Use a strong password and 2-step verification.</li>
   </ul>
   <p>Your browser keeps the sign-in token in its storage and uses it until it runs out, 7 days after you signed in (using the app does not extend it). The access code itself is not kept in your browser. After 7 days, or if the server stops accepting the token, you are asked for the code again. The token is not locked inside your browser, so anyone who can use your browser profile can use the app as you: do not use the app on a shared computer, and clear the site's data when you finish.</p>
@@ -407,12 +430,12 @@
   <p>Email <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a> and say what you want. You may be asked to show who you are. I reply within 30 days. Rights requests are free of charge.</p>
 
   <h3 id="delete">How to delete your data</h3>
-  <p>Nothing is deleted automatically from your browser or Drive when you simply stop using the app. Cached copies on the server expire by themselves (see below).</p>
+  <p>Nothing is deleted automatically from your browser or Drive when you simply stop using the app. Cached copies and waiting background answers on the server expire by themselves (see below).</p>
   <ul>
     <li><strong>On your device:</strong> clear this site's data in your browser. Signing out of sync in the app clears your sync details (your Google name, email and picture, the ID of your sync file and the two lists of Docs the app created or you picked, and Docs taken off that list) and revokes the Google permissions you gave the app (Drive files, hidden app data, name and email), including on your other devices. Next time you connect, Google asks for them again. Connecting to sync again brings the Docs list back from your sync file. If the app cannot remove them (for example Google cannot be reached or your sign-in has expired), or only some are removed, the app tells you, and the rest stay until you remove them at myaccount.google.com/connections. It does not clear the access code, your cache secret (<a href="#tech-browser">section 14</a>) or anything else in your browser.</li>
     <li><strong>Stop Google access:</strong> while you are connected to sync (the open side menu shows your name and a cross), signing out of sync in the app does this for you; if you only export to Docs, or the menu shows "Re-connect Google", use <a href="https://myaccount.google.com/connections">myaccount.google.com/connections</a>, choose Student Tools Hub and remove its access. Syncing then stops; your hidden Drive data stays until you delete it as described below.</li>
     <li><strong>Your hidden Drive data:</strong> in Google Drive choose Settings &rarr; Manage apps &rarr; Student Tools Hub &rarr; Options &rarr; Delete hidden app data. Docs you exported, and a temporary <code>__STH_CONVERT__</code> Doc that remained in your My Drive, are ordinary files in your Drive that you can delete.</li>
-    <li><strong>On the server:</strong> tutor chats, Gemini file pointers (47 hours) and scanned-PDF text (30 days) expire by themselves. Hosting logs and error emails are deleted on the schedule in <a href="#data">section 2</a>. You can ask me to delete a specific error email or hosting log entry earlier: send the date and time. Scanned-PDF text and file pointers are filed under a key made with a secret that lives only in your browser, so neither I nor anyone else can find your entry from a file, and it cannot be deleted earlier on request; it simply expires. Clearing this site's data in your browser deletes the secret, after which the entries can no longer be reached by anyone. If you have questions, email <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a>.</li>
+    <li><strong>On the server:</strong> tutor chats, Gemini file pointers (47 hours), scanned-PDF text (30 days) and background answers (at most 72 hours, or earlier once your browser collects them) expire by themselves. Hosting logs and error emails are deleted on the schedule in <a href="#data">section 2</a>. You can ask me to delete a specific error email or hosting log entry earlier: send the date and time. Scanned-PDF text and file pointers are filed under a key made with a secret that lives only in your browser, so neither I nor anyone else can find your entry from a file, and it cannot be deleted earlier on request; it simply expires. Background answers carry no name or email, so I cannot tell which is yours either, and they also simply expire. Clearing this site's data in your browser deletes the secret, after which the entries can no longer be reached by anyone. If you have questions, email <a href="mailto:jayleigh.dev@gmail.com">jayleigh.dev@gmail.com</a>.</li>
     <li>There is no "Delete my data" button in the app; use the steps above.</li>
   </ul>
 
@@ -472,6 +495,31 @@
           <td data-label="Holds">Text read from scanned PDF pages. <code>&lt;key&gt;</code> is computed in your browser as above. Not shared with other users, not linked to name or email.</td>
           <td data-label="Lifetime">30 days</td>
         </tr>
+        <tr>
+          <td data-label="Key"><code>sth:job:&lt;id&gt;</code></td>
+          <td data-label="Holds">Background request record: fingerprint of the request's random key, kind, state, attempt, times, error code, ID of the server run, answer size. No request text.</td>
+          <td data-label="Lifetime">Deleted when the answer is collected; otherwise at most 72 hours after the request finishes (1 hour if refused or cancelled)</td>
+        </tr>
+        <tr>
+          <td data-label="Key"><code>sth:jobr:&lt;id&gt;</code></td>
+          <td data-label="Holds">The background answer</td>
+          <td data-label="Lifetime">Deleted when collected or cancelled; otherwise at most 72 hours</td>
+        </tr>
+        <tr>
+          <td data-label="Key"><code>sth:jobx:&lt;run id&gt;</code></td>
+          <td data-label="Holds">Links a failed server run to its request (request id, attempt number, kind)</td>
+          <td data-label="Lifetime">Until up to 1 hour after the request's time limit</td>
+        </tr>
+        <tr>
+          <td data-label="Key"><code>sth:jobs:run:&lt;kind&gt;</code></td>
+          <td data-label="Holds">Which background requests are running now (request id and attempt number), to limit how many run at once</td>
+          <td data-label="Lifetime">Entries clear themselves shortly after a request's time limit; the list expires after 1 day</td>
+        </tr>
+        <tr>
+          <td data-label="Key"><code>sth:jobs:n:&lt;date&gt;</code></td>
+          <td data-label="Holds">Daily counts of background requests. No content.</td>
+          <td data-label="Lifetime">30 days</td>
+        </tr>
       </tbody>
     </table>
   </div>
@@ -479,10 +527,11 @@
   <h3 id="tech-browser">Browser storage</h3>
   <p>The site sets no cookies. Google Identity Services, Google Fonts and the other hosts in <a href="#others">section 5</a> may use their own storage under their own policies. The app itself uses:</p>
   <ul>
-    <li><strong>Local storage:</strong> the sign-in token the server gave you (key <code>sth_token</code>) and its end time (7 days after you signed in; the stored entry is removed the next time you open the app after it has run out, or when you clear the site's data). The access code is not stored. Older versions of the app kept the code here (base64-encoded, key <code>sth_session</code>); the current version uses that entry once to sign you in and then removes it. Also stored: your Google name, email and picture for sync; the ID of your Drive sync file; the list of the 20 most recent Docs the app created or you picked (ID, title and date; key <code>sth_created_docs</code>) and the IDs of Docs taken off it for the last 30 days (key <code>sth_removed_docs</code>). Signing out of sync clears all four; the record that you ticked the 18-or-older and terms box (the date and the version of the terms, kept in your browser only); whether the sidebar is collapsed; and your cache secret (key <code>sth_cache_secret</code>): 128 random bits and the time it was created, made on first use and used only to compute the server cache keys in the table above. It is never sent to the server, saved to your Drive or put in error reports, it is not tied to you or your Google account, and signing out does not clear it.</li>
-    <li><strong>IndexedDB:</strong> your draft in progress, 30 days of history (the only part that expires), Knowledge Bay items (including images as base64, original scanned-PDF and <code>.doc</code> files, and full result text), scanned-PDF progress, and tutor chats.</li>
+    <li><strong>Local storage:</strong> the sign-in token the server gave you (key <code>sth_token</code>) and its end time (7 days after you signed in; the stored entry is removed the next time you open the app after it has run out, or when you clear the site's data). The access code is not stored. Older versions of the app kept the code here (base64-encoded, key <code>sth_session</code>); the current version uses that entry once to sign you in and then removes it. Also stored: your Google name, email and picture for sync; the ID of your Drive sync file; the list of the 20 most recent Docs the app created or you picked (ID, title and date; key <code>sth_created_docs</code>) and the IDs of Docs taken off it for the last 30 days (key <code>sth_removed_docs</code>). Signing out of sync clears all four; the record that you ticked the 18-or-older and terms box (the date and the version of the terms, kept in your browser only); whether the sidebar is collapsed; and your cache secret (key <code>sth_cache_secret</code>): 128 random bits and the time it was created, made on first use and used only to compute the server cache keys in the table above. It is never sent to the server, saved to your Drive or put in error reports, it is not tied to you or your Google account, and signing out does not clear it. Also <code>sth_flag_jobs</code>, set to 1 when background processing (a feature in testing) is switched on for this browser; signing out does not clear it.</li>
+    <li><strong>IndexedDB:</strong> your draft in progress, 30 days of history (which expires, as does the background-request list below), Knowledge Bay items (including images as base64, original scanned-PDF and <code>.doc</code> files, and full result text), scanned-PDF progress, and tutor chats.</li>
+    <li><strong>IndexedDB database <code>sth_jobs</code> (background processing):</strong> one entry per background request: its random id and random key, the kind of request, a short label (such as a chat or item title), its state, times and any error code or message. Until the request is finished (collected, failed or cancelled), it also holds a copy of the request (text and any files) so it can be sent again. Entries are removed 7 days after the request ends, the next time you open the app.</li>
   </ul>
-  <p>Both stay on your device until you clear the site's data. Signing out of sync in the app clears your Google name, email and picture, the ID of your sync file and the two Docs lists above, and revokes the Google permissions you gave the app (Drive files, hidden app data, name and email), including on your other devices. Next time you connect, Google asks for them again. If the app cannot remove them (for example Google cannot be reached or your sign-in has expired), or only some are removed, the app tells you, and the rest stay until you remove them at myaccount.google.com/connections. It does not remove the sign-in token, your cache secret, your tick-box record or any other browser data. If your browser blocks storage, the app asks for the access code and the tick box each time, and your work may not be saved on this device.</p>
+  <p>All of these stay on your device until you clear the site's data, except the parts that expire as described. Signing out of sync in the app clears your Google name, email and picture, the ID of your sync file and the two Docs lists above, and revokes the Google permissions you gave the app (Drive files, hidden app data, name and email), including on your other devices. Next time you connect, Google asks for them again. If the app cannot remove them (for example Google cannot be reached or your sign-in has expired), or only some are removed, the app tells you, and the rest stay until you remove them at myaccount.google.com/connections. It does not remove the sign-in token, your cache secret, your tick-box record, your background request list or any other browser data. If your browser blocks storage, the app asks for the access code and the tick box each time, and your work may not be saved on this device. If it blocks IndexedDB, background processing is not used and requests run directly.</p>
 
   <h3 id="tech-drive">Google Drive</h3>
   <p>The hidden sync file is <code>sth-userdata-v1.json</code> in the app data area (<code>drive.appdata</code>, a hidden folder only this app can open). It holds Knowledge Bay items (your saved study library in the app): extracted text, including scraped web pages and OCR text, and base64 images, plus tutor chats. It also holds the list of the 20 most recent Google Docs the app created or you picked (ID, title and date) in a <code>createdDocs</code> field, and the IDs of Docs taken off that list (kept 30 days) in a <code>removedDocIds</code> field. Original scanned PDFs and legacy <code>.doc</code> files are saved as separate files in the same hidden folder under their original file names. Your browser converts a legacy <code>.doc</code> file through a temporary Google Doc named <code>__STH_CONVERT__ &lt;name&gt;</code> in your My Drive (<code>drive.file</code>, not the hidden folder), and deletes it straight after. If the connection drops, Google refuses the delete, or the page is closed during conversion, it can remain in your My Drive until you delete it.</p>

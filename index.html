@@ -4546,7 +4546,7 @@
       'STU-409':   { title: 'Study Studio busy', message: 'Study Studio is busy making other study aids right now. Please try again in a few minutes.', retryable: true, auto: 'none' },
       'STU-413':   { title: 'Too much material', message: 'That is too much material for one study aid. Choose fewer sources, or name a chapter in the topic.', retryable: false, auto: 'none' },
       'STU-422':   { title: 'Answer not usable', message: 'The AI’s answer didn’t come out right. Try again, or narrow the topic.', retryable: true, auto: 'none' },
-      'JOB-404':   { title: 'Result expired', message: 'This result is no longer kept (results stay for 3 days). Please send it again.', retryable: false, auto: 'none' },
+      'JOB-404':   { title: 'Result expired', message: 'This result is no longer kept (results stay for 72 hours). Please send it again.', retryable: false, auto: 'none' },
       'JOB-409':   { title: 'Request clash', message: 'That request clashed with another one. Please try again.', retryable: false, auto: 'none' },
       'JOB-410':   { title: 'Cancelled', message: 'You cancelled this.', retryable: false, auto: 'none' },
       'JOB-413':   { title: 'Result too large', message: 'The result came out too large to keep. Try fewer or smaller sources.', retryable: false, auto: 'none' },
@@ -5660,7 +5660,7 @@
         if (r.state === 'waiting' && r.waitKind === 'busy') return 'Busy right now. It starts by itself, and you can leave.';
         if (r.state === 'waiting' && r.waitKind === 'retry') return 'Stopped. Trying again. You can leave.';
         if (r.state === 'syncing') return 'Running now. Keep this tab open until it is ready.';
-        return `${this.slow(r) ? 'Taking longer than usual' : 'Working on it'} (${since}). You can leave; the result is kept for 3 days.`;
+        return `${this.slow(r) ? 'Taking longer than usual' : 'Working on it'} (${since}). You can leave; the result is kept for 72 hours.`;
       },
 
       rowHtml(r) {
@@ -9651,7 +9651,7 @@
             el.innerHTML = `<span>Your message wasn't sent.</span><span class="job-wait-actions"><button type="button" data-tutor-job="send" data-id="${escapeHtml(unsent.id)}">Send now</button><button type="button" data-tutor-job="dismiss" data-id="${escapeHtml(unsent.id)}">Dismiss</button></span>`;
           } else {
             const since = `<span aria-hidden="true" data-jobs-since="${job.submittedAt || job.createdAt}">${jobsElapsed(job.submittedAt || job.createdAt)}</span>`;
-            const note = job.state === 'waiting' || job.state === 'syncing' ? jobs.noteFor(job) : `${slow ? 'Taking longer than usual' : 'Thinking…'} (${since}). You can close the app; the answer will wait here (kept 3 days).`;
+            const note = job.state === 'waiting' || job.state === 'syncing' ? jobs.noteFor(job) : `${slow ? 'Taking longer than usual' : 'Thinking…'} (${since}). You can close the app; the answer will wait here (kept 72 hours).`;
             el.innerHTML = `<div class="reading-link-spinner"></div><span>${note}</span>${slow ? `<span class="job-wait-actions"><button type="button" data-tutor-job="again" data-id="${escapeHtml(job.id)}">Try again now</button><button type="button" data-tutor-job="cancel" data-id="${escapeHtml(job.id)}">Cancel</button></span>` : ''}`;
           }
         }
