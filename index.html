@@ -2838,6 +2838,12 @@
           <button type="button" id="statusBannerClose" class="status-banner-close" aria-label="Dismiss status message">&times;</button>
         </span>
       </div>
+      <div id="noticeBanner" class="status-banner" role="status" hidden>
+        <span class="status-banner-text">On 14 November 2026 Study Studio and background processing open to everyone, and the Privacy Policy and Terms are updated. <a href="privacy.html#upcoming" target="_blank" rel="noopener">What changes</a></span>
+        <span class="status-banner-actions">
+          <button type="button" id="noticeBannerClose" class="status-banner-close" aria-label="Dismiss update notice">&times;</button>
+        </span>
+      </div>
       <div class="topbar">
         <div class="flex items-center gap-3">
           <button id="btnHamburger" class="hamburger-btn" aria-label="Toggle sidebar">
@@ -13670,9 +13676,17 @@
       }
     });
 
+    const UPDATE_NOTICE_KEY = 'sth_notice_2026_11_14';
+    function showUpdateNotice() {
+      const el = document.getElementById('noticeBanner');
+      if (!el || Date.now() >= Date.UTC(2026, 10, 14) || storageGet(UPDATE_NOTICE_KEY) === '1') return;
+      el.hidden = false;
+      document.getElementById('noticeBannerClose').addEventListener('click', () => { storageSet(UPDATE_NOTICE_KEY, '1'); el.hidden = true; }, { once: true });
+    }
     async function initAfterAuth() {
       if (authInitDone) return;
       authInitDone = true;
+      showUpdateNotice();
 
       // Google OAuth init (deferred) — Docs export + Drive sync
       const gisInterval = setInterval(() => {
