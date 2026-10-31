@@ -683,6 +683,11 @@
       font-size: 13px; display: flex; align-items: center; gap: 8px;
       font-variant-numeric: tabular-nums;
     }
+    .chat-bubble.job-wait { flex-wrap: wrap; align-items: flex-start; font-style: normal; }
+    .chat-bubble.job-wait > span:not(.job-wait-actions) { flex: 1 1 0; min-width: 0; }
+    .chat-bubble.job-wait .reading-link-spinner { margin-top: 4px; }
+    .job-wait-actions { display: flex; flex-wrap: wrap; gap: 6px; flex-basis: 100%; }
+    .job-wait-actions button { min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font: 500 12px 'Outfit', sans-serif; font-style: normal; color: #1a2e1c; cursor: pointer; }
     .reading-link-spinner {
       width: 14px; height: 14px; border-radius: 50%;
       border: 2px solid rgba(44,95,45,0.2);
@@ -3813,9 +3818,6 @@
       currentRoute: 'home',
       kbPickerRole: null,
       kbPickerSelection: new Set(),
-      tutorTyping: false,
-      tutorScraping: false,
-      tutorReadingLabel: null,
       sidebarSearch: '',
       chatSearch: '',
       refsPendingExport: null,
@@ -4985,7 +4987,7 @@
     // Anything off, blocked or missing on the server falls back to the direct request.
     const JOBS_FLAG_KEY = 'sth_flag_jobs';
     const JOBS_LEADER_LOCK = 'sth-jobs-leader';
-    const JOBS_MODES = ['studio_mindmap'];
+    const JOBS_MODES = ['tutor', 'studio_mindmap'];
     const JOBS_CADENCE_S = { tutor: [5, 5, 8, 13, 20], studio_mindmap: [10, 15, 20, 30] };
     const JOBS_SLOW_MS = { tutor: 90000, studio_mindmap: 4 * 60 * 1000 };
     const JOBS_FIRST_POLL_MS = 3000;
@@ -5628,6 +5630,7 @@
         else if (act.dataset.jobsAct === 'again') this.retryNow(id);
         else if (act.dataset.jobsAct === 'retry') { this.drop(id); this.handlers[r.kind].retry(r); }
         else if (act.dataset.jobsAct === 'dismiss') this.drop(id);
+        else if (act.dataset.jobsAct === 'send') this.handlers[r.kind].resumeUnsent(r, true);
       },
 
       count() {
@@ -5669,6 +5672,7 @@
         if (this.slow(r)) acts.push(`<button type="button" data-jobs-act="again" data-id="${id}">Try again now</button>`);
         if (active && r.state !== 'preparing') acts.push(`<button type="button" data-jobs-act="cancel" data-id="${id}">Cancel</button>`);
         if (r.state === 'failed' || r.state === 'expired') acts.push(`<button type="button" data-jobs-act="retry" data-id="${id}">Try again</button>`);
+        if (r.state === 'needsConfirm') acts.push(`<button type="button" data-jobs-act="send" data-id="${id}">Send now</button>`);
         if (!active) acts.push(`<button type="button" data-jobs-act="dismiss" data-id="${id}">Dismiss</button>`);
         return `<li class="jobs-row${r.state === 'failed' || r.state === 'expired' ? ' is-failed' : ''}" data-jobs-row="${id}"><span class="jobs-row-label">${escapeHtml(d.label)}</span><span class="jobs-row-state">${this.stateText(r)}</span><div class="jobs-row-actions">${acts.join('')}</div></li>`;
       },
@@ -5691,6 +5695,7 @@
         else if (!running && this.uiTimer) { clearInterval(this.uiTimer); this.uiTimer = null; }
         if (this.away && this.leader) this.checkAway();
         if (studio.wired) studio.refreshViews();
+        tutor.syncJobs();
       },
 
       tickClock() {
@@ -5707,6 +5712,14 @@
           send: (j, payload) => studioSend(payload),
           retry: (j) => studio.retry(j.ref.itemId),
           rebind: (oldJob, newJob) => studio.rebindJob(oldJob.ref.itemId, newJob.id),
+        },
+        tutor: {
+          describe: (j) => ({ label: j.label, href: `#tutor/${j.ref.chatId}` }),
+          apply: (j, data) => tutor.applyJob(j, data),
+          fail: (j, err) => tutor.failJob(j, err),
+          send: (j, payload, files) => sendToWebhook(payload, files),
+          retry: (j) => tutor.retryJob(j),
+          resumeUnsent: (j, confirmed) => tutor.resumeUnsent(j, confirmed),
         },
       },
     };
@@ -8740,6 +8753,7 @@
       loading: true,
       rev: null,
       pending: new Set(),
+      prep: new Map(), // chatId -> what is being read for the next message ('Reading link…', 'Reading <file>…')
       beats: new Map(),
 
       async init() {
@@ -8837,7 +8851,7 @@
 
       // null when this chat can take a message, 'tab' when another tab is answering it, 'busy' otherwise
       blockedReason(c) {
-        if (this.pending.has(c.id) || state.tutorTyping || state.tutorScraping || state.tutorReadingLabel) return 'busy';
+        if (this.answering(c.id) || this.prep.has(c.id)) return 'busy';
         return this.lockedElsewhere(c.id) ? 'tab' : null;
       },
 
@@ -8889,6 +8903,7 @@
         } else {
           return;
         }
+        this.markJobsSeen(arg);
         this.renderChat();
         this.renderSidebarList();
       },
@@ -8967,36 +8982,78 @@
 
       async send(text) {
         const c = this.current();
-        if (!c || !text.trim() || this.blockedReason(c)) return;
+        if (!c || !text.trim()) return;
+        return this.run(c, text);
+      },
+
+      // existing: a user message already in the chat to send again (resume, retry); reuse: its prepared job (resume)
+      async run(c, text, existing, reuse) {
+        if (this.blockedReason(c)) return;
         this.pending.add(c.id);
+        let locked = false;
         try {
-          if (!await this.acquireLock(c.id)) { this.syncBusyUi(); showToast(CHAT_LOCK_MESSAGE); return; }
-          await this.sendLocked(c, text);
+          if (!await this.acquireLock(c.id)) { this.syncBusyUi(); if (!reuse) showToast(CHAT_LOCK_MESSAGE); return; }
+          locked = true;
+          await this.sendLocked(c, text, existing, reuse);
         } finally {
           this.releaseLock(c.id);
           this.pending.delete(c.id);
+          this.prep.delete(c.id);
+          if (locked) {
+            this.renderChat();
+            this.updateSendButton();
+            this.renderSidebarList();
+          }
         }
       },
 
-      async sendLocked(c, text) {
-        const activeQuote = this.activeQuote;
-        this.clearQuote();
-        c.messages.push({ id: generateId(), ts: Date.now(), role: 'user', text: text.trim(), ...(activeQuote ? { quote: activeQuote } : {}) });
-        c.updated = Date.now();
-        if (c.title === 'New chat') {
-          c.title = text.trim().slice(0, 60) + (text.length > 60 ? '…' : '');
+      async sendLocked(c, text, existing, reuse) {
+        await jobs.ensureLoad();
+        const background = jobs.useFor('tutor');
+        if (reuse && !background) await jobs.drop(reuse.id);
+        let userMsg = existing;
+        if (!userMsg) {
+          const activeQuote = this.activeQuote;
+          this.clearQuote();
+          userMsg = { id: generateId(), ts: Date.now(), role: 'user', text: text.trim(), ...(activeQuote ? { quote: activeQuote } : {}) };
+          c.messages.push(userMsg);
+          c.updated = Date.now();
+          if (c.title === 'New chat') {
+            c.title = text.trim().slice(0, 60) + (text.length > 60 ? '…' : '');
+          }
         }
+        if (!reuse) await this.dismissUnsent(c.id);
         await this.save();
         this.renderChat();
         this.renderSidebarList();
+        const job = !background ? null : reuse || await jobs.prepare({ mode: 'tutor', kind: 'tutor', ref: { chatId: c.id, msgId: userMsg.id }, label: c.title });
+        let built;
+        try { built = await this.buildPayload(c, text); }
+        catch (err) { if (job) await jobs.drop(job.id); throw err; }
+        if (job) {
+          try { if (await jobs.submit(job, built.payload, built.binaryFiles, built.applyCtx)) return; }
+          catch (err) { this.recordFailure(c, err, job.id); await this.save(); return; }
+        }
+        try {
+          const data = await sendToWebhook(built.payload, built.binaryFiles);
+          this.applyReply(c, data, built.applyCtx);
+          await this.save();
+        } catch (err) {
+          console.error('[STH] Tutor send failed:', err);
+          this.recordFailure(c, err);
+          await this.save();
+        }
+      },
 
+      // Everything the request carries, read from the chat and its attachments: { payload, binaryFiles, applyCtx }
+      async buildPayload(c, text) {
         // ── URL detection: scrape any links in the message ──────
         const URL_REGEX = /(https?:\/\/[^\s]+)/g;
         const foundUrls = [...new Set((text.trim().match(URL_REGEX) || []))];
         const extraContext = [];
 
         if (foundUrls.length > 0) {
-          state.tutorScraping = true;
+          this.prep.set(c.id, 'Reading link…');
           this.renderChat();
           for (const url of foundUrls) {
             const cached = kb.getByUrl(url);
@@ -9014,7 +9071,7 @@
               extraContext.push({ name: formatDomainPath(url), content: data.text });
             }
           }
-          state.tutorScraping = false;
+          this.prep.delete(c.id);
         }
 
         // Attached URLs go in as ad-hoc context — small, always sent inline.
@@ -9038,21 +9095,21 @@
           if (item && item.type === 'scanned_pdf' && item.contentHash && !ocr.isConverted(item)) pendingScans.push(item);
         }
         for (const item of pendingScans) {
-          state.tutorReadingLabel = `Reading ${item.name}…`;
+          this.prep.set(c.id, `Reading ${item.name}…`);
           this.renderChat();
           this.updateSendButton();
           try {
             await ocr.ensure(item, (done, total) => {
-              state.tutorReadingLabel = done >= total
+              this.prep.set(c.id, done >= total
                 ? `Reading ${item.name}…`
-                : `Reading ${item.name}… pages ${done + 1}-${Math.min(done + OCR_PAGES_PER_REQUEST, total)} of ${total}`;
+                : `Reading ${item.name}… pages ${done + 1}-${Math.min(done + OCR_PAGES_PER_REQUEST, total)} of ${total}`);
               this.renderChat();
             });
           } catch (err) {
             console.warn('[OCR] conversion failed, falling back to the PDF:', item.name, err);
           }
         }
-        state.tutorReadingLabel = null;
+        this.prep.delete(c.id);
 
         for (const kid of (c.attachedKnowledgeIds || [])) {
           const item = await kb.get(kid);
@@ -9111,7 +9168,7 @@
               if (needsConversion) {
                 try {
                   if ((item.originalSize || 0) > DOC_CONVERSION_LIMIT) throw docTooLargeError(item.name);
-                  state.tutorReadingLabel = `Converting ${item.name}…`;
+                  this.prep.set(c.id, `Converting ${item.name}…`);
                   this.renderChat();
                   const converted = await convertLegacyDoc(item.name, item.contentHash, () => getKbFileBlob(item));
                   if (converted && converted.text) {
@@ -9127,7 +9184,7 @@
                   });
                   continue;
                 } finally {
-                  state.tutorReadingLabel = null;
+                  this.prep.delete(c.id);
                 }
               } else if (isDriveOnlyTooLarge(item)) {
                 attachedContext.push({ name: item.name, content: wholeFileTooLargeNote(item.name) });
@@ -9190,67 +9247,148 @@
           chatTitle: c.title,
         };
 
-        try {
-          state.tutorTyping = true;
-          this.renderChat();
-          this.updateSendButton();
+        const scanned = scannedPdfDocs.map(doc => ({ serverKey: doc.contentHash, raw: rawHashByServerKey.get(doc.contentHash), sent: !!doc.fieldName }));
+        return { payload, binaryFiles, applyCtx: { knowledgeIds, scanned, cacheValid } };
+      },
 
-          const data = await sendToWebhook(payload, binaryFiles);
-          const reply = (data && (data.text || data.result)) || '';
-          c.messages.push({ id: generateId(), ts: Date.now(), role: 'model', text: reply || '_(No response text returned.)_' });
-          this._revealIdx = c.messages.length - 1;
-          this._revealChatId = c.id;
-          if (data && data.cacheName) {
-            c.cacheName = data.cacheName;
-            c.cacheExpiresAt = data.cacheExpiresAt || (Date.now() + 3 * 60 * 60 * 1000);
-            c.cachedKnowledgeIds = knowledgeIds;
-          } else if (!cacheValid) {
-            // Cache wasn't (re)created this turn — clear any stale handle so we fall
-            // back to sending the KB material inline again next time.
-            c.cacheName = null;
-            c.cacheExpiresAt = null;
-            c.cachedKnowledgeIds = [];
-          }
-          // Record which scanned-PDF fingerprints n8n now has a Gemini file for, so
-          // we don't resend the bytes next turn; un-record any it couldn't resolve
-          // (e.g. its Gemini file/session expired) so we resend those once more.
-          if (scannedPdfDocs.length > 0) {
-            const uploaded = new Set(c.uploadedScannedPdfFingerprints || []);
-            for (const doc of scannedPdfDocs) {
-              if (doc.fieldName) uploaded.add(rawHashByServerKey.get(doc.contentHash));
-            }
-            for (const key of ((data && data.reuploadScannedPdfs) || [])) uploaded.delete(rawHashByServerKey.get(key));
-            c.uploadedScannedPdfFingerprints = [...uploaded];
-          }
-          // These attachments have now been delivered as part of the conversation —
-          // stop showing them as "attached" chips in the composer.
-          c.attachmentsSeen = knowledgeIds;
-          c.updated = Date.now();
-          await this.save();
-        } catch (err) {
-          console.error('[STH] Tutor send failed:', err);
-          const failure = errorFromException(err);
-          c.messages.push({
-            id: generateId(), ts: Date.now(), role: 'model', error: true,
-            errorCode: failure.code, errorTime: failure.time,
-            text: `_Oof, that didn't go through. ${failure.message} Your message is saved, so you can try again in a moment._`
-          });
-          await this.save();
-        } finally {
-          state.tutorTyping = false;
-          this.renderChat();
-          this.updateSendButton();
-          this.renderSidebarList();
+      // Puts the server's answer into the chat. A job's reply has a fixed id, so applying it twice adds it once.
+      applyReply(c, data, applyCtx, jobId) {
+        const id = jobId ? `r_${jobId}` : generateId();
+        if (c.messages.some(m => m.id === id)) return false;
+        const { knowledgeIds, scanned, cacheValid } = applyCtx;
+        const reply = (data && (data.text || data.result)) || '';
+        c.messages.push({ id, ts: Date.now(), role: 'model', text: reply || '_(No response text returned.)_' });
+        this._revealIdx = c.messages.length - 1;
+        this._revealChatId = c.id;
+        if (data && data.cacheName) {
+          c.cacheName = data.cacheName;
+          c.cacheExpiresAt = data.cacheExpiresAt || (Date.now() + 3 * 60 * 60 * 1000);
+          c.cachedKnowledgeIds = knowledgeIds;
+        } else if (!cacheValid) {
+          // Cache wasn't (re)created this turn — clear any stale handle so we fall
+          // back to sending the KB material inline again next time.
+          c.cacheName = null;
+          c.cacheExpiresAt = null;
+          c.cachedKnowledgeIds = [];
         }
+        // Record which scanned-PDF fingerprints n8n now has a Gemini file for, so
+        // we don't resend the bytes next turn; un-record any it couldn't resolve
+        // (e.g. its Gemini file/session expired) so we resend those once more.
+        if (scanned.length > 0) {
+          const rawByKey = new Map(scanned.map(d => [d.serverKey, d.raw]));
+          const uploaded = new Set(c.uploadedScannedPdfFingerprints || []);
+          for (const doc of scanned) {
+            if (doc.sent) uploaded.add(doc.raw);
+          }
+          for (const key of ((data && data.reuploadScannedPdfs) || [])) uploaded.delete(rawByKey.get(key));
+          c.uploadedScannedPdfFingerprints = [...uploaded];
+        }
+        // These attachments have now been delivered as part of the conversation —
+        // stop showing them as "attached" chips in the composer.
+        c.attachmentsSeen = knowledgeIds;
+        c.updated = Date.now();
+        return true;
+      },
+
+      recordFailure(c, err, jobId) {
+        const id = jobId ? `e_${jobId}` : generateId();
+        if (c.messages.some(m => m.id === id)) return false;
+        const failure = errorFromException(err);
+        c.messages.push({
+          id, ts: Date.now(), role: 'model', error: true,
+          errorCode: failure.code, errorTime: failure.time,
+          text: `_Oof, that didn't go through. ${failure.message} Your message is saved, so you can try again in a moment._`
+        });
+        return true;
+      },
+
+      // ── background jobs: this chat's request is answered by the server while the page may be closed ──
+      jobFor(chatId) {
+        return [...jobs.recs.values()].find(r => r.kind === 'tutor' && r.ref && r.ref.chatId === chatId && JOBS_ACTIVE.has(r.state) && r.state !== 'preparing' && r.state !== 'needsConfirm') || null;
+      },
+
+      unsentFor(chatId) {
+        return [...jobs.recs.values()].find(r => r.kind === 'tutor' && r.ref && r.ref.chatId === chatId && r.state === 'needsConfirm') || null;
+      },
+
+      // true while a reply for this chat is on its way: a request here, or an active job (any tab)
+      answering(chatId) {
+        return this.pending.has(chatId) || !!this.jobFor(chatId);
+      },
+
+      // The jobs engine changed something: redraw the indicator and the send button
+      syncJobs() {
+        if (this.loading) return;
+        this.syncStatus();
+        this.updateSendButton();
+      },
+
+      async chatForJob(j) {
+        let c = this.chats.find(x => x.id === j.ref.chatId);
+        if (!c) { await this.reload(); c = this.chats.find(x => x.id === j.ref.chatId); }
+        return c || null;
+      },
+
+      // Engine side. Resolves false when the chat is gone or the person already has the answer in front of them (nothing to flag as unread).
+      async applyJob(j, data) {
+        await this.reload();
+        const c = this.chats.find(x => x.id === j.ref.chatId);
+        if (!c) return false;
+        if (this.applyReply(c, data, j.applyCtx, j.id)) await this.save();
+        if (this.currentId === c.id) this.renderChat();
+        this.updateSendButton();
+        this.renderSidebarList();
+        return !(this.currentId === c.id && state.currentRoute === 'tutor' && !document.hidden);
+      },
+
+      async failJob(j, err) {
+        const c = await this.chatForJob(j);
+        if (!c) return;
+        if (this.recordFailure(c, err, j.id)) await this.save();
+        if (this.currentId === c.id) { this.renderChat(); if (!document.hidden) jobs.markSeen(j.id); }
+        this.updateSendButton();
+        this.renderSidebarList();
+      },
+
+      // A request that was prepared but never left this device: build it again from the chat and send it under the same job
+      async resumeUnsent(job, confirmed) {
+        if (job.state === 'needsConfirm' && !confirmed) return;
+        const c = this.chats.find(x => x.id === job.ref.chatId);
+        const at = c ? c.messages.findIndex(m => m.id === job.ref.msgId) : -1;
+        if (at < 0 || c.messages.slice(at + 1).some(m => m.role === 'model')) { await jobs.drop(job.id); return; }
+        if (confirmed) await jobs.update(job.id, x => { x.state = 'preparing'; x.createdAt = Date.now(); x.submittedAt = null; x.attempt = 1; x.createTries = 0; x.error = null; });
+        try { await this.run(c, c.messages[at].text, c.messages[at], jobs.recs.get(job.id) || job); }
+        catch (err) { console.warn('[STH] Unsent tutor message could not be sent:', errorFromException(err).code); }
+      },
+
+      // Tray "Try again" on a failed request: the failure note goes and the same message is sent as a new job
+      async retryJob(j) {
+        const c = await this.chatForJob(j);
+        const at = c ? c.messages.findIndex(m => m.id === j.ref.msgId) : -1;
+        if (at < 0) return;
+        const note = c.messages.findIndex(m => m.id === `e_${j.id}`);
+        if (note >= 0) c.messages.splice(note, 1);
+        await this.run(c, c.messages[at].text, c.messages[at]);
+      },
+
+      // Opening a chat: its finished answers are no longer unread
+      markJobsSeen(chatId) {
+        if (!jobs.available) return;
+        for (const r of jobs.recs.values()) if (r.kind === 'tutor' && r.ref && r.ref.chatId === chatId && !r.seen && ['applied', 'done', 'failed', 'expired'].includes(r.state)) jobs.markSeen(r.id);
+      },
+
+      async dismissUnsent(chatId) {
+        for (const r of [...jobs.recs.values()]) if (r.kind === 'tutor' && r.ref && r.ref.chatId === chatId && r.state === 'needsConfirm') await jobs.drop(r.id);
       },
 
       updateSendButton() {
         const hasText = dom.tutorInput.value.trim().length > 0;
-        const busy = state.tutorTyping || state.tutorScraping || !!state.tutorReadingLabel;
         const cur = this.current();
+        const reading = !!cur && this.prep.has(cur.id);
+        const busy = reading || (!!cur && this.answering(cur.id));
         dom.btnTutorSend.disabled = !hasText || busy || (!!cur && this.lockedElsewhere(cur.id));
         if (busy) dom.btnTutorSend.setAttribute('aria-busy', 'true'); else dom.btnTutorSend.removeAttribute('aria-busy');
-        const label = (state.tutorScraping || state.tutorReadingLabel) ? 'Reading…' : state.tutorTyping ? 'Thinking…' : 'Send';
+        const label = reading ? 'Reading…' : busy ? 'Thinking…' : 'Send';
         if (dom.btnTutorSend.dataset.label === label) return;
         dom.btnTutorSend.dataset.label = label; dom.btnTutorSend.setAttribute('aria-label', label);
         dom.btnTutorSend.innerHTML = label === 'Send'
@@ -9358,7 +9496,7 @@
         const box = dom.tutorMessages;
         const q = (state.chatSearch || '').trim();
         const v = this._view;
-        const busy = state.tutorTyping || state.tutorScraping || !!state.tutorReadingLabel;
+        const busy = this.prep.has(c.id) || this.answering(c.id);
         const sameChat = !!v && v.chatId === c.id && v.msgs === c.messages;
         const incremental = sameChat && !q && !v.q && !v.empty && v.count <= c.messages.length;
         const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
@@ -9481,26 +9619,52 @@
 
       // One persistent indicator node: label updates in place, never recreated mid-spin.
       syncStatus() {
-        const kind = (state.tutorScraping || state.tutorReadingLabel) ? 'reading' : state.tutorTyping ? 'typing' : null;
+        const c = this.current();
+        const job = c ? this.jobFor(c.id) : null;
+        const unsent = c && !this.answering(c.id) && !this.prep.has(c.id) ? this.unsentFor(c.id) : null;
+        const kind = !c ? null : this.prep.has(c.id) ? 'reading' : job ? 'job' : this.answering(c.id) ? 'typing' : unsent ? 'unsent' : null;
         let el = this._status;
         if (el && el.dataset.kind !== kind) { el.remove(); el = this._status = null; }
         if (!kind || !this._view || this._view.empty) return;
         if (!el) {
           el = document.createElement('div');
           el.dataset.kind = kind;
-          el.className = `chat-bubble enter ${kind === 'reading' ? 'reading-link' : 'typing'}`;
+          el.className = `chat-bubble enter ${kind === 'reading' ? 'reading-link' : kind === 'typing' ? 'typing' : 'reading-link job-wait'}`;
           el.setAttribute('role', 'status');
           el.innerHTML = kind === 'reading'
             ? '<div class="reading-link-spinner"></div><span></span>'
-            : '<span></span><span></span><span></span><em class="typing-label">Thinking</em>';
+            : kind === 'typing' ? '<span></span><span></span><span></span><em class="typing-label">Thinking</em>' : '';
           if (kind === 'typing') el.setAttribute('aria-label', 'Tutor is typing');
+          if (kind === 'job' || kind === 'unsent') el.addEventListener('click', (e) => this.onStatusClick(e));
           dom.tutorMessages.appendChild(el);
           this._status = el;
         }
         if (kind === 'reading') {
-          const label = state.tutorReadingLabel || 'Reading link…';
+          const label = this.prep.get(c.id) || 'Reading link…';
           if (el.lastChild.textContent !== label) el.lastChild.textContent = label;
+        } else if (kind === 'job' || kind === 'unsent') {
+          const slow = !!job && jobs.slow(job);
+          const sig = kind === 'job' ? `${job.id}:${job.state}:${job.waitKind || ''}:${slow}` : `${unsent.id}`;
+          if (el.dataset.sig === sig) return;
+          el.dataset.sig = sig;
+          if (kind === 'unsent') {
+            el.innerHTML = `<span>Your message wasn't sent.</span><span class="job-wait-actions"><button type="button" data-tutor-job="send" data-id="${escapeHtml(unsent.id)}">Send now</button><button type="button" data-tutor-job="dismiss" data-id="${escapeHtml(unsent.id)}">Dismiss</button></span>`;
+          } else {
+            const since = `<span aria-hidden="true" data-jobs-since="${job.submittedAt || job.createdAt}">${jobsElapsed(job.submittedAt || job.createdAt)}</span>`;
+            const note = job.state === 'waiting' || job.state === 'syncing' ? jobs.noteFor(job) : `${slow ? 'Taking longer than usual' : 'Thinking…'} (${since}). You can close the app; the answer will wait here (kept 3 days).`;
+            el.innerHTML = `<div class="reading-link-spinner"></div><span>${note}</span>${slow ? `<span class="job-wait-actions"><button type="button" data-tutor-job="again" data-id="${escapeHtml(job.id)}">Try again now</button><button type="button" data-tutor-job="cancel" data-id="${escapeHtml(job.id)}">Cancel</button></span>` : ''}`;
+          }
         }
+      },
+
+      onStatusClick(e) {
+        const b = e.target.closest('[data-tutor-job]');
+        if (!b) return;
+        const id = b.dataset.id, act = b.dataset.tutorJob;
+        if (act === 'again') jobs.retryNow(id);
+        else if (act === 'cancel') jobs.cancel(id);
+        else if (act === 'dismiss') jobs.drop(id);
+        else if (act === 'send') { const r = jobs.recs.get(id); if (r) this.resumeUnsent(r, true); }
       },
 
       // Client-side typewriter for fresh replies: ≥60 words/s, whole reply ≤ ~4s; click to skip.
