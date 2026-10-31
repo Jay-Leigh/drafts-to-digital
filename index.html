@@ -1055,6 +1055,7 @@
     .studio-fc-back .studio-fc-text { font-size: 18px; font-weight: 400; line-height: 1.5; }
     .studio-fc-back > div { display: flex; justify-content: center; }
     .studio-fc-back .studio-mm-chip { min-height: 32px; font-size: 12.5px; }
+    .studio-fc-back .studio-btn { min-height: 44px; }
     .studio-fc-controls { display: flex; gap: 8px; width: min(100%, 560px); margin: 0 auto; }
     .studio-fc-controls .studio-btn { flex: 1 1 0; min-width: 0; min-height: 48px; padding: 0 8px; font-size: 15px; line-height: 1.15; text-align: center; }
     .studio-fc-learn { color: #7a1a1d; border-color: #9b2226; }
@@ -12630,7 +12631,7 @@
     // ── Flashcards viewer: one card at a time, flip, answer, review schedule ──
     const studioFc = {
       item: null, model: null, art: null, byId: null, cards: null, rec: null, session: null,
-      flipped: false, view: '', token: 0, sessions: new Map(), clock: null, drag: null, swallowUntil: 0, keyHandler: null,
+      flipped: false, view: '', token: 0, sessions: new Map(), clock: null, drag: null, swallow: false, keyHandler: null,
       el: (id) => document.getElementById(id),
       today() { return this.clock ? this.clock() : studioFcDay(); },
       sig() { const c = this.model.cards; return `${c.length}|${this.model.title}|${c[c.length - 1].front}`; },
@@ -12703,7 +12704,7 @@
         if (this.keyHandler) document.removeEventListener('keydown', this.keyHandler);
         this.token++;
         this.keyHandler = null; this.item = null; this.model = null; this.art = null; this.byId = null; this.cards = null; this.rec = null; this.session = null;
-        this.drag = null; this.swallowUntil = 0; this.view = '';
+        this.drag = null; this.swallow = false; this.view = '';
       },
 
       // The review state comes from the progress store; the position inside a session survives a trip to the tutor
@@ -12732,7 +12733,7 @@
         click('studioFcAsk', () => this.ask());
         const stage = this.el('studioFcStage');
         stage.addEventListener('click', (e) => {
-          if (Date.now() < this.swallowUntil) return;
+          if (this.swallow) { this.swallow = false; return; }
           if (!e.target.closest('a, button, summary, input')) this.flip();
         });
         this.el('studioFcChips').addEventListener('click', (e) => {
@@ -12764,6 +12765,7 @@
 
       // ── touch: swipe a flipped card left (still learning) or right (I know it) ──
       onPointerDown(e) {
+        this.swallow = false;
         if (e.pointerType !== 'touch' || this.view !== 'card' || !e.isPrimary) return;
         this.drag = { x: e.clientX, y: e.clientY, dx: 0, dy: 0 };
       },
@@ -12778,7 +12780,7 @@
         if (!d || !e.isPrimary) return;
         this.drag = null;
         this.el('studioFcCard').style.transform = '';
-        if (Math.abs(d.dx) > 10 || Math.abs(d.dy) > 10) this.swallowUntil = Date.now() + 300;
+        if (Math.abs(d.dx) > 10 || Math.abs(d.dy) > 10) this.swallow = true;
         if (e.type === 'pointerup' && this.flipped && Math.abs(d.dx) >= STUDIO_FC_SWIPE_PX && Math.abs(d.dx) > Math.abs(d.dy) * 1.5) this.answer(d.dx > 0);
       },
 
