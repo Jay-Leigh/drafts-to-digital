@@ -884,8 +884,8 @@
     .studio-viewer-card { padding: 20px; background: rgba(255,255,255,0.7); border: 1px solid rgba(212,201,168,0.55); border-radius: 18px; }
     .studio-viewer-card h2 { margin: 0 0 4px; font-size: 22px; line-height: 1.25; overflow-wrap: anywhere; }
     .studio-viewer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; }
-    #studioViewer.is-map > .view-header, #studioViewer.is-fc > .view-header { display: none; }
-    #studioViewer.is-map .studio-viewer-card, #studioViewer.is-fc .studio-viewer-card { padding: 0; background: none; border: 0; border-radius: 0; }
+    #studioViewer.is-map > .view-header, #studioViewer.is-fc > .view-header, #studioViewer.is-qz > .view-header { display: none; }
+    #studioViewer.is-map .studio-viewer-card, #studioViewer.is-fc .studio-viewer-card, #studioViewer.is-qz .studio-viewer-card { padding: 0; background: none; border: 0; border-radius: 0; }
     .studio-mm { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
     .studio-mm-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
     .studio-mm-title { flex: 1 1 200px; min-width: 0; margin: 0; font-size: 20px; line-height: 1.25; overflow-wrap: anywhere; }
@@ -952,7 +952,7 @@
     body.studio-fs-lock { overflow: hidden; }
     .tutor-back-map { margin-top: 8px; align-self: flex-start; }
     .tutor-back-map[hidden] { display: none; }
-    #viewStudio:has(#studioViewer.is-map) > .view-header, #viewStudio:has(#studioViewer.is-fc) > .view-header { display: none; }
+    #viewStudio:has(#studioViewer.is-map) > .view-header, #viewStudio:has(#studioViewer.is-fc) > .view-header, #viewStudio:has(#studioViewer.is-qz) > .view-header { display: none; }
     .studio-mm-fullbtn { gap: 6px; }
     @media (max-width: 640px) {
       .studio-mm-title { order: 5; flex: 1 0 100%; font-size: 17px; }
@@ -1088,6 +1088,74 @@
       .studio-fc-card.is-flipped .studio-fc-back { opacity: 1; pointer-events: auto; }
       .studio-fc-card.is-flipped .studio-fc-front { opacity: 0; pointer-events: none; }
       .studio-fc-track span { transition: none; }
+    }
+
+    .studio-qz { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    .studio-qz [hidden] { display: none; }
+    .studio-qz-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+    .studio-qz-bar .studio-btn { min-height: 44px; }
+    .studio-qz-title { flex: 1 1 200px; min-width: 0; margin: 0; font-size: 20px; line-height: 1.25; overflow-wrap: anywhere; }
+    .studio-qz-play, .studio-qz-done, .studio-qz-review { width: min(100%, 680px); margin: 0 auto; min-width: 0; }
+    .studio-qz-play { display: flex; flex-direction: column; gap: 12px; }
+    .studio-qz-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13.5px; color: rgba(26,46,28,0.75); }
+    .studio-qz-meta p { margin: 0; }
+    .studio-qz-count { font-weight: 600; }
+    .studio-qz-chip { max-width: 60%; padding: 2px 10px; font-size: 12px; font-weight: 600; color: #1e4620; background: rgba(44,95,45,0.09); border-radius: 999px; overflow-wrap: anywhere; }
+    .studio-qz-track { height: 6px; border-radius: 999px; background: rgba(212,201,168,0.45); overflow: hidden; }
+    .studio-qz-track span { display: block; width: 0; height: 100%; border-radius: 999px; background: #2c5f2d; transition: width 0.2s ease; }
+    .studio-qz-q { min-width: 0; padding: 16px; background: white; border: 1px solid rgba(212,201,168,0.7); border-radius: 20px; box-shadow: 0 8px 24px rgba(26,46,28,0.08); }
+    .studio-qz-fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+    .studio-qz-fieldset > legend { display: block; width: 100%; max-width: 100%; padding: 0; margin-bottom: 12px; font-size: 19px; font-weight: 600; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
+    .studio-qz-opt { position: relative; display: block; margin-bottom: 8px; cursor: pointer; }
+    .studio-qz-box { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 2px 10px; align-items: start; min-height: 48px; padding: 10px 12px; background: white; border: 1.5px solid rgba(212,201,168,0.9); border-radius: 14px; }
+    .studio-qz-opt:not(.is-locked):hover .studio-qz-box { border-color: #2c5f2d; }
+    .studio-qz-opt input:checked + .studio-qz-box { background: #f3f6ee; border-color: #2c5f2d; box-shadow: inset 0 0 0 1px #2c5f2d; }
+    .studio-qz-opt input:focus-visible + .studio-qz-box { outline: 2px solid #2c5f2d; outline-offset: 2px; }
+    .studio-qz-letter { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; font-size: 13px; font-weight: 600; color: #2c5f2d; border: 1.5px solid currentColor; border-radius: 50%; }
+    .studio-qz-text { padding-top: 3px; font-size: 16px; line-height: 1.45; overflow-wrap: anywhere; }
+    .studio-qz-flag { grid-column: 2; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+    .studio-qz-why { grid-column: 2; margin: 0; font-size: 13.5px; line-height: 1.45; color: rgba(26,46,28,0.78); overflow-wrap: anywhere; }
+    .studio-qz-q .studio-qz-opt.is-correct .studio-qz-box { background: #eef7ee; border-color: #1e6b30; box-shadow: none; }
+    .studio-qz-q .studio-qz-opt.is-correct .studio-qz-flag, .studio-qz-q .studio-qz-opt.is-correct .studio-qz-letter { color: #1e6b30; }
+    .studio-qz-q .studio-qz-opt.is-wrong .studio-qz-box { background: #fbeeee; border-color: #9b2226; box-shadow: none; }
+    .studio-qz-q .studio-qz-opt.is-wrong .studio-qz-flag, .studio-qz-q .studio-qz-opt.is-wrong .studio-qz-letter { color: #7a1a1d; }
+    .studio-qz-q .studio-qz-opt.is-locked { cursor: default; }
+    .studio-qz-hint, .studio-qz-explain { margin: 12px 0 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+    .studio-qz-hint { padding: 8px 12px; background: #fff7e0; border: 1px solid #d4c9a8; border-radius: 12px; }
+    .studio-qz-result { margin: 12px 0 0; font-size: 16px; font-weight: 600; line-height: 1.4; overflow-wrap: anywhere; }
+    .studio-qz-result.is-ok { color: #1e6b30; }
+    .studio-qz-result.is-no { color: #7a1a1d; }
+    .studio-qz-q .studio-mm-chips { margin-top: 10px; }
+    .studio-qz-q .studio-mm-chip { min-height: 32px; font-size: 12.5px; }
+    .studio-qz-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+    .studio-qz-controls .studio-btn { flex: 1 1 auto; min-height: 48px; padding: 0 14px; font-size: 15px; }
+    .studio-qz-keys { margin: 0; font-size: 12.5px; line-height: 1.45; text-align: center; color: rgba(26,46,28,0.6); }
+    .studio-qz-done, .studio-qz-review { padding: 20px; background: white; border: 1px solid rgba(212,201,168,0.7); border-radius: 20px; }
+    .studio-qz-done:focus-visible, .studio-qz-review:focus-visible { outline: 2px solid #2c5f2d; outline-offset: 4px; }
+    .studio-qz-done h3, .studio-qz-review h3 { margin: 0 0 6px; font-size: 20px; }
+    .studio-qz-done p { margin: 0 0 10px; font-size: 14px; line-height: 1.5; }
+    .studio-qz-score { font-size: 22px !important; font-weight: 600; }
+    .studio-qz-table { width: 100%; margin: 0 0 12px; border-collapse: collapse; font-size: 14px; }
+    .studio-qz-table caption { padding-bottom: 6px; text-align: left; font-weight: 600; }
+    .studio-qz-table th, .studio-qz-table td { padding: 8px 6px; text-align: left; border-bottom: 1px solid rgba(212,201,168,0.6); overflow-wrap: anywhere; }
+    .studio-qz-table th:last-child, .studio-qz-table td:last-child { text-align: right; white-space: nowrap; }
+    .studio-qz-done h4 { margin: 0 0 4px; font-size: 14px; }
+    .studio-qz-past { margin: 0 0 12px; padding: 0; list-style: none; font-size: 13.5px; line-height: 1.7; }
+    .studio-qz-list { margin: 12px 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 12px; }
+    .studio-qz-list > li > h4 { margin: 0 0 6px; font-size: 13px; color: rgba(26,46,28,0.7); }
+    .studio-qz > .studio-mm-foot { text-align: center; }
+    @media (hover: none) { .studio-qz-keys { display: none; } }
+    @media (max-width: 640px) {
+      .studio-qz-title { order: 5; flex: 1 0 100%; font-size: 17px; }
+      .studio-qz-bar .studio-qz-home { order: 1; }
+      .studio-qz-bar #studioQzReport { order: 2; margin-left: auto; padding: 0 12px; font-size: 12px; }
+      .studio-qz-bar .studio-menu { order: 3; }
+      .studio-qz-q, .studio-qz-done, .studio-qz-review { padding: 14px; }
+      .studio-qz-fieldset > legend { font-size: 17px; }
+      .studio-qz-controls .studio-btn { font-size: 14px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .studio-qz-track span { transition: none; }
     }
 
     /* ───────── TUTOR ───────── */
@@ -5069,7 +5137,7 @@
     // Anything off, blocked or missing on the server falls back to the direct request.
     const JOBS_FLAG_KEY = 'sth_flag_jobs';
     const JOBS_LEADER_LOCK = 'sth-jobs-leader';
-    const JOBS_MODES = ['tutor', 'studio_mindmap', 'studio_flashcards'];
+    const JOBS_MODES = ['tutor', 'studio_mindmap', 'studio_flashcards', 'studio_quiz'];
     const JOBS_CADENCE_S = { tutor: [5, 5, 8, 13, 20], studio_mindmap: [10, 15, 20, 30] };
     const JOBS_SLOW_MS = { tutor: 90000, studio_mindmap: 4 * 60 * 1000 };
     const JOBS_FIRST_POLL_MS = 3000;
@@ -10442,7 +10510,7 @@
     const studioSvg = (key, size = 18, extra = '') => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${extra}>${STUDIO_ICONS[key]}</svg>`;
     const STUDIO_TOOLS = {
       mindmap:     { label: 'Mind map',    mode: 'studio_mindmap', enabled: true, sub: 'Turn your sources into a map of the main ideas.' },
-      quiz:        { label: 'Quiz',        enabled: false },
+      quiz:        { label: 'Quiz',        mode: 'studio_quiz', enabled: true, options: true, sub: 'Turn your sources into practice questions.', placeholder: 'Things to try\n\u2022 Help me prepare for my exam on Learning Unit 3\n\u2022 Only use the study guide, not the summary\n\u2022 Focus on definitions and key dates' },
       infographic: { label: 'Infographic', enabled: false },
       slides:      { label: 'Slide deck',  enabled: false },
       flashcards:  { label: 'Flashcards',  mode: 'studio_flashcards', enabled: true, options: true, sub: 'Turn your sources into cards for active recall.', placeholder: 'Things to try\n\u2022 Only use one source (e.g. \'the prescribed summary\')\n\u2022 Focus on one topic, like \'HIV testing\'\n\u2022 Keep card fronts short (1-5 words) for memorising' },
@@ -10457,12 +10525,20 @@
     const STUDIO_FC_COUNTS = [{ value: 15, label: 'Fewer' }, { value: 30, label: 'Standard' }, { value: 50, label: 'More' }];
     const STUDIO_FC_LEVELS = [{ value: 'easy', label: 'Easy' }, { value: 'medium', label: 'Medium' }, { value: 'hard', label: 'Hard' }];
     const STUDIO_FC_DEFAULTS = { count: 30, difficulty: 'medium' };
+    const STUDIO_QZ_COUNTS = [{ value: 10, label: 'Fewer' }, { value: 20, label: 'Standard' }, { value: 30, label: 'More' }];
+    const STUDIO_QZ_DEFAULTS = { count: 20, difficulty: 'medium' };
+    // The dialog's option groups per tool: the amounts on offer, the default, and the heading of the amount group
+    const STUDIO_OPTION_SETS = {
+      flashcards: { counts: STUDIO_FC_COUNTS, defaults: STUDIO_FC_DEFAULTS, heading: 'Number of cards' },
+      quiz: { counts: STUDIO_QZ_COUNTS, defaults: STUDIO_QZ_DEFAULTS, heading: 'Number of questions' },
+    };
     function studioCleanOptions(tool, raw) {
-      if (tool !== 'flashcards') return {};
+      const set = STUDIO_OPTION_SETS[tool];
+      if (!set) return {};
       const o = raw && typeof raw === 'object' ? raw : {};
       return {
-        count: STUDIO_FC_COUNTS.some(c => c.value === o.count) ? o.count : STUDIO_FC_DEFAULTS.count,
-        difficulty: STUDIO_FC_LEVELS.some(l => l.value === o.difficulty) ? o.difficulty : STUDIO_FC_DEFAULTS.difficulty,
+        count: set.counts.some(c => c.value === o.count) ? o.count : set.defaults.count,
+        difficulty: STUDIO_FC_LEVELS.some(l => l.value === o.difficulty) ? o.difficulty : set.defaults.difficulty,
       };
     }
     const STUDIO_STATUS_TEXT = { queued: 'Waiting to start', generating: 'Generating', ready: 'Ready', failed: 'Couldn’t finish' };
@@ -11054,6 +11130,210 @@
       return `Help me understand and remember this: "${card.front}" = "${card.back}". Give me a memory hook and one example from my sources${cites ? ` (${cites})` : ''}.`;
     }
 
+    // ── Quiz: what the player may trust, and how an attempt is scored. The model's output is untrusted; every string passes through here and is shown with textContent only ──
+    const STUDIO_QZ_SCHEMA = 'sth.quiz/1';
+    const STUDIO_QZ_MAX_QUESTIONS = 50;
+    const STUDIO_QZ_SCAN_LIMIT = 400;
+    const STUDIO_QZ_MAX_OPTIONS = 4;
+    const STUDIO_QZ_MAX_ATTEMPTS = 5; // attempts kept per quiz
+    const STUDIO_QZ_LETTERS = ['A', 'B', 'C', 'D'];
+    const STUDIO_QZ_GENERAL = 'General';
+    const studioQzHas = (obj, key) => !!obj && typeof obj === 'object' && Object.prototype.hasOwnProperty.call(obj, key);
+
+    // Pure: one question, or null when it cannot be played (no stem, fewer than 2 options, not exactly one correct option, unknown type)
+    function studioQzQuestion(raw, n) {
+      if (!raw || typeof raw !== 'object' || !Array.isArray(raw.options)) return null;
+      const text = (v) => typeof v === 'number' && isFinite(v) ? String(v) : v;
+      const stem = studioClean(text(raw.stem), 400);
+      if (!stem) return null;
+      if (raw.type !== undefined && raw.type !== 'mcq' && raw.type !== 'true_false') return null;
+      const type = raw.type === 'true_false' ? 'true_false' : 'mcq';
+      const named = typeof raw.answer === 'string' ? raw.answer.trim().toLowerCase() : '';
+      const pool = [];
+      for (const o of raw.options.slice(0, 12)) {
+        if (!o || typeof o !== 'object') continue;
+        if (type === 'true_false') pool.push({ o, text: studioClean(text(o.text), 200) || (pool.length ? 'False' : 'True') });
+        else { const t = studioClean(text(o.text), 200); if (t) pool.push({ o, text: t }); }
+      }
+      const kept = pool.slice(0, type === 'true_false' ? 2 : STUDIO_QZ_MAX_OPTIONS);
+      if (kept.length < 2) return null;
+      const flagged = kept.some(k => k.o.correct === true);
+      const options = kept.map((k, i) => ({
+        id: STUDIO_QZ_LETTERS[i],
+        text: k.text,
+        correct: flagged ? k.o.correct === true : !!named && typeof k.o.id === 'string' && k.o.id.trim().toLowerCase() === named,
+        rationale: studioClean(text(k.o.rationale), 300),
+      }));
+      const right = options.filter(o => o.correct);
+      if (right.length !== 1) return null;
+      return {
+        id: `q${n}`, topic: studioClean(text(raw.topic), 60), type, stem, options, answer: right[0].id,
+        hint: studioClean(text(raw.hint), 200), explanation: studioClean(text(raw.explanation), 600), cites: studioMapCites(raw.cites),
+      };
+    }
+
+    // Pure: shape check, at most 50 questions renumbered q1.. (answers are kept under these ids), unplayable questions dropped
+    function studioNormalizeQuiz(data) {
+      if (!data || typeof data !== 'object' || !Array.isArray(data.questions)) return { ok: false, reason: 'shape' };
+      const questions = [];
+      for (const raw of data.questions.slice(0, STUDIO_QZ_SCAN_LIMIT)) {
+        if (questions.length >= STUDIO_QZ_MAX_QUESTIONS) break;
+        const q = studioQzQuestion(raw, questions.length + 1);
+        if (q) questions.push(q);
+      }
+      if (!questions.length) return { ok: false, reason: 'empty' };
+      const repairs = [];
+      if (data.questions.length > questions.length) repairs.push(`kept ${questions.length} of ${data.questions.length} questions`);
+      return {
+        ok: true,
+        title: studioClean(data.title, 80) || 'Quiz',
+        notices: Array.isArray(data.notices) ? data.notices.slice(0, 3).map(s => studioClean(s, 160)).filter(Boolean) : [],
+        questions, repairs,
+      };
+    }
+
+    const studioQzNormalized = new WeakMap();
+    function studioQzModel(artifact) {
+      if (!artifact || typeof artifact !== 'object') return { ok: false, reason: 'shape' };
+      const schema = artifact.schema || (artifact.data && artifact.data.schema);
+      if (schema && schema !== STUDIO_QZ_SCHEMA) return { ok: false, reason: 'schema' };
+      if (!studioQzNormalized.has(artifact)) {
+        let model;
+        try { model = studioNormalizeQuiz(artifact.data); } catch { model = { ok: false, reason: 'shape' }; }
+        studioQzNormalized.set(artifact, model);
+      }
+      return studioQzNormalized.get(artifact);
+    }
+    const studioQzCount = (item) => { const m = studioQzModel(item.artifact); return m.ok ? m.questions.length : 0; };
+
+    // Option order: mulberry32 seeded from the item and the attempt number, so the model's answer positions never show and a reload keeps the order. True/false is never shuffled.
+    function studioQzHash(text) {
+      let h = 2166136261;
+      for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return h >>> 0;
+    }
+    function studioQzRandom(seed) {
+      let a = seed >>> 0;
+      return () => {
+        a = (a + 0x6D2B79F5) >>> 0;
+        let t = a;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    function studioQzShuffle(list, rand) {
+      const out = list.slice();
+      for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
+      return out;
+    }
+    // question id -> the model's option indexes in the order shown
+    function studioQzOrders(questions, itemId, attemptNo) {
+      const rand = studioQzRandom(studioQzHash(`${itemId}:${attemptNo}`));
+      const out = {};
+      for (const q of questions) {
+        const order = q.options.map((_, i) => i);
+        out[q.id] = q.type === 'mcq' ? studioQzShuffle(order, rand) : order;
+      }
+      return out;
+    }
+    // A retake of everything also changes the question order; the first attempt keeps the model's order
+    function studioQzPlayOrder(ids, itemId, attemptNo) {
+      return attemptNo > 1 ? studioQzShuffle(ids, studioQzRandom(studioQzHash(`${itemId}:${attemptNo}:q`))) : ids.slice();
+    }
+
+    // An attempt: { n, at, kind: 'all' | 'retry', ids: [question ids in play order], answers: { id: optionId }, hints: [ids], score: correct count }
+    const studioQzNewAttempt = (n, ids, at, kind) => ({ n, at, kind, ids: ids.slice(), answers: {}, hints: [], score: 0 });
+    const studioQzAnswered = (att, id) => studioQzHas(att.answers, id);
+    const studioQzOpen = (att) => att.ids.findIndex(id => !studioQzAnswered(att, id)); // -1 when every question has an answer
+    function studioQzScore(questions, att) {
+      const byId = new Map(questions.map(q => [q.id, q]));
+      let correct = 0, answered = 0, hinted = 0;
+      for (const id of att.ids) {
+        const q = byId.get(id);
+        if (!q) continue;
+        if (att.hints.includes(id)) hinted++;
+        if (!studioQzAnswered(att, id)) continue;
+        answered++;
+        if (att.answers[id] === q.answer) correct++;
+      }
+      const total = att.ids.length;
+      return { correct, answered, total, hinted, pct: total ? Math.round(correct / total * 100) : 0 };
+    }
+    // Returns a new attempt with the answer (and the score) filled in; an answer is final
+    function studioQzRecord(questions, att, id, optionId) {
+      if (studioQzAnswered(att, id) || !att.ids.includes(id)) return att;
+      const next = { ...att, answers: { ...att.answers, [id]: optionId } };
+      next.score = studioQzScore(questions, next).correct;
+      return next;
+    }
+    const studioQzUseHint = (att, id) => att.hints.includes(id) || !att.ids.includes(id) ? att : { ...att, hints: [...att.hints, id] };
+    // Per topic: correct and total, weakest first (lowest share right, then most missed, then name)
+    function studioQzTopics(questions, att) {
+      const byId = new Map(questions.map(q => [q.id, q]));
+      const rows = new Map();
+      for (const id of att.ids) {
+        const q = byId.get(id);
+        if (!q) continue;
+        const topic = q.topic || STUDIO_QZ_GENERAL;
+        const row = rows.get(topic) || { topic, correct: 0, total: 0 };
+        row.total++;
+        if (studioQzAnswered(att, id) && att.answers[id] === q.answer) row.correct++;
+        rows.set(topic, row);
+      }
+      return [...rows.values()].map(r => ({ ...r, wrong: r.total - r.correct }))
+        .sort((a, b) => a.correct / a.total - b.correct / b.total || b.wrong - a.wrong || (a.topic < b.topic ? -1 : a.topic > b.topic ? 1 : 0));
+    }
+    // The ids answered wrongly, in play order
+    function studioQzWrong(questions, att) {
+      const byId = new Map(questions.map(q => [q.id, q]));
+      return att.ids.filter(id => byId.has(id) && studioQzAnswered(att, id) && att.answers[id] !== byId.get(id).answer);
+    }
+    const studioQzKeep = (attempts, max = STUDIO_QZ_MAX_ATTEMPTS) => attempts.slice(-max);
+    // Saved attempts, kept only when well formed and only for questions that exist now; the score is worked out again from the answers
+    function studioQzCleanProgress(raw, questions) {
+      const byId = new Map(questions.map(q => [q.id, q]));
+      const attempts = [];
+      let count = raw && Number.isInteger(raw.count) && raw.count > 0 ? raw.count : 0;
+      for (const a of raw && Array.isArray(raw.attempts) ? raw.attempts.slice(-STUDIO_QZ_MAX_ATTEMPTS * 2) : []) {
+        if (!a || typeof a !== 'object' || !Number.isInteger(a.n) || a.n < 1 || !Array.isArray(a.ids)) continue;
+        const ids = [...new Set(a.ids.filter(id => typeof id === 'string' && byId.has(id)))];
+        if (!ids.length) continue;
+        const att = studioQzNewAttempt(a.n, ids, typeof a.at === 'number' && isFinite(a.at) ? a.at : 0, a.kind === 'retry' ? 'retry' : 'all');
+        for (const id of ids) {
+          const v = studioQzHas(a.answers, id) ? a.answers[id] : null;
+          if (typeof v === 'string' && byId.get(id).options.some(o => o.id === v)) att.answers[id] = v;
+        }
+        att.hints = ids.filter(id => Array.isArray(a.hints) && a.hints.includes(id));
+        att.score = studioQzScore(questions, att).correct;
+        attempts.push(att);
+        count = Math.max(count, a.n);
+      }
+      attempts.sort((x, y) => x.n - y.n);
+      return { count, attempts: studioQzKeep(attempts) };
+    }
+
+    // The editable texts that land in the tutor composer. Letters are the ones on screen (the order is shuffled).
+    const studioQzLetter = (q, order, optionId) => STUDIO_QZ_LETTERS[order.findIndex(i => q.options[i].id === optionId)];
+    function studioQzHintPrompt(q, order) {
+      return `Give me a hint for this question without telling me the answer:\n"${q.stem}"\nOptions: ${order.map((idx, i) => `${STUDIO_QZ_LETTERS[i]}) ${q.options[idx].text}`).join(' ')}`;
+    }
+    function studioQzAskPrompt(q, picked, nameOf) {
+      const cites = studioMapCiteText(q.cites, nameOf);
+      const said = q.options.find(o => o.id === picked), right = q.options.find(o => o.id === q.answer);
+      const use = `using my sources${cites ? ` (${cites})` : ''}`;
+      return picked === q.answer
+        ? `I answered "${said.text}" to: "${q.stem}" and it was correct. Explain in more depth why it is right and why the other options are wrong, ${use}.`
+        : `I answered "${said.text}" to: "${q.stem}". The correct answer is "${right.text}". Explain why, and why my answer is wrong, ${use}.`;
+    }
+    function studioQzWeakPrompt(questions, att, topics) {
+      const weak = topics.find(t => t.wrong > 0);
+      if (!weak) return '';
+      const byId = new Map(questions.map(q => [q.id, q]));
+      const missed = studioQzWrong(questions, att).map(id => byId.get(id)).filter(q => (q.topic || STUDIO_QZ_GENERAL) === weak.topic).slice(0, 10);
+      return `Help me revise "${weak.topic}", my weakest topic in this quiz (${weak.correct} of ${weak.total} right). These are the questions I missed:\n${missed.map(q => `- ${q.stem}`).join('\n')}\nExplain each one using my attached sources.`;
+    }
+
     const studio = {
       store: null,
       items: [],
@@ -11374,6 +11654,7 @@
         const n = item.sourceIds.length;
         const id = escapeHtml(item.id);
         const cards = item.status === 'ready' && item.tool === 'flashcards' ? studioFcCount(item) : 0;
+        const questions = item.status === 'ready' && item.tool === 'quiz' ? studioQzCount(item) : 0;
         const actions = [];
         if (item.status === 'ready') actions.push(`<a href="#studio/${id}">Open</a>`);
         if (item.status === 'ready' || item.status === 'failed') actions.push(`<button type="button" data-studio-act="regenerate" data-id="${id}">Regenerate</button>`);
@@ -11383,7 +11664,7 @@
           <span class="studio-item-icon">${studioSvg(item.tool)}</span>
           <a class="studio-item-link" href="#studio/${id}">
             <span class="studio-item-title">${escapeHtml(item.title)}</span>
-            <span class="studio-item-meta">${n} source${n === 1 ? '' : 's'}${cards ? ` · ${cards} card${cards === 1 ? '' : 's'}` : ''} · ${escapeHtml(formatRelativeDate(item.updatedAt || item.createdAt))}</span>
+            <span class="studio-item-meta">${n} source${n === 1 ? '' : 's'}${cards ? ` · ${cards} card${cards === 1 ? '' : 's'}` : ''}${questions ? ` · ${questions} question${questions === 1 ? '' : 's'}` : ''} · ${escapeHtml(formatRelativeDate(item.updatedAt || item.createdAt))}</span>
             ${this.statusHtml(item)}
             ${this.noteHtml(item)}
           </a>
@@ -11446,6 +11727,7 @@
           showToast('That source is no longer in your Knowledge Bay', 'error');
           studioMap.refreshCites();
           studioFc.refreshCites();
+          studioQz.refreshCites();
           return;
         }
         studioMap.leaveFullscreen();
@@ -11511,7 +11793,7 @@
         }
         link.hidden = !item;
         if (item) {
-          link.textContent = `← Back to ${item.tool === 'flashcards' ? 'flashcards' : 'mind map'}`;
+          link.textContent = `← Back to ${{ flashcards: 'flashcards', quiz: 'quiz' }[item.tool] || 'mind map'}`;
           link.setAttribute('href', `#studio/${item.id}`);
         }
       },
@@ -11523,14 +11805,27 @@
         const viewer = this.el('studioViewer');
         let cannot = '';
         const isFc = item.status === 'ready' && item.tool === 'flashcards';
+        const isQz = item.status === 'ready' && item.tool === 'quiz';
         if (!isFc) studioFc.unmount();
+        if (!isQz) studioQz.unmount();
         if (isFc) {
           const model = studioFcModel(item.artifact);
           if (model.ok) {
             studioMap.unmount();
-            viewer.classList.remove('is-map');
+            viewer.classList.remove('is-map', 'is-qz');
             viewer.classList.add('is-fc');
             if (studioFc.showing(item)) studioFc.refreshCites(); else studioFc.mount(item, model);
+            return;
+          }
+          cannot = model.reason === 'schema' ? 'This study aid was made by a newer version of the app. Reload the page.' : 'This study aid is damaged. Regenerate it.';
+        }
+        if (isQz) {
+          const model = studioQzModel(item.artifact);
+          if (model.ok) {
+            studioMap.unmount();
+            viewer.classList.remove('is-map', 'is-fc');
+            viewer.classList.add('is-qz');
+            if (studioQz.showing(item)) studioQz.refreshCites(); else studioQz.mount(item, model);
             return;
           }
           cannot = model.reason === 'schema' ? 'This study aid was made by a newer version of the app. Reload the page.' : 'This study aid is damaged. Regenerate it.';
@@ -11538,14 +11833,14 @@
         if (item.status === 'ready' && item.tool === 'mindmap') {
           const model = studioMapModel(item.artifact);
           if (model.ok) {
-            viewer.classList.remove('is-fc');
+            viewer.classList.remove('is-fc', 'is-qz');
             viewer.classList.add('is-map');
             if (studioMap.showing(item)) studioMap.refreshCites(); else studioMap.mount(item, model);
             return;
           }
           cannot = model.reason === 'schema' ? 'This study aid was made by a newer version of the app. Reload the page.' : 'This study aid is damaged. Regenerate it.';
         }
-        viewer.classList.remove('is-map', 'is-fc');
+        viewer.classList.remove('is-map', 'is-fc', 'is-qz');
         studioMap.unmount();
         const id = escapeHtml(item.id);
         const n = item.sourceIds.length;
@@ -11572,7 +11867,7 @@
       async show(arg) {
         this.wire();
         this.viewerId = arg || null;
-        if (!arg) { studioMap.unmount(); studioFc.unmount(); }
+        if (!arg) { studioMap.unmount(); studioFc.unmount(); studioQz.unmount(); }
         this.el('studioMain').hidden = !!arg;
         this.el('studioViewer').hidden = !arg;
         this.renderSources();
@@ -11626,8 +11921,11 @@
         this.el('studioOptCountField').hidden = this.el('studioOptLevelField').hidden = !t.options;
         const opts = studioCleanOptions(tool, prefill.options);
         if (t.options) {
-          this.el('studioOptCount').querySelector(`input[value="${opts.count}"]`).checked = true;
-          this.el('studioOptLevel').querySelector(`input[value="${opts.difficulty}"]`).checked = true;
+          const set = STUDIO_OPTION_SETS[tool];
+          const seg = (name, list, def) => list.map(o => `<label class="studio-seg-opt"><input type="radio" class="studio-sr" name="${name}" value="${o.value}"${o.value === def ? ' checked' : ''} /><span>${o.label}${typeof o.value === 'number' ? ` (${o.value})` : ''}</span></label>`).join('');
+          this.el('studioOptCountField').querySelector('legend').textContent = set.heading;
+          this.el('studioOptCount').innerHTML = seg('studioCount', set.counts, opts.count);
+          this.el('studioOptLevel').innerHTML = seg('studioLevel', STUDIO_FC_LEVELS, opts.difficulty);
         }
         const savedLang = storageGet(STUDIO_LANG_KEY);
         const pick = [prefill.language, savedLang].find(c => STUDIO_LANGUAGES.some(l => l.code === c)) || 'en';
@@ -11816,6 +12114,7 @@
         delete item.jobId;
         this.viewState.delete(id);
         studioFc.sessions.delete(id);
+        studioQz.sessions.delete(id);
         this.refreshViews();
         this.run(item);
       },
@@ -11828,6 +12127,7 @@
         this.viewState.delete(id);
         this.progress.delete(id);
         studioFc.sessions.delete(id);
+        studioQz.sessions.delete(id);
         await this.persist(null, id);
         if (this.viewerId === id) location.hash = '#studio';
         this.refreshViews();
@@ -11860,9 +12160,6 @@
         if (this.wired) return;
         this.wired = true;
         this.renderTools();
-        const seg = (name, list, def) => list.map(o => `<label class="studio-seg-opt"><input type="radio" class="studio-sr" name="${name}" value="${o.value}"${o.value === def ? ' checked' : ''} /><span>${o.label}${typeof o.value === 'number' ? ` (${o.value})` : ''}</span></label>`).join('');
-        this.el('studioOptCount').innerHTML = seg('studioCount', STUDIO_FC_COUNTS, STUDIO_FC_DEFAULTS.count);
-        this.el('studioOptLevel').innerHTML = seg('studioLevel', STUDIO_FC_LEVELS, STUDIO_FC_DEFAULTS.difficulty);
         this.el('studioLanguage').innerHTML = STUDIO_LANGUAGES.map(l => `<option value="${l.code}">${l.name}${l.beta ? ' (beta)' : ''}</option>`).join('');
         const onRowChange = (e) => { const cb = e.target.closest('input[data-studio-source]'); if (cb) this.toggle(cb.dataset.studioSource, cb.checked); };
         this.el('studioSourceList').addEventListener('change', onRowChange);
@@ -12960,6 +13257,451 @@
         if (!this.item) return;
         studioDownload(new Blob([studioFcTsv(this.model)], { type: 'text/tab-separated-values;charset=utf-8' }), `${studioSlug(this.model.title)}-flashcards.tsv`);
         showToast('Cards downloaded');
+      },
+    };
+
+    // ── Quiz player: one question per screen, check, reveal, end screen with a topic breakdown, review ──
+    const STUDIO_QZ_TICK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+    const STUDIO_QZ_CROSS = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+    const studioQz = {
+      item: null, model: null, art: null, byId: null, rec: null, att: null, orders: null,
+      pos: 0, view: '', pending: '', token: 0, sessions: new Map(), keyHandler: null, chipBoxes: [],
+      el: (id) => document.getElementById(id),
+      sig() { const q = this.model.questions; return `${q.length}|${this.model.title}|${q[q.length - 1].stem}`; },
+      current() { return this.byId.get(this.att.ids[this.pos]); },
+      sourceName(n) { return studio.citeSource(this.item, n).name; },
+      showing(item) { return !!this.item && this.item.id === item.id && this.art === item.artifact && !!this.el('studioQz'); },
+      done() { return studioQzOpen(this.att) < 0; },
+
+      mount(item, model) {
+        this.unmount();
+        this.item = item; this.model = model; this.art = item.artifact;
+        this.byId = new Map(model.questions.map(q => [q.id, q]));
+        const token = ++this.token;
+        const id = escapeHtml(item.id);
+        const btn = (bid, label, cls = '', keys = '') => `<button type="button" class="studio-btn ${cls}" id="${bid}"${keys ? ` aria-keyshortcuts="${keys}"` : ''}>${label}</button>`;
+        this.el('studioViewerCard').innerHTML = `
+          <div class="studio-qz" id="studioQz">
+            <div class="studio-qz-bar">
+              <a class="studio-btn ghost studio-qz-home" href="#studio" aria-label="Back to Study Studio">&larr; Back</a>
+              <h2 class="studio-qz-title" id="studioQzTitle"></h2>
+              <a class="studio-btn ghost" id="studioQzReport" href="${STUDIO_REPORT_HREF}">Report a problem</a>
+              <details class="studio-menu" id="studioQzMenu">
+                <summary aria-label="More actions"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></summary>
+                <div class="studio-menu-list">
+                  <button type="button" data-studio-act="regenerate" data-id="${id}">Regenerate</button>
+                  <button type="button" class="is-danger" data-studio-act="delete" data-id="${id}">Delete</button>
+                </div>
+              </details>
+            </div>
+            <p class="studio-mm-notice" id="studioQzNotice" hidden><span></span><button type="button" aria-label="Dismiss">&times;</button></p>
+            <div class="studio-qz-play" id="studioQzPlay" hidden>
+              <div class="studio-qz-meta"><p class="studio-qz-count" id="studioQzCount"></p><p class="studio-qz-chip" id="studioQzTopic"></p></div>
+              <div class="studio-qz-track" aria-hidden="true"><span id="studioQzBar"></span></div>
+              <div id="studioQzCard"></div>
+              <div class="studio-qz-controls" role="group" aria-label="Question controls">
+                ${btn('studioQzPrev', 'Previous', 'ghost', 'ArrowLeft')}${btn('studioQzHint', 'Hint', '', 'H')}${btn('studioQzAsk', 'Ask tutor', '')}${btn('studioQzCheck', 'Check', 'primary', 'Enter')}${btn('studioQzNext', 'Next', 'primary', 'Enter ArrowRight')}
+              </div>
+              <p class="studio-qz-keys" id="studioQzKeys">Keys: 1 to 4 or A to D pick an answer, Enter checks and moves on, H shows the hint, Left and Right arrows go back and forward through the questions you have answered.</p>
+            </div>
+            <section class="studio-qz-done" id="studioQzDone" tabindex="-1" aria-labelledby="studioQzDoneTitle" hidden></section>
+            <section class="studio-qz-review" id="studioQzReview" tabindex="-1" aria-labelledby="studioQzReviewTitle" hidden></section>
+            <p class="studio-mm-foot" id="studioQzFoot"></p>
+            <div class="studio-sr" id="studioQzLive" role="status" aria-live="polite"></div>
+          </div>`;
+        const root = this.el('studioQz');
+        if (/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(item.language || '')) root.setAttribute('lang', item.language);
+        this.el('studioQzTitle').textContent = model.title;
+        const names = item.sourceNames.map(studioStem);
+        this.el('studioQzFoot').textContent = `Made with Student Tools Hub${names.length ? ` from: ${names.join(', ')}` : ''}. AI-generated, so check it against your sources.`;
+        const notice = this.el('studioQzNotice');
+        if (model.notices.length) {
+          notice.firstElementChild.textContent = model.notices.join(' ');
+          notice.hidden = false;
+          notice.lastElementChild.addEventListener('click', () => { notice.hidden = true; });
+        }
+        this.wire();
+        this.begin(token);
+      },
+
+      unmount() {
+        if (this.keyHandler) document.removeEventListener('keydown', this.keyHandler);
+        this.token++;
+        this.keyHandler = null; this.item = null; this.model = null; this.art = null; this.byId = null; this.rec = null; this.att = null; this.orders = null;
+        this.view = ''; this.pending = ''; this.chipBoxes = [];
+      },
+
+      // The attempts come from the progress store; where the student was survives a trip to the tutor
+      async begin(token) {
+        const item = this.item;
+        const rec = await studio.loadProgress(item.id);
+        if (token !== this.token) return;
+        this.rec = rec;
+        rec.quiz = studioQzCleanProgress(rec.quiz, this.model.questions);
+        const last = rec.quiz.attempts[rec.quiz.attempts.length - 1];
+        if (last) {
+          this.useAttempt(last);
+          const seen = this.sessions.get(item.id);
+          const keep = seen && seen.sig === this.sig() && seen.n === last.n ? seen : null;
+          const open = studioQzOpen(last);
+          if (open >= 0) { this.view = 'card'; this.pos = keep ? Math.min(keep.pos, open) : open; }
+          else if (keep && keep.view === 'card') { this.view = 'card'; this.pos = Math.min(keep.pos, last.ids.length - 1); }
+          else { this.view = keep && keep.view === 'review' ? 'review' : 'done'; this.pos = last.ids.length; }
+        } else this.startAttempt('all', this.model.questions.map(q => q.id));
+        this.draw();
+        this.say(this.view === 'card' ? this.countText() : this.el(this.view === 'review' ? 'studioQzReviewTitle' : 'studioQzDoneTitle').textContent);
+        this.focusStart();
+      },
+
+      useAttempt(att) {
+        this.att = att;
+        this.orders = studioQzOrders(this.model.questions, this.item.id, att.n);
+        this.pending = '';
+      },
+
+      // A new attempt lives in memory until the first answer or hint is saved
+      startAttempt(kind, ids) {
+        const n = this.rec.quiz.count + 1;
+        const att = studioQzNewAttempt(n, kind === 'all' ? studioQzPlayOrder(ids, this.item.id, n) : ids, Date.now(), kind);
+        this.rec.quiz = { count: n, attempts: studioQzKeep([...this.rec.quiz.attempts, att]) };
+        this.useAttempt(att);
+        this.pos = 0;
+        this.view = 'card';
+      },
+
+      saveAttempt() {
+        const list = this.rec.quiz.attempts;
+        list[list.length - 1] = this.att;
+        studio.saveProgress(this.item.id);
+      },
+
+      wire() {
+        const click = (id, fn) => this.el(id).addEventListener('click', fn);
+        click('studioQzPrev', () => this.go(-1));
+        click('studioQzHint', () => this.hint());
+        click('studioQzAsk', () => this.ask());
+        click('studioQzCheck', () => this.check());
+        click('studioQzNext', () => this.next());
+        const root = this.el('studioQz');
+        root.addEventListener('change', (e) => {
+          const radio = e.target.closest('input[name="studioQzAnswer"]');
+          if (!radio || this.view !== 'card' || this.isAnswered()) return;
+          this.pending = radio.value;
+          this.syncButtons();
+        });
+        root.addEventListener('click', (e) => {
+          const chip = e.target.closest('button.studio-mm-chip');
+          if (chip) studio.openCite(this.item, Number(chip.dataset.n), Number(chip.dataset.page));
+        });
+        this.keyHandler = (e) => this.onKey(e);
+        document.addEventListener('keydown', this.keyHandler);
+      },
+
+      onKey(e) {
+        if (!this.item || !this.att || this.view !== 'card' || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
+        if (!studio.active() || studio.viewerId !== this.item.id || document.querySelector('.modal-overlay.open, .confirm-overlay.open')) return;
+        const t = e.target;
+        if (t && t.closest && t.closest('input:not([type="radio"]), select, textarea, [contenteditable="true"]')) return;
+        const own = t && t.closest && t.closest('button, a, summary');
+        const k = e.key;
+        const answered = this.isAnswered();
+        if (k === 'Enter') {
+          if (own) return;
+          e.preventDefault();
+          if (answered) this.next(); else this.check();
+        } else if (k === 'ArrowLeft') { e.preventDefault(); this.go(-1); }
+        else if (k === 'ArrowRight') { e.preventDefault(); if (answered) this.go(1); }
+        else if (!answered && /^[1-4a-dA-D]$/.test(k)) { e.preventDefault(); this.pick(/\d/.test(k) ? Number(k) - 1 : k.toLowerCase().charCodeAt(0) - 97); }
+        else if (!answered && (k === 'h' || k === 'H')) { e.preventDefault(); this.hint(); }
+      },
+
+      // ── what is on screen ──
+      countText() { return `Question ${this.pos + 1} of ${this.att.ids.length}`; },
+      say(message) { const live = this.el('studioQzLive'); if (live) live.textContent = message; },
+      remember() { if (this.item && this.att) this.sessions.set(this.item.id, { sig: this.sig(), n: this.att.n, pos: this.pos, view: this.view }); },
+      isAnswered() { return !!this.att && this.view === 'card' && studioQzAnswered(this.att, this.att.ids[this.pos]); },
+
+      draw() {
+        this.chipBoxes = [];
+        this.el('studioQzPlay').hidden = this.view !== 'card';
+        this.el('studioQzDone').hidden = this.view !== 'done';
+        this.el('studioQzReview').hidden = this.view !== 'review';
+        if (this.view === 'card') this.drawQuestion(); else if (this.view === 'done') this.drawDone(); else this.drawReview();
+        this.remember();
+      },
+
+      drawQuestion() {
+        const q = this.current(), att = this.att, order = this.orders[q.id];
+        const answered = studioQzAnswered(att, q.id);
+        this.chipBoxes = [];
+        this.el('studioQzCount').textContent = this.countText();
+        this.el('studioQzTopic').textContent = q.topic;
+        this.el('studioQzTopic').hidden = !q.topic;
+        this.el('studioQzBar').style.width = `${Math.round(this.pos / att.ids.length * 100)}%`;
+        const card = this.el('studioQzCard');
+        card.replaceChildren(this.card(q, order, { name: 'studioQzAnswer', picked: answered ? att.answers[q.id] : this.pending, reveal: answered, hint: att.hints.includes(q.id) }));
+        this.syncButtons();
+      },
+
+      syncButtons() {
+        const q = this.current(), att = this.att, answered = studioQzAnswered(att, q.id);
+        const set = (id, show) => { this.el(id).hidden = !show; };
+        set('studioQzPrev', this.pos > 0);
+        set('studioQzHint', !answered && !!q.hint && !att.hints.includes(q.id));
+        set('studioQzCheck', !answered);
+        set('studioQzNext', answered);
+        this.el('studioQzCheck').setAttribute('aria-disabled', String(!this.pending));
+        this.el('studioQzAsk').textContent = answered ? 'Ask tutor about this' : 'Ask tutor for a hint';
+        this.el('studioQzNext').textContent = this.pos + 1 >= att.ids.length ? 'See results' : 'Next';
+      },
+
+      // One question as a native radio group; with reveal it carries the verdict, a reason for every option, the explanation and the citations
+      card(q, order, o) {
+        const box = document.createElement('div');
+        box.className = 'studio-qz-q';
+        const set = document.createElement('fieldset');
+        set.className = 'studio-qz-fieldset';
+        const legend = document.createElement('legend');
+        legend.textContent = q.stem;
+        set.appendChild(legend);
+        order.forEach((idx, i) => {
+          const opt = q.options[idx];
+          const label = document.createElement('label');
+          label.className = 'studio-qz-opt';
+          label.dataset.option = opt.id;
+          const input = document.createElement('input');
+          input.type = 'radio'; input.className = 'studio-sr'; input.name = o.name; input.value = opt.id;
+          input.checked = o.picked === opt.id;
+          const body = document.createElement('span');
+          body.className = 'studio-qz-box';
+          const add = (tag, cls, text) => { const e = document.createElement(tag); e.className = cls; e.textContent = text; body.appendChild(e); return e; };
+          add('span', 'studio-qz-letter', STUDIO_QZ_LETTERS[i]).setAttribute('aria-hidden', 'true');
+          add('span', 'studio-qz-text', opt.text);
+          if (o.reveal) {
+            input.disabled = true;
+            label.classList.add('is-locked');
+            const right = opt.id === q.answer, wrong = opt.id === o.picked && !right;
+            if (right || wrong) {
+              label.classList.add(right ? 'is-correct' : 'is-wrong');
+              const flag = add('span', 'studio-qz-flag', '');
+              flag.insertAdjacentHTML('afterbegin', right ? STUDIO_QZ_TICK : STUDIO_QZ_CROSS);
+              flag.appendChild(document.createTextNode(right ? 'Correct answer' : 'Your answer'));
+            }
+            if (opt.rationale) add('span', 'studio-qz-why', opt.rationale);
+          }
+          label.append(input, body);
+          set.appendChild(label);
+        });
+        box.appendChild(set);
+        if (o.hint && q.hint) { const h = document.createElement('p'); h.className = 'studio-qz-hint'; h.textContent = `Hint: ${q.hint}`; box.appendChild(h); }
+        if (o.reveal) {
+          const ok = o.picked === q.answer;
+          const result = document.createElement('p');
+          result.className = `studio-qz-result ${ok ? 'is-ok' : 'is-no'}`;
+          result.textContent = this.verdict(q, order, ok);
+          box.appendChild(result);
+          if (q.explanation) { const x = document.createElement('p'); x.className = 'studio-qz-explain'; x.textContent = q.explanation; box.appendChild(x); }
+          if (q.cites.some(c => c.n <= this.item.sourceIds.length)) {
+            const chips = document.createElement('div');
+            chips.className = 'studio-mm-chips';
+            box.appendChild(chips);
+            this.chipBoxes.push({ box: chips, cites: q.cites });
+            this.fillChips(chips, q.cites);
+          }
+        }
+        return box;
+      },
+
+      verdict(q, order, ok) {
+        return ok ? 'Correct' : `Not quite. The answer is ${studioQzLetter(q, order, q.answer)}: ${q.options.find(o => o.id === q.answer).text}`;
+      },
+
+      // Citation chips: a button that opens the source, or plain text when the source is gone
+      fillChips(box, cites) {
+        box.replaceChildren();
+        for (const c of cites.filter(x => x.n <= this.item.sourceIds.length)) {
+          const src = studio.citeSource(this.item, c.n);
+          const name = src.name.length > 22 ? `${src.name.slice(0, 21)}…` : src.name;
+          const chip = document.createElement(src.exists ? 'button' : 'span');
+          chip.className = `studio-mm-chip${src.exists ? '' : ' is-gone'}${c.verified === false ? ' is-unverified' : ''}`;
+          chip.dataset.n = String(c.n); chip.dataset.page = String(c.page);
+          if (src.exists) {
+            chip.type = 'button';
+            chip.setAttribute('aria-label', `Open ${src.name}${c.page ? `, page ${c.page}` : ''}`);
+            chip.title = c.verified === false ? 'Check this in your source' : `Open ${src.name}`;
+          } else chip.title = 'Source removed';
+          if (c.verified === true) { const tick = document.createElement('span'); tick.setAttribute('aria-hidden', 'true'); tick.textContent = '✓'; chip.appendChild(tick); }
+          chip.appendChild(document.createTextNode(`${name}${c.page ? ` · p. ${c.page}` : ''}`));
+          box.appendChild(chip);
+        }
+      },
+
+      refreshCites() { for (const c of this.chipBoxes) if (c.box.isConnected) this.fillChips(c.box, c.cites); },
+
+      focusStart() {
+        const at = document.activeElement;
+        if (at && at !== document.body && at.getClientRects().length && this.el('studioQz').contains(at)) return;
+        if (this.view === 'card') {
+          if (this.isAnswered()) this.el('studioQzNext').focus({ preventScroll: true });
+          else { const r = this.el('studioQzCard').querySelector('input:checked') || this.el('studioQzCard').querySelector('input'); if (r) r.focus({ preventScroll: true }); }
+        } else this.el(this.view === 'review' ? 'studioQzReview' : 'studioQzDone').focus({ preventScroll: true });
+      },
+
+      // ── actions ──
+      pick(i) {
+        const q = this.current(), idx = this.orders[q.id][i];
+        if (this.view !== 'card' || this.isAnswered() || idx === undefined) return;
+        const radio = this.el('studioQzCard').querySelectorAll('input[type="radio"]')[i];
+        if (!radio) return;
+        radio.checked = true;
+        this.pending = radio.value;
+        this.syncButtons();
+        radio.focus({ preventScroll: true });
+      },
+
+      hint() {
+        if (this.view !== 'card' || this.isAnswered()) return;
+        const q = this.current();
+        if (!q.hint || this.att.hints.includes(q.id)) return;
+        this.att = studioQzUseHint(this.att, q.id);
+        this.saveAttempt();
+        this.drawQuestion();
+        const r = this.el('studioQzCard').querySelector('input:checked') || this.el('studioQzCard').querySelector('input');
+        if (r) r.focus({ preventScroll: true });
+        this.say(`Hint: ${q.hint}`);
+      },
+
+      check() {
+        if (this.view !== 'card' || this.isAnswered()) return;
+        if (!this.pending) { this.say('Choose an answer first.'); return; }
+        const q = this.current(), order = this.orders[q.id];
+        this.att = studioQzRecord(this.model.questions, this.att, q.id, this.pending);
+        this.pending = '';
+        this.saveAttempt();
+        this.drawQuestion();
+        this.say(this.verdict(q, order, this.att.answers[q.id] === q.answer));
+        this.el('studioQzNext').focus({ preventScroll: true });
+        this.remember();
+      },
+
+      next() {
+        if (this.view !== 'card' || !this.isAnswered()) return;
+        this.go(1);
+      },
+
+      // Moves over the questions that have an answer, and on to the first open one; after the last one comes the end screen
+      go(step) {
+        if (this.view !== 'card') return;
+        const open = studioQzOpen(this.att);
+        const to = this.pos + step;
+        if (to < 0 || (step > 0 && !this.isAnswered())) return;
+        if (to >= this.att.ids.length) { this.view = 'done'; this.draw(); this.say(this.el('studioQzDoneTitle').textContent); this.el('studioQzDone').focus({ preventScroll: true }); return; }
+        if (open >= 0 && to > open) return;
+        this.pos = to;
+        this.pending = '';
+        this.draw();
+        this.say(this.countText());
+        if (this.isAnswered()) this.el('studioQzNext').focus({ preventScroll: true });
+        else { const r = this.el('studioQzCard').querySelector('input'); if (r) r.focus({ preventScroll: true }); }
+      },
+
+      ask() {
+        if (this.view !== 'card') return;
+        const q = this.current(), order = this.orders[q.id];
+        const text = this.isAnswered() ? studioQzAskPrompt(q, this.att.answers[q.id], (n) => this.sourceName(n)) : studioQzHintPrompt(q, order);
+        studio.openTutorChat(this.item, `Quiz · ${this.model.title}`.slice(0, 60), text, null, 'quiz');
+      },
+
+      askWeakest() {
+        const text = studioQzWeakPrompt(this.model.questions, this.att, studioQzTopics(this.model.questions, this.att));
+        if (text) studio.openTutorChat(this.item, `Quiz · ${this.model.title}`.slice(0, 60), text, null, 'quiz');
+      },
+
+      again(kind) {
+        const ids = kind === 'retry' ? studioQzWrong(this.model.questions, this.att) : this.model.questions.map(q => q.id);
+        if (!ids.length) return;
+        this.startAttempt(kind, ids);
+        this.draw();
+        this.say(`${kind === 'retry' ? 'Retrying the questions you missed.' : 'Retaking the whole quiz.'} ${this.countText()}`);
+        this.focusStart();
+      },
+
+      showView(view) {
+        this.view = view;
+        this.draw();
+        this.say(this.el(view === 'review' ? 'studioQzReviewTitle' : 'studioQzDoneTitle').textContent);
+        this.el(view === 'review' ? 'studioQzReview' : 'studioQzDone').focus({ preventScroll: true });
+      },
+
+      // ── end screen and review ──
+      drawDone() {
+        const att = this.att, qs = this.model.questions;
+        const score = studioQzScore(qs, att), topics = studioQzTopics(qs, att), wrong = studioQzWrong(qs, att);
+        const done = this.el('studioQzDone');
+        done.replaceChildren();
+        const add = (tag, text, attrs = {}) => { const e = document.createElement(tag); e.textContent = text; Object.assign(e, attrs); done.appendChild(e); return e; };
+        add('h3', att.kind === 'retry' ? 'Retry results' : 'Results', { id: 'studioQzDoneTitle' });
+        add('p', `${score.correct} of ${score.total} correct (${score.pct}%)${score.hinted ? ` · ${score.hinted} with hint` : ''}`, { className: 'studio-qz-score', id: 'studioQzScore' });
+        const table = document.createElement('table');
+        table.className = 'studio-qz-table';
+        table.id = 'studioQzTopics';
+        table.createCaption().textContent = 'By topic, weakest first';
+        const head = table.createTHead().insertRow();
+        for (const h of ['Topic', 'Correct']) { const th = document.createElement('th'); th.scope = 'col'; th.textContent = h; head.appendChild(th); }
+        const body = table.createTBody();
+        for (const t of topics) {
+          const row = body.insertRow();
+          const th = document.createElement('th'); th.scope = 'row'; th.textContent = t.topic; row.appendChild(th);
+          row.insertCell().textContent = `${t.correct}/${t.total}`;
+        }
+        done.appendChild(table);
+        const earlier = this.rec.quiz.attempts.filter(a => a !== att && studioQzOpen(a) < 0);
+        if (earlier.length) {
+          add('h4', 'Earlier attempts');
+          const list = document.createElement('ul');
+          list.className = 'studio-qz-past';
+          list.id = 'studioQzPast';
+          for (const a of earlier.slice().reverse()) {
+            const s = studioQzScore(qs, a);
+            const li = document.createElement('li');
+            li.textContent = `${a.at ? new Date(a.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : 'Earlier'}: ${s.correct} of ${s.total} (${s.pct}%)${s.hinted ? ` · ${s.hinted} with hint` : ''}${a.kind === 'retry' ? ' · retry' : ''}`;
+            list.appendChild(li);
+          }
+          done.appendChild(list);
+        }
+        if (!wrong.length) add('p', 'Every answer was right. Nothing to retry.', { className: 'studio-qz-done-line' });
+        const row = document.createElement('div');
+        row.className = 'studio-viewer-actions';
+        const action = (id, label, cls, fn) => { const b = document.createElement('button'); b.type = 'button'; b.id = id; b.className = `studio-btn ${cls}`; b.textContent = label; b.addEventListener('click', fn); row.appendChild(b); };
+        if (wrong.length) action('studioQzRetry', `Retry wrong answers (${wrong.length})`, 'primary', () => this.again('retry'));
+        action('studioQzRetake', 'Retake all (shuffled)', wrong.length ? '' : 'primary', () => this.again('all'));
+        action('studioQzReviewBtn', 'Review answers', '', () => this.showView('review'));
+        if (wrong.length) action('studioQzWeak', 'Ask tutor about my weakest topic', '', () => this.askWeakest());
+        done.appendChild(row);
+      },
+
+      drawReview() {
+        const att = this.att;
+        const view = this.el('studioQzReview');
+        view.replaceChildren();
+        const h = document.createElement('h3');
+        h.id = 'studioQzReviewTitle';
+        h.textContent = 'Review answers';
+        const back = document.createElement('button');
+        back.type = 'button'; back.id = 'studioQzReviewBack'; back.className = 'studio-btn';
+        back.textContent = 'Back to results';
+        back.addEventListener('click', () => this.showView('done'));
+        const list = document.createElement('ol');
+        list.className = 'studio-qz-list';
+        att.ids.forEach((id, i) => {
+          const q = this.byId.get(id);
+          const li = document.createElement('li');
+          const title = document.createElement('h4');
+          title.textContent = `Question ${i + 1} of ${att.ids.length}${q.topic ? ` · ${q.topic}` : ''}${att.hints.includes(id) ? ' · with hint' : ''}`;
+          li.append(title, this.card(q, this.orders[id], { name: `studioQzReview_${i}`, picked: att.answers[id], reveal: studioQzAnswered(att, id), hint: att.hints.includes(id) }));
+          list.appendChild(li);
+        });
+        view.append(h, back, list);
       },
     };
 
