@@ -35,9 +35,9 @@ Orchestrator (main session) = decision maker + architect. Delegates work to sub-
 
 ## Roadmap
 DONE (live): 1a legal pages (PR #10); 1b hardening: PR-A1 gate/sign-in, A2 Drive token in browser and no `documents` scope, A3 per-device HMAC cache keys, PR-B JWT auth + server hardening (n8n v1 then v3), PR-C Google Picker; J1 error codes + status banner + loading states; Study Studio S1a shell + S1b mind map (n8n v3, owner cap `cfg:studio_max_tokens`, ceiling `cfg:daily_units`); J2/J3 background jobs (n8n v4 `sth-workflow-v4-jobs.json`, client `jobs` engine, testers-only flag `sth_flag_jobs`). Google Search Console verified (user-site repo jay-leigh.github.io).
-IN PROGRESS: J3b tutor on jobs (client).
+IN PROGRESS: Flashcards (client + n8n v5 `sth-workflow-v5-flashcards.json`; v5 replaces v4).
 NEXT, in this order (owner decision 2026-10-30):
-  1. J6 legal rows for server-side job results (72 h); release blocker for enabling jobs beyond testers
+  1. DONE: J6 legal rows for job results (privacy/terms), J3b tutor on jobs
   2. Flashcards (job mode + viewer + review + TSV), one n8n import
   3. Quiz (multiple choice, true/false), one n8n import
   4. S1c release: Drive sync of study aids, privacy/terms update, TERMS_VERSION bump, studio flag removed, Home card
