@@ -9,6 +9,7 @@ Files (in the `n8n/` folder of the repo):
 | `sth-workflow-v3-studio.json` | Import INSTEAD of v2 (step 18) when you also want Study Studio. It is v2 plus the mind map branch; never import both. |
 | `sth-workflow-v4-jobs.json` | Import INSTEAD of v3 (step 19) for background jobs (tutor and mind map keep running after the app is closed). It is v3 plus the job webhooks; never import both. |
 | `sth-workflow-v5-flashcards.json` | Import INSTEAD of v4 (step 20) for Study Studio flashcards (also as a background job). It is v4 plus the `studio_flashcards` mode; never import both. |
+| `sth-workflow-v6-quiz.json` | Import INSTEAD of v5 (step 21) for Study Studio quiz (also as a background job). It is v5 plus the `studio_quiz` mode; never import both. |
 
 Tested against n8n 2.29.7 (the version you run). Nothing below needs n8n server environment variables.
 
@@ -310,6 +311,7 @@ Leave `gemini-file:*` (47-hour expiry) and `session:*` (3-hour expiry) alone.
 | `sth:jobx:<executionId>` | workflow (v4) | deadline + 1 h | maps a failed n8n execution to its job (`jobId\|attempt\|mode`) |
 | `sth:jobs:run:tutor`, `sth:jobs:run:studio_mindmap` | workflow (v4) | 1 d | jobs currently running (sorted set); entries free themselves after deadline + 60 s |
 | `sth:jobs:run:studio_flashcards` | workflow (v5) | 1 d | flashcards jobs currently running (sorted set, same rules as the two above); the total cap `cfg:jobs_max_running` counts it |
+| `sth:jobs:run:studio_quiz` | workflow (v6) | 1 d | quiz jobs currently running (sorted set, same rules); the total cap `cfg:jobs_max_running` counts it. `cfg:studio_max_tokens` and `cfg:daily_units` apply to the quiz exactly as to the other Studio tools |
 | `sth:jobs:n:YYYYMMDD` | workflow (v4) | 30 days | daily counts (admitted, busy, succeeded, failed), no content |
 
 `<ip>` is the last hop of `X-Forwarded-For` (added by Cloud Run).
@@ -560,3 +562,63 @@ Expect `{"ok":false,"error":{"code":"STH-STU-413","retryable":false,"reason":"to
 Expect, after 15 to 60 seconds, `{"ok":true,"artifact":{"envelope":"sth.studio/1","tool":"flashcards","schema":"sth.flashcards/1",...,"data":{"schema":"sth.flashcards/1","title":"...","notices":[],"cards":[{"id":"c1","front":"...","back":"...","topic":"...","cites":[{"source":"S1","page":0}]},...]}}}`: at least 8 cards (half of 15; this tiny source may give fewer than 15, which is fine), ids `c1`, `c2`, ..., `calls` 1, and `page` 0 because the text has no page markers. `GET usage:YYYYMMDD` in Upstash has grown. `STH-STU-422` means the model's answer was unusable (try once more). The hello of step 19.2 now answers `"modes":["tutor","studio_mindmap","studio_flashcards"]`. Delete the JSON files when done.
 
 **If something goes wrong:** rollback = import `sth-workflow-v4-jobs.json` again (step 13; re-select `STH JWT`); a client that asks for `studio_flashcards` then gets no usable answer (v4 does not know the mode), so switch the flashcards feature off in the app first.
+
+---
+
+## 21. Study Studio quiz: import v6 INSTEAD of v5
+
+`sth-workflow-v6-quiz.json` = v5 + one new mode, `studio_quiz`, on the same JWT path (`/webhook/student-tools-v2`) and as a background job (`/webhook/sth-job-start` with `"mode":"studio_quiz"`). It replaces v5: import v6 in place of v5, never both. No node is added or removed (still 185); six existing nodes changed: `Route by Mode` (new output 10), `Quota Prep` (the daily ceiling also guards the new mode), `Studio - Validate Request`, `Studio - Retry Check`, `Studio - Validate` (they now handle all three tools) and `Job - Read Request` (the new job mode); the note text of `Studio - Call Gemini` was also updated. Everything else, including the mind map, the flashcards and the tutor, answers exactly as in v5.
+
+**What stays the same (nothing new to create or set)**
+
+- Credentials: `STH JWT` on the four webhook/sign nodes, `Gemini API Key` on `Studio - Call Gemini`, `Upstash Redis REST` on the Redis nodes. Select them after the import exactly as in step 19.
+- Settings: Do not save for successful and failed executions, error workflow = this workflow, `Timeout Workflow` 720 seconds (steps 6 and 6b).
+- Upstash keys: `cfg:daily_units` (daily ceiling; the quiz uses the same meter, `prompt + 8.33 x (output + thinking)`), `cfg:studio_max_tokens` (the same input cap, default 400000, clamped 50000..900000), `cfg:jobs_max_running` (total cap of jobs, default 4: quiz jobs count in it; `0` still switches all jobs off). The only new key is `sth:jobs:run:studio_quiz` (step 16).
+- Limits: 1 to 10 sources, at most 5 pictures, description up to 1000 characters, 16 languages, the same error codes and the same HTTP-200 `{"ok":false,"error":{...}}` answers as the mind map and the flashcards. Retries: up to 3 tries, flash-lite only on the third, no retry of a time-out, 5xx or empty answer above 300,000 estimated tokens, Gemini call time-out 240 seconds.
+
+**Procedure** (same as step 19 with v6)
+
+1. Back up (step 1). 2. Import `sth-workflow-v6-quiz.json` in place (step 4). 3. Credentials (step 5, same as in step 19): `STH JWT` on `Student Hub Endpoint (JWT)`, `Job Start Endpoint`, `Job Endpoint` and `Auth Sign JWT`; `Gemini API Key` on `Studio - Call Gemini`; `Upstash Redis REST` on `Job - Admit` and the other `Job - ...` Redis nodes (a red triangle means not selected). 4. Settings (6 and 6b). 5. Publish (step 7). 6. Run the tests below, then 19.1 and 19.2 of step 19 (hello now lists four modes).
+
+**What the mode does:** the browser sends `{"mode":"studio_quiz","v":1,"requestId":"...","tool":"quiz","language":{"code":"en","name":"English"},"options":{"count":20,"difficulty":"medium"},"description":"...","sources":[...],"clientEstimate":N,"promptVersion":"..."}`; `count` must be 10, 20 or 30 and `difficulty` easy, medium or hard (a missing option takes 20 / medium; any other value is `STH-INPUT-400` with reason `options`; the `tool` must match the mode). A number written in the description ("make 40 questions") does not change the count. n8n re-checks the limits, asks `gemini-2.5-flash` for the quiz in JSON mode (one call for up to 30 questions, no batching; temperature 0.4, thinking budget 1,024, output limit 24,576 tokens) and answers
+
+```
+{"ok":true,"artifact":{"envelope":"sth.studio/1","tool":"quiz","schema":"sth.quiz/1","promptVersion":"studio-2026-11-a","model":"gemini-2.5-flash","strategy":"direct","generatedAt":"...","usage":{"inputTokens":..,"outputTokens":..,"thinkingTokens":..,"calls":1},"repairs":[...],"data":{"schema":"sth.quiz/1","title":"...","notices":[],"questions":[{"id":"q1","type":"mcq","stem":"...","options":[{"id":"A","text":"...","rationale":"..."},{"id":"B",...},{"id":"C",...},{"id":"D",...}],"answer":"B","explanation":"...","hint":"...","topic":"...","cites":[{"source":"S1","page":12}]}, ...]}}}
+```
+
+Question types: `mcq` (4 options A to D) and `true_false` (2 options, A = True and B = False, written in the quiz language; `answer` is `A` or `B`). `hint`, `topic` and every `rationale` are always present (an empty string when there is none).
+
+Repairs done by the server (listed in `repairs`, never silent): a question without exactly one correct answer among its options (no answer, an answer that is not an option, two answers), an `mcq` without four distinct options, a `true_false` with a broken option set, an empty stem or an unknown type is dropped; a stem that repeats an earlier one (also with different capitals or punctuation, or an almost identical long question) is dropped; a hint that contains the correct option word for word is blanked; an empty explanation is filled from the rationale of the correct option; text is cut to 300 characters (stem), 160 (option), 200 (rationale), 500 (explanation), 200 (hint), 40 (topic); at most 2 citations per question and at most 50 questions are kept; ids are renumbered `q1..qN` and options `A..D`; citations to a source that is not in the request are dropped and a page number beyond the source's last page marker becomes 0. A quiz with fewer than half of the requested questions is `STH-STU-422` (reason `too_few_questions`). An answer cut off by the output limit is kept when at least 70 percent of the requested questions are complete, otherwise `STH-STU-422` (reason `truncated`). Text is plain text: markup typed by the student or the model arrives unchanged as characters. The option that is the only longest one is not detected or corrected.
+
+The error codes are those of the flashcards (step 20) with `too_few_questions` instead of `too_few_cards`: `STH-STU-409`, `STH-STU-413` (reasons `too_many_sources`, `too_many_images`, `images_too_big`, `image_too_big`, `description_too_long`, `too_much_material` with `maxTokens`), `STH-STU-422` (reasons `too_few_questions`, `truncated`, `parse`, `schema`, `empty`, `rejected`, `too_big`), `STH-INPUT-400` (also for wrong options), `STH-AI-451`, `STH-AI-452`, `STH-AI-403`, `STH-QUOTA-430`.
+
+**As a job:** mode name `studio_quiz`, deadline 420 seconds (a normal run takes 60 to 120 seconds; a Gemini call that hangs is cut at 240 seconds and may be repeated once while at least 90 seconds remain), one at a time (`cap` 1, separate from the mind map and the flashcards), still 4 jobs in total. Change these in node `Job - Read Request` (`studio_quiz: { deadlineS: 420, cap: 1 }`; keep the deadline at 600 or less). A quiz job that is still running a minute after its deadline is shown to the app as lost and the app starts it again.
+
+**Tests (cmd.exe; `%TOKEN%` from 8.2).** Create `qz-413.json` in Notepad (one line; eleven tiny sources, one too many: free, no Gemini call):
+
+```
+{"mode":"studio_quiz","v":1,"tool":"quiz","language":{"code":"en"},"options":{"count":10,"difficulty":"easy"},"description":"","sources":[{"id":"S1","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S2","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S3","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S4","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S5","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S6","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S7","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S8","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S9","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S10","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S11","name":"a","kind":"txt","markers":"none","text":"x"}]}
+```
+
+**21.1 No token gives 401**
+
+```
+curl.exe -i -X POST "%N8N%/webhook/student-tools-v2" -H "Content-Type: application/json" --data-binary @qz-413.json
+```
+Expect `HTTP/1.1 401`, body `No token provided`.
+
+**21.2 Over the limit gives 413 in the answer (HTTP 200, free)**
+
+```
+curl.exe -s -X POST "%N8N%/webhook/student-tools-v2" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary @qz-413.json
+```
+Expect `{"ok":false,"error":{"code":"STH-STU-413","retryable":false,"reason":"too_many_sources"}}`. No Gemini call, the usage counter does not move.
+
+**21.3 (optional, costs a few cents: run it ONCE) One real quiz.** Create `qz-ok.json` (one line) and send it the same way as 21.2:
+
+```
+{"mode":"studio_quiz","v":1,"tool":"quiz","language":{"code":"en"},"options":{"count":10,"difficulty":"easy"},"description":"Biology revision","sources":[{"id":"S1","name":"notes.txt","kind":"txt","markers":"none","text":"Photosynthesis. Plants make sugar from light. Light reactions happen in the thylakoid membranes and make ATP and NADPH. The Calvin cycle happens in the stroma and uses ATP and NADPH to fix carbon dioxide into sugar. Respiration. Cells release energy from sugar. Glycolysis happens in the cytoplasm and splits glucose into two pyruvate. The Krebs cycle happens in the mitochondrial matrix and makes carbon dioxide, NADH and FADH2. The electron transport chain on the inner membrane makes most of the ATP. Ecology. Energy flows through food chains. Producers such as plants capture solar energy. Consumers eat producers or other consumers. Decomposers recycle nutrients back into the soil."}]}
+```
+Expect, after 15 to 60 seconds, `{"ok":true,"artifact":{"envelope":"sth.studio/1","tool":"quiz","schema":"sth.quiz/1",...,"data":{"schema":"sth.quiz/1","title":"...","notices":[],"questions":[{"id":"q1","type":"mcq","stem":"...","options":[{"id":"A",...},{"id":"B",...},{"id":"C",...},{"id":"D",...}],"answer":"C","explanation":"...","hint":"...","topic":"...","cites":[{"source":"S1","page":0}]},...]}}}`: at least 5 questions (half of 10; this tiny source may give fewer than 10, which is fine), ids `q1`, `q2`, ..., every `answer` is one of the option ids, `calls` 1, and `page` 0 because the text has no page markers. Read two or three questions: the marked answer should really be the right one and the wrong options should be plausible. `GET usage:YYYYMMDD` in Upstash has grown. `STH-STU-422` means the model's answer was unusable (try once more). The hello of step 19.2 now answers `"modes":["tutor","studio_mindmap","studio_flashcards","studio_quiz"]`. Delete the JSON files when done.
+
+**If something goes wrong:** rollback = import `sth-workflow-v5-flashcards.json` again (step 13; re-select `STH JWT`); a client that asks for `studio_quiz` then gets no usable answer (v5 does not know the mode), so switch the quiz feature off in the app first.
