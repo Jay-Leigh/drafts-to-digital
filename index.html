@@ -2755,6 +2755,73 @@
       #viewHome .mode-card h3 { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
     }
   </style>
+  <style id="ux-mobile3">
+    .view-nav { display: contents; }
+    .tutor-menu-btn, .tutor-menu { display: none; }
+    #tutorChatTitle { cursor: text; }
+    .tutor-head-title-wrap [hidden] { display: none !important; }
+    .tutor-head-title-wrap .tutor-title-input {
+      flex: 1 1 auto; min-width: 0; height: 34px; padding: 0 10px;
+      border: 1px solid #2c5f2d; border-radius: 10px; background: #fff; box-shadow: 0 0 0 3px rgba(44,95,45,0.1);
+      font-family: 'Outfit', sans-serif; font-size: 15px; font-weight: 600; color: #1a2e1c; outline: none;
+    }
+    .home-recent, .home-recent .tutor-landing-card { min-width: 0; }
+    .modal-body, .kb-reader-body-inner, .history-result-body, .history-list, .lightbox-inner { overscroll-behavior: contain; }
+    body.scroll-locked { position: fixed; left: 0; right: 0; width: 100%; overflow: hidden; }
+    @keyframes pageFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    @media (max-width: 900px) {
+      /* Back / Home share the fixed top row with the menu (left) and history (right) buttons */
+      .view.view-enter { animation: pageFadeIn 320ms ease both; }
+      .view.view-enter > .view-header { animation: none; }
+      .view-nav { display: flex; gap: 8px; position: fixed; top: calc(var(--gap) + env(safe-area-inset-top, 0px)); left: calc(var(--gap) + 52px); z-index: 30; }
+      .view-header .view-nav .btn-nav { height: 44px; padding: 0 14px; background: #fff; box-shadow: 0 6px 24px rgba(26,46,28,0.08); white-space: nowrap; }
+
+      .storage-note:not([hidden]) ~ .status-banner, .status-banner:not([hidden]) ~ .status-banner { margin-top: var(--gap); }
+      .kb-url-input { min-width: 0; }
+      .refs-style-row { flex-wrap: wrap; }
+      .refs-style-row > span { margin-left: 0 !important; flex: 1 1 100%; }
+
+      /* Home: recent chats fit the display width */
+      .home-recent .tutor-landing-results { grid-template-columns: minmax(0, 1fr); }
+
+      /* tutor top bar: menu, title, three dots */
+      .main-area.tutor-mode:has(#tutorShell:not([style*="none"])) .tutor-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 2px 8px; padding: 11px 10px 8px; }
+      .tutor-head .tutor-head-row { grid-column: 1 / -1; flex-wrap: nowrap; gap: 8px; min-height: 44px; padding-left: 56px; }
+      .tutor-head .tutor-head-title-wrap { min-height: 44px; }
+      .tutor-head .tutor-head-actions, .tutor-head .rename-inline { display: none; }
+      .tutor-head .tutor-attached { margin-top: 0 !important; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+      .tutor-head .tutor-back-map { margin: 0; min-height: 32px; padding: 0 12px; font-size: 12px; white-space: nowrap; align-self: center; }
+      .tutor-head-title-wrap .tutor-title-input { height: 40px; font-size: 16px; }
+      .main-area.tutor-mode:has(#jobsTrayBtn:not([hidden])) .tutor-head-row { padding-right: 52px; }
+      .main-area.tutor-mode .jobs-tray-btn { top: calc(var(--gap) + 12px + env(safe-area-inset-top, 0px)); right: calc(var(--gap) + 10px); }
+      /* a banner above the chat moves the menu button back to the fixed top row, outside the chat card */
+      .main-area.tutor-mode:has(#tutorShell:not([style*="none"])):has(.status-banner:not([hidden]), .storage-note:not([hidden])) .topbar .hamburger-btn { top: calc(var(--gap) + env(safe-area-inset-top, 0px)); left: var(--gap); box-shadow: 0 6px 24px rgba(26,46,28,0.08); }
+      .main-area.tutor-mode:has(.status-banner:not([hidden]), .storage-note:not([hidden])) .jobs-tray-btn { top: calc(var(--gap) + env(safe-area-inset-top, 0px)); right: var(--gap); }
+      .main-area.tutor-mode:has(.status-banner:not([hidden]), .storage-note:not([hidden])) #viewTutor .tutor-head-row { padding-left: 0; padding-right: 0; }
+      .tutor-menu-btn { display: inline-flex; flex: 0 0 44px; width: 44px; height: 44px; align-items: center; justify-content: center; background: #fff; border: 1px solid var(--line); border-radius: 14px; color: #1a2e1c; cursor: pointer; }
+      .tutor-menu-btn[aria-expanded="true"] { color: #2c5f2d; border-color: rgba(44,95,45,0.45); }
+      .tutor-menu:not([hidden]) { display: flex; flex-direction: column; position: fixed; z-index: 180; min-width: 200px; max-width: calc(100vw - 16px); padding: 6px; background: #fff; border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 40px rgba(26,46,28,0.18); }
+      .tutor-menu button { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 500; color: #1a2e1c; text-align: left; cursor: pointer; }
+      .tutor-menu button:hover, .tutor-menu button:focus-visible { background: rgba(44,95,45,0.08); outline: none; }
+      .tutor-menu button:focus-visible { box-shadow: inset 0 0 0 2px #2c5f2d; }
+      .tutor-menu button:disabled { opacity: 0.45; cursor: default; }
+
+      /* tutor composer: the text box takes the full width, Send is an icon, attach sits inside the box */
+      .tutor-composer-row { position: relative; gap: 0; padding: 8px 10px; }
+      .tutor-composer-row .tutor-input { flex: 1 1 auto; min-width: 0; width: 100%; min-height: 52px; padding: 14px 56px; }
+      .tutor-composer-row .tutor-input::placeholder { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .tutor-composer-row .attach-wrap { position: absolute; left: 14px; bottom: 12px; z-index: 2; }
+      .tutor-composer-row .composer-attach { width: 44px; height: 44px; border-color: transparent; background: transparent; }
+      .tutor-composer-row #btnTutorSend { position: absolute; right: 14px; bottom: 12px; z-index: 2; width: 44px; min-width: 44px; height: 44px; padding: 0; justify-content: center; border-radius: 50%; }
+      .tutor-send .tutor-send-label { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+      .tutor-send svg { width: 20px; height: 20px; flex: 0 0 20px; }
+    }
+    @media (max-width: 360px) {
+      .view-nav { gap: 6px; }
+      .view-header .view-nav .btn-nav { padding: 0 10px; gap: 4px; }
+    }
+  </style>
 </head>
 
 <body class="min-h-screen bg-parchment">
@@ -3019,14 +3086,16 @@
         <!-- ============ VIEW: TOOL (transcribe / template / reviewer) ============ -->
         <section id="viewTool" class="view">
           <div class="view-header">
-            <button class="btn-nav" data-nav="back">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-              Back
-            </button>
-            <button class="btn-nav" data-nav="home">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-              Home
-            </button>
+            <div class="view-nav">
+              <button class="btn-nav" data-nav="back">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                Back
+              </button>
+              <button class="btn-nav" data-nav="home">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                Home
+              </button>
+            </div>
             <div class="view-title-block">
               <h2 id="toolTitle">Tool</h2>
               <p id="toolSubtitle">Upload files to get started.</p>
@@ -3141,14 +3210,16 @@
         <!-- ============ VIEW: KNOWLEDGE BAY ============ -->
         <section id="viewKnowledge" class="view">
           <div class="view-header">
-            <button class="btn-nav" data-nav="back">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-              Back
-            </button>
-            <button class="btn-nav" data-nav="home">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-              Home
-            </button>
+            <div class="view-nav">
+              <button class="btn-nav" data-nav="back">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                Back
+              </button>
+              <button class="btn-nav" data-nav="home">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                Home
+              </button>
+            </div>
             <div class="view-title-block">
               <h2>Knowledge Bay</h2>
               <p>Your personal study library &mdash; stored on this device only.</p>
@@ -3197,14 +3268,16 @@
         <!-- ============ VIEW: REFERENCES ============ -->
         <section id="viewReference" class="view">
           <div class="view-header">
-            <button class="btn-nav" data-nav="back">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
-              Back
-            </button>
-            <button class="btn-nav" data-nav="home">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-              Home
-            </button>
+            <div class="view-nav">
+              <button class="btn-nav" data-nav="back">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                Back
+              </button>
+              <button class="btn-nav" data-nav="home">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                Home
+              </button>
+            </div>
             <div class="view-title-block">
               <h2>References</h2>
               <p>Drop in articles, YouTube videos, Knowledge Bay notes or fresh uploads &mdash; get a styled reference list to copy or export.</p>
@@ -3294,10 +3367,12 @@
         <!-- ============ VIEW: STUDY STUDIO ============ -->
         <section id="viewStudio" class="view">
           <div class="view-header">
-            <button class="btn-nav" data-nav="home">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-              Home
-            </button>
+            <div class="view-nav">
+              <button class="btn-nav" data-nav="home">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                Home
+              </button>
+            </div>
             <div class="view-title-block">
               <h2>Study Studio</h2>
               <p>Make study aids from your Knowledge Bay. Check them against your sources.</p>
@@ -3379,10 +3454,7 @@
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                   </button>
                 </div>
-                <div class="flex gap-3">
-                  <button class="btn-nav tutor-home-btn" data-nav="home" title="Go to Home" style="display:none">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-                  </button>
+                <div class="tutor-head-actions flex gap-3">
                   <button id="btnToggleChatSearch" class="btn-nav" title="Search in this chat">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                   </button>
@@ -3392,6 +3464,9 @@
                     <span class="attach-count" id="headerAttachCount" hidden></span>
                   </button>
                 </div>
+                <button type="button" id="btnTutorMenu" class="tutor-menu-btn" aria-label="Chat options" aria-haspopup="menu" aria-expanded="false" aria-controls="tutorMenu">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></svg>
+                </button>
               </div>
               <div class="tutor-attached" id="tutorAttachedSummary" style="margin-top:6px">No resources attached</div>
             </div>
@@ -3450,8 +3525,8 @@
                   <input type="file" id="tutorFileInput" multiple class="hidden" />
                 </div>
                 <textarea id="tutorInput" class="tutor-input" placeholder="Ask your tutor anything&hellip;" rows="1"></textarea>
-                <button id="btnTutorSend" class="tutor-send" disabled>
-                  Send
+                <button id="btnTutorSend" class="tutor-send" aria-label="Send" disabled>
+                  <span class="tutor-send-label">Send</span>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 </button>
               </div>
@@ -3570,6 +3645,22 @@
       <img id="lightboxImg" src="" alt="Preview" />
       <p class="lightbox-label" id="lightboxLabel"></p>
     </div>
+  </div>
+
+  <!-- Tutor chat menu (mobile) -->
+  <div id="tutorMenu" class="tutor-menu" role="menu" aria-label="Chat options" hidden>
+    <button type="button" role="menuitem" id="tutorMenuRename" tabindex="-1">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      <span>Rename</span>
+    </button>
+    <button type="button" role="menuitem" id="tutorMenuSearch" tabindex="-1">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span>Search</span>
+    </button>
+    <button type="button" role="menuitem" id="tutorMenuAttach" tabindex="-1">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      <span id="tutorMenuAttachLabel">Attach</span>
+    </button>
   </div>
 
   <!-- Toast -->
@@ -4077,6 +4168,12 @@
       tutorShell:           $('tutorShell'),
       topbarChatTitle:      $('topbarChatTitle'),
       headerAttachCount:    $('headerAttachCount'),
+      btnTutorMenu:         $('btnTutorMenu'),
+      tutorMenu:            $('tutorMenu'),
+      tutorMenuRename:      $('tutorMenuRename'),
+      tutorMenuSearch:      $('tutorMenuSearch'),
+      tutorMenuAttach:      $('tutorMenuAttach'),
+      tutorMenuAttachLabel: $('tutorMenuAttachLabel'),
       tutorChips:           $('tutorChips'),
       tutorFileInput:       $('tutorFileInput'),
       btnComposerAttach:    $('btnComposerAttach'),
@@ -6788,10 +6885,6 @@
       document.querySelector('.main-area').classList.toggle('tutor-mode', isTutor);
       document.body.classList.toggle('tutor-fullscreen', isTutor);
       if (!isTutor) setHeaderFused(false);
-      // Show a Home button inside the tutor head only on mobile (sidebar hidden)
-      document.querySelectorAll('.tutor-home-btn').forEach(btn => {
-        btn.style.display = (isTutor && window.innerWidth <= 900) ? '' : 'none';
-      });
 
       if (cfg.mode) {
         selectMode(cfg.mode);
@@ -7297,6 +7390,36 @@
       dom.actionArea.classList.remove('hidden');
       dom.actionArea.classList.add('flex');
     }
+
+    // ─── Page scroll lock (full-screen modals, phones) ───
+    // Derived from the DOM: the page is locked while any modal is open, so no close path (button, backdrop, Escape,
+    // route change, removed node) can leave it locked. Nested modals count once.
+    const scrollLock = {
+      selector: '.modal-overlay.open, .history-result-modal.open, .history-overlay.open, .confirm-overlay.open, .lightbox-overlay.open',
+      phone: window.matchMedia('(max-width: 900px)'),
+      on: false,
+      y: 0,
+      sync() {
+        const want = this.phone.matches && !!document.querySelector(this.selector);
+        if (want === this.on) return;
+        this.on = want;
+        const body = document.body;
+        if (want) {
+          this.y = window.scrollY || 0;
+          body.style.top = `-${this.y}px`;
+          body.classList.add('scroll-locked');
+        } else {
+          body.classList.remove('scroll-locked');
+          body.style.top = '';
+          window.scrollTo(0, this.y);
+        }
+      },
+      init() {
+        new MutationObserver(() => this.sync()).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class'] });
+        this.phone.addEventListener('change', () => this.sync());
+        this.sync();
+      },
+    };
 
     // ─── Image Lightbox ─────────────────────────────
     function openLightbox(role, idx) {
@@ -8841,6 +8964,7 @@
     const CHAT_LOCK_STALE_MS = 120000;
     const CHAT_LOCK_BEAT_MS = 15000;
     const CHAT_LOCK_MESSAGE = 'This chat is answering in another tab.';
+    const TUTOR_TITLE_MAX = 120;
 
     // Messages merge by id (older messages without one by role, quote and text); the newest copy of a message wins
     const messageKey = (m) => m.id || `${m.role}\u0000${m.quote || ''}\u0000${m.text}`;
@@ -8905,6 +9029,7 @@
       pending: new Set(),
       prep: new Map(), // chatId -> what is being read for the next message ('Reading link…', 'Reading <file>…')
       beats: new Map(),
+      titleEdit: null,
 
       async init() {
         this.store = localforage.createInstance({ name: 'sth_tutor', storeName: 'chats' });
@@ -9071,16 +9196,47 @@
         }
       },
 
-      async renameChat() {
+      // Rename in place: the title turns into an input. Enter or blur saves, Escape cancels, an empty title keeps the old one.
+      renameChat() {
         const c = this.current();
-        if (!c) return;
-        const newTitle = prompt('Rename chat:', c.title);
-        if (newTitle === null) return;
-        c.title = newTitle.trim() || 'Untitled chat';
-        c.updated = Date.now();
-        await this.save();
-        this.renderSidebarList();
-        this.renderChat();
+        if (!c || this.titleEdit) return;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.id = 'tutorTitleInput';
+        input.className = 'tutor-title-input';
+        input.maxLength = TUTOR_TITLE_MAX;
+        input.value = c.title;
+        input.setAttribute('aria-label', 'Chat title');
+        this.titleEdit = { id: c.id, input, done: false };
+        dom.tutorChatTitle.hidden = true;
+        dom.btnRenameChat.hidden = true;
+        dom.tutorChatTitle.after(input);
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); this.endTitleEdit(true); }
+          else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.endTitleEdit(false); }
+        });
+        input.addEventListener('blur', () => this.endTitleEdit(true));
+        input.focus();
+        input.select();
+      },
+
+      async endTitleEdit(save) {
+        const edit = this.titleEdit;
+        if (!edit || edit.done) return;
+        edit.done = true;
+        this.titleEdit = null;
+        const value = edit.input.value.trim();
+        edit.input.remove();
+        dom.tutorChatTitle.hidden = false;
+        dom.btnRenameChat.hidden = false;
+        const c = this.chats.find(x => x.id === edit.id);
+        if (save && c && value && value !== c.title) {
+          c.title = value;
+          c.updated = Date.now();
+          await this.save();
+          this.renderSidebarList();
+        }
+        if (this.currentId === edit.id) this.renderChat();
       },
 
       async setAttachments(ids) {
@@ -9542,7 +9698,7 @@
         if (dom.btnTutorSend.dataset.label === label) return;
         dom.btnTutorSend.dataset.label = label; dom.btnTutorSend.setAttribute('aria-label', label);
         dom.btnTutorSend.innerHTML = label === 'Send'
-          ? 'Send <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'
+          ? '<span class="tutor-send-label">Send</span> <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>'
           : `<span class="mini-spinner"></span>`;
       },
 
@@ -9589,6 +9745,7 @@
 
       renderChat() {
         const c = this.current();
+        if (this.titleEdit && (!c || c.id !== this.titleEdit.id)) this.endTitleEdit(false);
 
         if (this.loading) {
           renderSkeleton(dom.tutorMessages, 'skeleton-msg', 3, 'user');
@@ -10206,6 +10363,66 @@
         composerAttach.handleFiles(e.dataTransfer.files);
       });
     }
+
+    // ─── Tutor chat menu (three dots, mobile) ───────
+    const tutorMenu = {
+      items() { return [...dom.tutorMenu.querySelectorAll('[role="menuitem"]:not(:disabled)')]; },
+      isOpen() { return !dom.tutorMenu.hidden; },
+      open() {
+        if (this.isOpen()) return;
+        const count = dom.headerAttachCount.hidden ? '' : ` (${dom.headerAttachCount.textContent})`;
+        dom.tutorMenuAttachLabel.textContent = 'Attach' + count;
+        const none = !tutor.current();
+        dom.tutorMenuRename.disabled = none;
+        dom.tutorMenuAttach.disabled = none;
+        dom.tutorMenu.hidden = false;
+        this.place();
+        dom.btnTutorMenu.setAttribute('aria-expanded', 'true');
+        const first = this.items()[0];
+        if (first) first.focus();
+      },
+      close(returnFocus = true) {
+        if (!this.isOpen()) return;
+        dom.tutorMenu.hidden = true;
+        dom.btnTutorMenu.setAttribute('aria-expanded', 'false');
+        if (returnFocus) dom.btnTutorMenu.focus();
+      },
+      place() {
+        const r = dom.btnTutorMenu.getBoundingClientRect();
+        dom.tutorMenu.style.top = (r.bottom + 6) + 'px';
+        dom.tutorMenu.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+      },
+      init() {
+        dom.btnTutorMenu.addEventListener('click', () => { if (this.isOpen()) this.close(); else this.open(); });
+        dom.tutorMenuRename.addEventListener('click', () => this.afterPick(() => tutor.renameChat()));
+        dom.tutorMenuSearch.addEventListener('click', () => this.afterPick(() => dom.btnToggleChatSearch.click()));
+        dom.tutorMenuAttach.addEventListener('click', () => this.afterPick(() => dom.btnTutorAttach.click()));
+        dom.tutorMenu.addEventListener('keydown', (e) => {
+          const list = this.items();
+          const at = list.indexOf(document.activeElement);
+          if (e.key === 'ArrowDown') { e.preventDefault(); list[(at + 1) % list.length].focus(); }
+          else if (e.key === 'ArrowUp') { e.preventDefault(); list[(at - 1 + list.length) % list.length].focus(); }
+          else if (e.key === 'Home') { e.preventDefault(); list[0].focus(); }
+          else if (e.key === 'End') { e.preventDefault(); list[list.length - 1].focus(); }
+          else if (e.key === 'Tab') { this.close(false); }
+        });
+        dom.btnTutorMenu.addEventListener('keydown', (e) => {
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); this.open(); if (e.key === 'ArrowUp') { const list = this.items(); list[list.length - 1].focus(); } }
+        });
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && this.isOpen()) { e.preventDefault(); e.stopPropagation(); this.close(); }
+        }, true);
+        document.addEventListener('pointerdown', (e) => {
+          if (this.isOpen() && !e.target.closest('#tutorMenu, #btnTutorMenu')) this.close(false);
+        }, true);
+        window.addEventListener('resize', () => { if (this.isOpen()) { if (window.innerWidth > 900) this.close(false); else this.place(); } });
+        window.addEventListener('hashchange', () => this.close(false));
+      },
+      afterPick(action) {
+        this.close(false);
+        action();
+      },
+    };
 
     // ─── Fused chat header on scroll ────────────────
     function setHeaderFused(fused) {
@@ -13967,6 +14184,9 @@
     dom.kbReaderClose.addEventListener('click', closeKbReader);
     dom.kbReaderDone.addEventListener('click', closeKbReader);
     dom.kbReaderModal.addEventListener('click', e => { if (e.target === dom.kbReaderModal) closeKbReader(); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && dom.kbReaderModal.classList.contains('open') && !document.getElementById('confirmOverlay').classList.contains('open')) closeKbReader();
+    });
     dom.kbReaderTitle.addEventListener('blur', saveKbReaderRename);
     dom.kbReaderTitle.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); dom.kbReaderTitle.blur(); } });
     dom.kbReaderCopy.addEventListener('click', () => {
@@ -13997,6 +14217,8 @@
     dom.btnNewChat.addEventListener('click', () => { tutor.newChat(); });
     dom.btnTutorAttach.addEventListener('click', openTutorAttach);
     dom.btnRenameChat.addEventListener('click', () => tutor.renameChat());
+    dom.tutorChatTitle.addEventListener('click', () => tutor.renameChat());
+    tutorMenu.init();
     dom.btnScrollTop.addEventListener('click', () => {
       dom.tutorMessages.scrollTo({ top: 0, behavior: 'smooth' });
     });
@@ -14285,6 +14507,7 @@
 
     // Route on hash change
     window.addEventListener('hashchange', navigate);
+    scrollLock.init();
 
     // ─── Login Gate ────────────────────────────────
     const loginForm = document.getElementById('loginForm');
