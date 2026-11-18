@@ -16,6 +16,8 @@ Student Tools Hub turns handwritten notes and study files into text and Google D
 - Exports results to Google Docs, and optionally syncs your data across devices through Google Drive app data
 - Access is by a shared code, checked by the server at sign-in (the browser keeps a sign-in token valid for 7 days, never the code); students confirm they are 18 or older and accept the Terms and Privacy Policy
 
+
+Study Studio turns the sources in your Knowledge Bay into mind maps and flashcards (spaced-repetition review, Anki and Quizlet export); quizzes, slides and infographics are planned. Study aids sync through your own Google Drive app data when sync is on. Some requests (tutor questions, mind maps, flashcards) run as background processing on a best-effort basis, so they can finish after you close the app, and fall back to a direct request when the server has them off.
 ---
 
 ## Architecture

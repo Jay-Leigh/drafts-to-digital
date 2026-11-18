@@ -34,14 +34,13 @@ Orchestrator (main session) = decision maker + architect. Delegates work to sub-
 - OCR cache: no expiry until PR-A3, then 30 days (owner decision). No postal address published; not registered as Information Officer.
 
 ## Roadmap
-DONE (live): 1a legal pages (PR #10); 1b hardening: PR-A1 gate/sign-in, A2 Drive token in browser and no `documents` scope, A3 per-device HMAC cache keys, PR-B JWT auth + server hardening (n8n v1 then v3), PR-C Google Picker; J1 error codes + status banner + loading states; Study Studio S1a shell + S1b mind map (n8n v3, owner cap `cfg:studio_max_tokens`, ceiling `cfg:daily_units`); J2/J3 background jobs (n8n v4 `sth-workflow-v4-jobs.json`, client `jobs` engine, testers-only flag `sth_flag_jobs`). Google Search Console verified (user-site repo jay-leigh.github.io).
-IN PROGRESS: Quiz (client + n8n v6 `sth-workflow-v6-quiz.json`; v6 replaces v5). Flashcards done (v5). S1c release is BUILT AND PARKED (patch /tmp scratchpad s1c-release.patch + git stash): merge only on or after 18 November 2026 (14-day notice announced 4 November).
+DONE (live): Flashcards (n8n v5), Quiz (n8n v6), 14-day notice, mobile UI fixes, S1c release (Study Studio for everyone, Drive sync of study aids, jobs on by default, TERMS_VERSION 2026-11-18); 1a legal pages (PR #10); 1b hardening: PR-A1 gate/sign-in, A2 Drive token in browser and no `documents` scope, A3 per-device HMAC cache keys, PR-B JWT auth + server hardening (n8n v1 then v3), PR-C Google Picker; J1 error codes + status banner + loading states; Study Studio S1a shell + S1b mind map (n8n v3, owner cap `cfg:studio_max_tokens`, ceiling `cfg:daily_units`); J2/J3 background jobs (n8n v4 `sth-workflow-v4-jobs.json`, client `jobs` engine); Flashcards (n8n v5 `sth-workflow-v5-flashcards.json`, replaces v4); S1c release (Study Studio visible to everyone, no studio flag; study aids sync to Drive appData: field `studio` in `sth-userdata-v1.json` plus a hidden file `sth-studio-<id>.json` per aid; jobs on by default, the server `hello` and `sth_flag_jobs='0'` are the switches; TERMS_VERSION 2026-11-01, privacy/terms updated). Google Search Console verified (user-site repo jay-leigh.github.io).
 NEXT, in this order (owner decision 2026-10-30):
   1. DONE: J6 legal rows for job results (privacy/terms), J3b tutor on jobs
-  2. Flashcards (job mode + viewer + review + TSV), one n8n import
-  3. Quiz (multiple choice, true/false), one n8n import
-  4. S1c release: Drive sync of study aids, privacy/terms update, TERMS_VERSION bump, studio flag removed, Home card
-  5. After that: Infographic (HTML/SVG; image mode later), then Slide deck (still to decide: in or out)
+  2. DONE: Flashcards (job mode + viewer + review + TSV), one n8n import
+  3. DONE: Quiz (multiple choice, true/false; n8n v6)
+  4. DONE: S1c release: Drive sync of study aids, privacy/terms update, TERMS_VERSION bump, studio flag removed, Home card
+  5. NEXT: Infographic (HTML/SVG; image mode later), then Slide deck (still to decide: in or out)
 LATER / optional: J4 transcribe/template/reviewer on jobs; map-reduce worker for true 1M-token runs; email notices, cross-device pickup, quotas (none for now); Upstash pay-as-you-go cap about USD 5 if usage passes 60%.
 OWNER TASKS: Google branding re-verification (retry after Search Console verified), publish the OAuth app after S1c (Testing mode expires sign-ins in 7 days), purge old `ocr:*` and `gemini-file:*` keys, Gmail 90-day filters on both mailboxes.
 Known follow-ups: with all browser storage blocked, tutor New chat and Knowledge Bay saves fail; no sign-out control when sync shows "Re-connect Google"; iOS Safari may block opening the exported Doc tab; Escape does not close the result modal; 401 after export does not re-auth; error-report scrubber mangles ".docx or PDF"; stale test s1a G5 (placeholder text).
