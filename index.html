@@ -2106,7 +2106,9 @@
       width: 30px; height: 30px; border-radius: 50%;
       object-fit: cover; flex-shrink: 0;
       background: rgba(44,95,45,0.1);
+      opacity: 0; transition: opacity 0.25s ease;
     }
+    .sync-avatar.loaded { opacity: 1; }
     .sync-user-info { flex: 1; min-width: 0; }
     .sync-user-name {
       font-size: 13px; font-weight: 500; color: #1a2e1c;
@@ -2499,6 +2501,8 @@
       .sidebar.collapsed .sync-section { border-top-color: transparent; margin: 0 16px; padding: 0 0 12px; }
       .sidebar.collapsed .sync-btn { padding: 0 0 0 13px !important; height: 42px; justify-content: flex-start; gap: 12px; }
       .sidebar.collapsed .new-chat-btn, .sidebar.collapsed .sync-btn { background: rgba(44,95,45,0.08); border: 0; }
+      .sidebar.collapsed .sync-user-row { height: 42px; }
+      .sidebar.collapsed .sync-avatar { width: 34px; height: 34px; }
       .sidebar.collapsed .sync-hint, .sidebar.collapsed .sync-user-info, .sidebar.collapsed .sync-sign-out-btn { display: none; }
       .sidebar.collapsed .sync-user-row { justify-content: center; }
       .sidebar.collapsed .sidebar-legal { display: none; }
@@ -8898,7 +8902,8 @@
       if (resolvedUser) {
         syncName.textContent = resolvedUser.name || resolvedUser.email || 'Google account';
         if (resolvedUser.picture) {
-          syncAvatar.src = resolvedUser.picture;
+          if (syncAvatar.getAttribute('src') !== resolvedUser.picture) { syncAvatar.classList.remove('loaded'); syncAvatar.src = resolvedUser.picture; }
+          if (syncAvatar.complete && syncAvatar.naturalWidth) syncAvatar.classList.add('loaded');
           syncAvatar.style.display = '';
         } else {
           syncAvatar.style.display = 'none';
@@ -14497,6 +14502,8 @@
     // Nav
     // Sync
     dom.btnSyncSignIn.addEventListener('click', triggerSyncSignIn);
+    dom.syncAvatar.addEventListener('load', () => dom.syncAvatar.classList.add('loaded'));
+    dom.syncAvatar.addEventListener('error', () => dom.syncAvatar.classList.add('loaded'));
     dom.btnSyncSignOut.addEventListener('click', signOutSync);
 
     dom.btnHamburger.addEventListener('click', () => {
