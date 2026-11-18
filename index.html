@@ -507,7 +507,7 @@
     .skeleton-msg.user { width: 45%; margin-left: auto; height: 38px; }
     .is-busy { cursor: progress; }
     .is-busy::before {
-      content: ''; display: inline-block; width: 13px; height: 13px; margin-right: 8px; vertical-align: -2px;
+      content: ''; display: inline-block; flex: 0 0 auto; box-sizing: content-box; width: 13px; height: 13px; margin-right: 8px; vertical-align: -2px;
       border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
       animation: spin 0.8s linear infinite;
     }
@@ -2502,6 +2502,9 @@
       .sidebar.collapsed .sync-btn { padding: 0 0 0 13px !important; height: 42px; justify-content: flex-start; gap: 12px; }
       .sidebar.collapsed .new-chat-btn, .sidebar.collapsed .sync-btn { background: rgba(44,95,45,0.08); border: 0; }
       .sidebar.collapsed .sync-user-row { height: 42px; }
+      .sidebar.collapsed .sync-btn.is-busy { justify-content: center; padding: 0 !important; gap: 0; }
+      .sidebar.collapsed .sync-btn.is-busy::before { margin: 0; }
+      .sidebar.collapsed .sync-btn.is-busy > svg, .sidebar.collapsed .sync-btn.is-busy > .nav-label { display: none; }
       .sidebar.collapsed .sync-avatar { width: 34px; height: 34px; }
       .sidebar.collapsed .sync-hint, .sidebar.collapsed .sync-user-info, .sidebar.collapsed .sync-sign-out-btn { display: none; }
       .sidebar.collapsed .sync-user-row { justify-content: center; }
