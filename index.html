@@ -2364,6 +2364,8 @@
       .sidebar.collapsed .sidebar-tutor-chats > :not(.new-chat-btn) { display: none; }
       .sidebar.collapsed .new-chat-btn { justify-content: center; padding: 9px 0; gap: 0; }
       .sidebar.collapsed .new-chat-btn .nav-label { display: none; }
+      .sidebar.collapsed .new-chat-btn { width: 42px; box-sizing: border-box; }
+      .sidebar.collapsed .new-chat-btn svg { flex: 0 0 auto; width: 16px; height: 16px; }
       .sidebar.collapsed .sync-section { padding: 10px 8px 14px; }
       .sidebar.collapsed .sync-btn { justify-content: center; padding: 9px 0; gap: 0; }
       .sidebar.collapsed .sync-btn .nav-label,
@@ -2604,14 +2606,10 @@
     @media (max-width: 430px) { .tutor-shell.head-fused .tutor-head { padding-top: 10px; padding-bottom: 10px; } }
     .tutor-messages { overflow-anchor: auto; }
 
-    /* typing indicator: wave + glow + shimmering label */
+    /* typing indicator: wave + glow */
     .chat-bubble.typing { position: relative; width: auto; }
     .chat-bubble.typing::after { content: ""; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; animation: bubbleGlow 2.4s ease-in-out infinite; }
     @keyframes bubbleGlow { 0% { box-shadow: 0 0 0 0 rgba(44,95,45,0.28); } 70%,100% { box-shadow: 0 0 0 9px rgba(44,95,45,0); } }
-    .typing-label { font-style: normal; font-size: 13px; font-weight: 500; margin-left: 6px; color: rgba(26,46,28,0.35);
-      background: linear-gradient(100deg, rgba(26,46,28,0.35) 30%, #2c5f2d 50%, rgba(26,46,28,0.35) 70%) 200% 0 / 220% 100% no-repeat;
-      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; animation: labelShimmer 2.2s linear infinite; }
-    @keyframes labelShimmer { to { background-position: -100% 0; } }
 
     /* reduce-motion: keep indicators alive but gentle (fades, slow turns, no travel) */
     @keyframes dotFade { 0%,100% { opacity: 0.3; } 50% { opacity: 1; } }
@@ -2622,7 +2620,6 @@
       .chat-bubble.typing span:nth-child(2) { animation-delay: 0.2s !important; }
       .chat-bubble.typing span:nth-child(3) { animation-delay: 0.4s !important; }
       .chat-bubble.typing::after { animation: softFade 2.4s ease-in-out infinite !important; box-shadow: 0 0 0 3px rgba(44,95,45,0.12); }
-      .typing-label { animation: softFade 2.4s ease-in-out infinite !important; background: none; -webkit-text-fill-color: rgba(26,46,28,0.55); }
       .pulse-text, .sync-syncing-dot { animation: softFade 2.4s ease-in-out infinite !important; }
     }
   </style>
@@ -9936,7 +9933,8 @@
         const c = this.current();
         const job = c ? this.jobFor(c.id) : null;
         const unsent = c && !this.answering(c.id) && !this.prep.has(c.id) ? this.unsentFor(c.id) : null;
-        const kind = !c ? null : this.prep.has(c.id) ? 'reading' : job ? 'job' : this.answering(c.id) ? 'typing' : unsent ? 'unsent' : null;
+        const jobText = !!job && (job.state === 'waiting' || job.state === 'syncing' || jobs.slow(job));
+        const kind = !c ? null : this.prep.has(c.id) ? 'reading' : job ? (jobText ? 'job' : 'typing') : this.answering(c.id) ? 'typing' : unsent ? 'unsent' : null;
         let el = this._status;
         if (el && el.dataset.kind !== kind) { el.remove(); el = this._status = null; }
         if (!kind || !this._view || this._view.empty) return;
@@ -9947,7 +9945,7 @@
           el.setAttribute('role', 'status');
           el.innerHTML = kind === 'reading'
             ? '<div class="reading-link-spinner"></div><span></span>'
-            : kind === 'typing' ? '<span></span><span></span><span></span><em class="typing-label">Thinking</em>' : '';
+            : kind === 'typing' ? '<span></span><span></span><span></span>' : '';
           if (kind === 'typing') el.setAttribute('aria-label', 'Tutor is typing');
           if (kind === 'job' || kind === 'unsent') el.addEventListener('click', (e) => this.onStatusClick(e));
           dom.tutorMessages.appendChild(el);
@@ -9957,7 +9955,7 @@
           const label = this.prep.get(c.id) || 'Reading link…';
           if (el.lastChild.textContent !== label) el.lastChild.textContent = label;
         } else if (kind === 'job' || kind === 'unsent') {
-          const slow = !!job && jobs.slow(job);
+          const slow = jobText && jobs.slow(job);
           const sig = kind === 'job' ? `${job.id}:${job.state}:${job.waitKind || ''}:${slow}` : `${unsent.id}`;
           if (el.dataset.sig === sig) return;
           el.dataset.sig = sig;
@@ -9965,7 +9963,7 @@
             el.innerHTML = `<span>Your message wasn't sent.</span><span class="job-wait-actions"><button type="button" data-tutor-job="send" data-id="${escapeHtml(unsent.id)}">Send now</button><button type="button" data-tutor-job="dismiss" data-id="${escapeHtml(unsent.id)}">Dismiss</button></span>`;
           } else {
             const since = `<span aria-hidden="true" data-jobs-since="${job.submittedAt || job.createdAt}">${jobsElapsed(job.submittedAt || job.createdAt)}</span>`;
-            const note = job.state === 'waiting' || job.state === 'syncing' ? jobs.noteFor(job) : `${slow ? 'Taking longer than usual' : 'Thinking…'} (${since}). You can close the app; the answer will wait here (kept 72 hours).`;
+            const note = job.state === 'waiting' || job.state === 'syncing' ? jobs.noteFor(job) : `Taking longer than usual (${since}).`;
             el.innerHTML = `<div class="reading-link-spinner"></div><span>${note}</span>${slow ? `<span class="job-wait-actions"><button type="button" data-tutor-job="again" data-id="${escapeHtml(job.id)}">Try again now</button><button type="button" data-tutor-job="cancel" data-id="${escapeHtml(job.id)}">Cancel</button></span>` : ''}`;
           }
         }
