@@ -2973,12 +2973,6 @@
           <button type="button" id="statusBannerClose" class="status-banner-close" aria-label="Dismiss status message">&times;</button>
         </span>
       </div>
-      <div id="noticeBanner" class="status-banner" role="status" hidden>
-        <span class="status-banner-text">On 18 November 2026 Study Studio and background processing open to everyone, and the Privacy Policy and Terms are updated. <a href="privacy.html#upcoming" target="_blank" rel="noopener">What changes</a></span>
-        <span class="status-banner-actions">
-          <button type="button" id="noticeBannerClose" class="status-banner-close" aria-label="Dismiss update notice">&times;</button>
-        </span>
-      </div>
       <div class="topbar">
         <div class="flex items-center gap-3">
           <button id="btnHamburger" class="hamburger-btn" aria-label="Toggle sidebar">
@@ -3926,7 +3920,7 @@
     const AUTH_TIMEOUT_MS = 20000;
     const CONSENT_KEY = 'sth_consent';
     // Bump whenever the effective date on privacy.html or terms.html changes: everyone is asked to accept again
-    const TERMS_VERSION = '2026-10-27';
+    const TERMS_VERSION = '2026-11-18';
 
     // Storage can be blocked or full (private modes, policies): the app must still open for the visit
     function storageGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
@@ -5227,7 +5221,7 @@
     };
 
     // ═══════════════════════════════════════════════════════════
-    // ─── BACKGROUND JOBS (testers-only: localStorage sth_flag_jobs = '1') ──
+    // ─── BACKGROUND JOBS (on unless the server says no or localStorage sth_flag_jobs = '0') ──
     // ═══════════════════════════════════════════════════════════
     // The server keeps running a request after the page is closed and holds the answer. The registry of requests lives in
     // IndexedDB; one tab (the leader) asks for their state in batches, applies each answer once and acknowledges it.
@@ -5269,24 +5263,24 @@
     const jobsElapsed = (since) => { const s = Math.max(0, Math.floor((Date.now() - since) / 1000)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
 
     const jobs = {
-      store: null, recs: new Map(), available: false, flagMemory: false, wired: false, loadP: null, initP: null,
+      store: null, recs: new Map(), available: false, forcedOff: false, wired: false, loadP: null, initP: null,
       leader: false, ticking: false, timer: null, kickT: null, uiTimer: null, busy: new Set(),
       serverOffUntil: 0, modes: null, lastHello: 0, authPaused: false, authAsked: false, ackBlockedUntil: 0,
       away: null, awayUntil: 0, baseTitle: '', slowKey: '', acking: false,
       el: (id) => document.getElementById(id),
-      enabled() { return this.flagMemory || storageGet(JOBS_FLAG_KEY) === '1'; },
+      enabled() { return !this.forcedOff && storageGet(JOBS_FLAG_KEY) !== '0'; },
 
-      // #jobs?flag=1 turns the flag on for this browser, #jobs?flag=0 turns it off
+      // #jobs?flag=0 forces the direct path for this browser (for debugging), #jobs?flag=1 goes back to the default
       applyFlagHash() {
         const m = /^#jobs\?flag=([01])$/.exec(location.hash);
         if (!m) return;
-        if (m[1] === '1') { if (!storageSet(JOBS_FLAG_KEY, '1')) this.flagMemory = true; }
-        else { storageRemove(JOBS_FLAG_KEY); this.flagMemory = false; clearTimeout(this.timer); }
-        history.replaceState(null, '', `${location.pathname}${location.search}#${studio.enabled() ? 'studio' : 'home'}`);
+        if (m[1] === '0') { if (!storageSet(JOBS_FLAG_KEY, '0')) this.forcedOff = true; clearTimeout(this.timer); }
+        else { storageRemove(JOBS_FLAG_KEY); this.forcedOff = false; }
+        history.replaceState(null, '', `${location.pathname}${location.search}#studio`);
         if (m[1] === '1') this.init();
       },
 
-      // The job path is used only with the flag on, a working registry, a server that has not said no, and an allowed mode
+      // The job path is used only with a working registry, a server that has not said no, an allowed mode, and no forced direct path
       useFor(mode) {
         if (!this.enabled() || !this.available || Date.now() < this.serverOffUntil) return false;
         return JOBS_MODES.includes(mode) && (!this.modes || this.modes.includes(mode));
@@ -6816,7 +6810,7 @@
       const raw = (location.hash || '#home').slice(1);
       const [name, ...rest] = raw.split('/');
       const arg = rest.join('/') || null;
-      return { name: ROUTES[name] && (name !== 'studio' || studio.enabled()) ? name : 'home', arg };
+      return { name: ROUTES[name] ? name : 'home', arg };
     }
 
     function updateSidebarActive(name) {
@@ -8422,8 +8416,8 @@
       return err;
     }
 
-    async function driveListSyncFile(token) {
-      const q = encodeURIComponent(`name='${SYNC_FILE}'`);
+    async function driveListSyncFile(token, name = SYNC_FILE) {
+      const q = encodeURIComponent(`name='${name}'`);
       const res = await fetch(
         `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id)`,
         { headers: { Authorization: `Bearer ${token}` } }
@@ -8497,6 +8491,15 @@
       if (!res.ok) throw driveHttpError('Drive upload', res.status);
       const file = await res.json();
       return file.id;
+    }
+
+    // A file that is already gone counts as deleted by the caller (404)
+    async function driveDeleteFile(token, fileId) {
+      const res = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}`,
+        { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) throw driveHttpError('Drive delete', res.status);
     }
 
     async function driveDownloadFile(token, fileId) {
@@ -8793,8 +8796,10 @@
         // merged metadata back
         await ensureScannedPdfsUploadedToDrive();
         if (signedOut()) return;
+        const studioField = await studio.syncRound(token, remote.studio, signedOut);
+        if (signedOut()) return;
         const newFileId = await driveWriteSyncFile(token, fileId, {
-          kbItems: kbItemsForDriveSync(kb.cache), tutorChats: mergedChats, createdDocs: mergedDocs, removedDocIds: mergedRemoved, syncedAt: Date.now()
+          kbItems: kbItemsForDriveSync(kb.cache), tutorChats: mergedChats, createdDocs: mergedDocs, removedDocIds: mergedRemoved, ...(studioField ? { studio: studioField } : {}), syncedAt: Date.now()
         });
         if (signedOut()) return;
         if (newFileId !== fileId) setSyncFileId(newFileId);
@@ -8838,7 +8843,9 @@
         const { docs, removed } = mergeSyncedDocs(remote);
         setRemovedDocs(removed);
         setCreatedDocs(docs);
-        const data = { kbItems: kbItemsForDriveSync(kb.cache), tutorChats: tutor.chats, createdDocs: docs, removedDocIds: removed, syncedAt: Date.now() };
+        const studioField = await studio.syncRound(token, remote && remote.studio, signedOut);
+        if (signedOut()) return;
+        const data = { kbItems: kbItemsForDriveSync(kb.cache), tutorChats: tutor.chats, createdDocs: docs, removedDocIds: removed, ...(studioField ? { studio: studioField } : {}), syncedAt: Date.now() };
         const newId = await driveWriteSyncFile(token, fileId, data);
         if (signedOut()) return;
         if (newId !== fileId) setSyncFileId(newId);
@@ -10692,9 +10699,8 @@
     }
 
     // ═══════════════════════════════════════════════════════════
-    // ─── Study Studio (behind a flag) ──────────────────────────
+    // ─── Study Studio ──────────────────────────────────────────
     // ═══════════════════════════════════════════════════════════
-    const STUDIO_FLAG_KEY = 'sth_flag_studio';
     const STUDIO_SELECTION_KEY = 'sth_studio_selection';
     const STUDIO_LANG_KEY = 'sth_studio_lang';
     const STUDIO_MAX_TOKENS = 900000; // hard ceiling (the server's own hard ceiling; the model limit is 1,048,576 tokens including the answer). The owner can set a lower cap on the server.
@@ -11551,37 +11557,190 @@
       return `Help me revise "${weak.topic}", my weakest topic in this quiz (${weak.correct} of ${weak.total} right). These are the questions I missed:\n${missed.map(q => `- ${q.stem}`).join('\n')}\nExplain each one using my attached sources.`;
     }
 
+    // ── Study aids in the sync file (field `studio`, version 1): a summary per aid (its artifact is a separate appData file), deleted ids, flashcard progress ──
+    const STUDIO_SYNC_VERSION = 1;
+    const STUDIO_SYNC_MAX = 300;
+    const STUDIO_SYNC_TOMB_TTL = 90 * 24 * 60 * 60 * 1000;
+    const STUDIO_FILE_VERSION = 1;
+    const STUDIO_FILE_MAX_BYTES = 1024 * 1024;
+    const STUDIO_ID_RE = /^[\w-]{1,64}$/;
+    const STUDIO_DRIVE_ID_RE = /^[\w-]{8,200}$/;
+    const studioFileName = (id) => `sth-studio-${id}.json`;
+    const studioKnownTool = (tool) => Object.prototype.hasOwnProperty.call(STUDIO_TOOLS, tool) && !!STUDIO_TOOLS[tool].enabled;
+    const studioTs = (n) => typeof n === 'number' && isFinite(n) && n > 0 && n < 4e12 ? Math.floor(n) : 0;
+
+    function studioSyncSummary(item) {
+      return { id: item.id, tool: item.tool, title: item.title, language: item.language, topic: item.topic, options: item.options, sourceIds: item.sourceIds, sourceNames: item.sourceNames, createdAt: item.createdAt, updatedAt: item.updatedAt, driveFileId: item.driveFileId, artifactBytes: item.artifactBytes || 0 };
+    }
+
+    // Pure: one summary from the sync file as a local item, or null when it is unusable (the file may come from another device or be edited by hand)
+    function studioSyncCleanSummary(raw) {
+      if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string' || !STUDIO_ID_RE.test(raw.id) || !studioKnownTool(raw.tool)) return null;
+      if (typeof raw.driveFileId !== 'string' || !STUDIO_DRIVE_ID_RE.test(raw.driveFileId)) return null;
+      const createdAt = studioTs(raw.createdAt);
+      if (!createdAt) return null;
+      const ids = Array.isArray(raw.sourceIds) ? raw.sourceIds : [], names = Array.isArray(raw.sourceNames) ? raw.sourceNames : [];
+      const sourceIds = [], sourceNames = [];
+      for (let i = 0; i < ids.length && sourceIds.length < STUDIO_MAX_SOURCES; i++) {
+        if (typeof ids[i] !== 'string' || !STUDIO_ID_RE.test(ids[i])) continue;
+        sourceIds.push(ids[i]);
+        sourceNames.push(typeof names[i] === 'string' ? names[i].slice(0, 200) : '');
+      }
+      return {
+        id: raw.id, tool: raw.tool,
+        title: studioClean(raw.title, 120) || 'Study aid',
+        language: STUDIO_LANGUAGES.some(l => l.code === raw.language) ? raw.language : 'en',
+        topic: typeof raw.topic === 'string' ? raw.topic.slice(0, STUDIO_TOPIC_MAX) : '',
+        options: studioCleanOptions(raw.tool, raw.options),
+        sourceIds, sourceNames, createdAt,
+        updatedAt: studioTs(raw.updatedAt) || createdAt,
+        driveFileId: raw.driveFileId,
+        artifactBytes: Number.isFinite(raw.artifactBytes) && raw.artifactBytes > 0 ? Math.floor(raw.artifactBytes) : 0,
+      };
+    }
+
+    // Pure: deleted ids as a Map id -> { at, driveFileId? }; entries older than 90 days are dropped
+    function studioSyncReadTombs(list, now = Date.now()) {
+      const out = new Map();
+      if (!Array.isArray(list)) return out;
+      for (const t of list.slice(0, STUDIO_SYNC_MAX * 2)) {
+        const at = t && typeof t === 'object' && typeof t.id === 'string' && STUDIO_ID_RE.test(t.id) ? studioTs(t.at) : 0;
+        if (!at || now - at > STUDIO_SYNC_TOMB_TTL) continue;
+        const keep = out.get(t.id);
+        if (keep && keep.at >= at) continue;
+        out.set(t.id, typeof t.driveFileId === 'string' && STUDIO_DRIVE_ID_RE.test(t.driveFileId) ? { at, driveFileId: t.driveFileId } : { at });
+      }
+      return out;
+    }
+
+    // Pure: the newest deletion time wins; the Drive file id stays only while both sides still have it (a side without it has deleted the file already)
+    function studioSyncMergeTombs(a, b, now = Date.now()) {
+      const out = new Map();
+      for (const id of new Set([...a.keys(), ...b.keys()])) {
+        const x = a.get(id), y = b.get(id);
+        const at = Math.max(x ? x.at : 0, y ? y.at : 0);
+        if (!at || now - at > STUDIO_SYNC_TOMB_TTL) continue;
+        const file = x && y ? (x.driveFileId && y.driveFileId ? x.driveFileId : '') : (x || y).driveFileId || '';
+        out.set(id, file ? { at, driveFileId: file } : { at });
+      }
+      return new Map([...out].sort((p, q) => q[1].at - p[1].at).slice(0, STUDIO_SYNC_MAX));
+    }
+
+    const studioSyncTombList = (tombs) => [...tombs].map(([id, t]) => ({ id, ...t }));
+
+    // Pure: flashcard progress that is safe to keep (the same checks as the viewer), or null when no card was reviewed
+    function studioSyncCleanProgress(rec) {
+      if (!rec || typeof rec !== 'object') return null;
+      const ids = Array.from({ length: STUDIO_FC_MAX_CARDS }, (_, i) => `c${i + 1}`);
+      const cards = studioFcCleanCards(rec.flashcards && rec.flashcards.cards, ids);
+      const quiz = studioSyncCleanQuiz(rec.quiz);
+      if (!Object.keys(cards).length && !quiz) return null;
+      return { updatedAt: studioTs(rec.updatedAt), ...(Object.keys(cards).length ? { flashcards: { cards } } : {}), ...(quiz ? { quiz } : {}) };
+    }
+
+    // Pure: quiz attempts that are safe to sync (plain values, the last 5 by time); the player checks them against the quiz again when it opens
+    function studioSyncCleanQuiz(q) {
+      if (!q || typeof q !== 'object' || !Array.isArray(q.attempts)) return null;
+      const attempts = [];
+      for (const a of q.attempts) {
+        if (!a || typeof a !== 'object' || !Number.isFinite(a.at) || !Array.isArray(a.ids) || !a.answers || typeof a.answers !== 'object') continue;
+        const ids = a.ids.filter(x => typeof x === 'string' && x.length <= 12).slice(0, STUDIO_QZ_MAX_QUESTIONS);
+        const answers = {};
+        for (const id of ids) if (typeof a.answers[id] === 'string' && a.answers[id].length <= 2) answers[id] = a.answers[id];
+        const hints = Array.isArray(a.hints) ? a.hints.filter(x => typeof x === 'string' && x.length <= 12).slice(0, STUDIO_QZ_MAX_QUESTIONS) : [];
+        const sc = a.score && typeof a.score === 'object' ? a.score : {};
+        attempts.push({ n: Number.isInteger(a.n) ? a.n : attempts.length + 1, at: a.at, kind: typeof a.kind === 'string' ? a.kind.slice(0, 12) : 'all', ids, answers, hints, score: { right: Number.isFinite(sc.right) ? sc.right : 0, total: Number.isFinite(sc.total) ? sc.total : ids.length } });
+      }
+      if (!attempts.length) return null;
+      attempts.sort((x, y) => x.at - y.at);
+      return { count: Number.isInteger(q.count) ? q.count : attempts.length, attempts: attempts.slice(-5) };
+    }
+
+    // Pure: the record saved last wins; cards only the other record has are kept (a card missing from a record was never reviewed there)
+    function studioSyncMergeProgress(a, b) {
+      if (!a || !b) return a || b || null;
+      const [win, lose] = a.updatedAt >= b.updatedAt ? [a, b] : [b, a];
+      const out = { updatedAt: win.updatedAt };
+      if (win.flashcards || lose.flashcards) out.flashcards = { cards: { ...(lose.flashcards && lose.flashcards.cards), ...(win.flashcards && win.flashcards.cards) } };
+      if (win.quiz || lose.quiz) {
+        const seen = new Map();
+        for (const at of [...((lose.quiz && lose.quiz.attempts) || []), ...((win.quiz && win.quiz.attempts) || [])]) seen.set(at.at, at);
+        const attempts = [...seen.values()].sort((x, y) => x.at - y.at).slice(-5);
+        out.quiz = { count: (win.quiz || lose.quiz).count, attempts };
+      }
+      return out;
+    }
+
+    // Pure: the `studio` field of the sync file. A newer version is left alone (future); aids of a tool this version does not know are kept as they are (foreign)
+    function studioSyncRead(raw, now = Date.now()) {
+      const out = { future: false, items: new Map(), foreign: [], foreignProgress: new Map(), tombs: new Map(), progress: new Map() };
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+      if (Number.isInteger(raw.v) && raw.v > STUDIO_SYNC_VERSION) { out.future = true; return out; }
+      const list = Array.isArray(raw.items) ? raw.items.slice(0, STUDIO_SYNC_MAX * 2) : [];
+      for (const s of list) {
+        if (!s || typeof s !== 'object' || typeof s.id !== 'string' || !STUDIO_ID_RE.test(s.id)) continue;
+        if (typeof s.tool === 'string' && !studioKnownTool(s.tool)) {
+          if (typeof s.driveFileId === 'string' && STUDIO_DRIVE_ID_RE.test(s.driveFileId) && JSON.stringify(s).length < 8000) out.foreign.push(s);
+          continue;
+        }
+        const item = studioSyncCleanSummary(s);
+        if (item && !(out.items.get(item.id) && out.items.get(item.id).updatedAt >= item.updatedAt)) out.items.set(item.id, item);
+      }
+      out.tombs = studioSyncReadTombs(raw.deleted, now);
+      const prog = raw.progress && typeof raw.progress === 'object' && !Array.isArray(raw.progress) ? raw.progress : {};
+      for (const id of Object.keys(prog)) {
+        if (!STUDIO_ID_RE.test(id)) continue;
+        if (out.items.has(id)) { const p = studioSyncCleanProgress(prog[id]); if (p) out.progress.set(id, p); }
+        else if (out.foreign.some(f => f.id === id) && JSON.stringify(prog[id]).length < 20000) out.foreignProgress.set(id, prog[id]);
+      }
+      return out;
+    }
+
+    // Pure: what to change on this device. local = this device's items, remote = studioSyncRead(...), tombs = the merged deleted ids.
+    // A deleted id stays deleted: ids are never reused, so a later change on another device does not bring an aid back.
+    function studioSyncPlan(local, remote, tombs) {
+      const plan = { add: [], update: [], remove: [] };
+      const mine = new Map(local.map(i => [i.id, i]));
+      for (const [id, item] of mine) if (tombs.has(id) && item.status === 'ready') plan.remove.push(id);
+      for (const [id, r] of remote.items) {
+        if (tombs.has(id)) continue;
+        const cur = mine.get(id);
+        if (!cur) { plan.add.push({ ...r, status: 'ready', seen: false, error: null, artifact: null }); continue; }
+        if (cur.status !== 'ready') continue;
+        if (!cur.driveFileId) plan.update.push({ id, fields: { driveFileId: r.driveFileId, artifactBytes: r.artifactBytes } });
+        else if (r.updatedAt > (cur.updatedAt || 0)) plan.update.push({ id, fields: { title: r.title, updatedAt: r.updatedAt, ...(cur.artifact ? {} : { driveFileId: r.driveFileId, artifactBytes: r.artifactBytes }) } });
+      }
+      return plan;
+    }
+
     const studio = {
       store: null,
       items: [],
       ready: false,
       initPromise: null,
       memoryOnly: false,
-      flagMemory: false,
       wired: false,
       selection: new Set(),
       running: new Set(),
       viewerId: null,
       viewState: new Map(),
       progress: new Map(),
+      remote: new Map(),
+      tombList: [],
+      syncChain: null,
       pendingPrompt: null,
       dialog: { tool: null, opener: null, inerted: [], expanded: false },
       hooks: { buildRequest: studioBuildRequest, send: studioSend, applyResult: studioApplyResult },
 
       el: (id) => document.getElementById(id),
-      enabled() { return this.flagMemory || storageGet(STUDIO_FLAG_KEY) === '1'; },
       active() { return state.currentRoute === 'studio'; },
 
-      // #studio?flag=1 turns the flag on (kept in browser storage, or for this visit when storage is blocked) and moves to #studio
+      // Old testers' links (#studio?flag=1) just open Study Studio
       applyFlagHash() {
-        if (location.hash !== '#studio?flag=1') return;
-        if (!storageSet(STUDIO_FLAG_KEY, '1')) this.flagMemory = true;
-        history.replaceState(null, '', `${location.pathname}${location.search}#studio`);
-        this.boot();
+        if (location.hash === '#studio?flag=1') history.replaceState(null, '', `${location.pathname}${location.search}#studio`);
       },
 
       boot() {
-        if (!this.enabled()) return;
         this.mountEntry();
         this.wire();
         this.ensureInit();
@@ -11595,7 +11754,7 @@
         }
         const grid = dom.viewHome.querySelector('.grid');
         if (grid) {
-          grid.insertAdjacentHTML('beforeend', `<a class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center bg-white/50" data-studio-entry href="#studio" title="Study Studio" aria-label="Study Studio"><div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center" style="color:#2c5f2d">${studioSvg('nav', 24)}</div><h3 class="text-lg mt-3">Study Studio</h3><p class="font-body text-sm text-ink/45 mt-1">Turn your Knowledge Bay into study aids, starting with mind maps</p></a>`);
+          grid.insertAdjacentHTML('beforeend', `<a class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center bg-white/50" data-studio-entry href="#studio" title="Study Studio" aria-label="Study Studio"><div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center" style="color:#2c5f2d">${studioSvg('nav', 24)}</div><h3 class="text-lg mt-3">Study Studio</h3><p class="font-body text-sm text-ink/45 mt-1">Turn your Knowledge Bay into mind maps and flashcards. Quizzes, slides and infographics are coming</p></a>`);
         }
         updateSidebarActive(state.currentRoute);
       },
@@ -11662,6 +11821,7 @@
         item.updatedAt = Date.now();
         this.refreshViews();
         await this.persist(item);
+        if (item.status === 'ready') scheduleDrivePush();
       },
 
       // Review progress per study aid, in the same IndexedDB store (key progress:<id>); in memory when storage is blocked
@@ -11675,10 +11835,11 @@
         return this.progress.get(id);
       },
 
-      async saveProgress(id) {
+      // fromSync: the record was just merged from the sync file, so its time and the next push stay as they are
+      async saveProgress(id, fromSync) {
         const rec = this.progress.get(id);
         if (!rec) return;
-        rec.updatedAt = Date.now();
+        if (!fromSync) { rec.updatedAt = Date.now(); scheduleDrivePush(); }
         if (this.store && !this.memoryOnly) {
           try { await this.store.setItem(`progress:${id}`, rec); return; } catch (err) { console.warn('[STH] Study Studio progress not saved:', err); this.memoryOnly = true; }
         }
@@ -11999,7 +12160,7 @@
 
       // The "Back to ..." link in the tutor header: made only when a chat is linked to a study aid
       syncTutorBack(chat) {
-        const item = chat && chat.studioItemId && this.enabled() ? this.items.find(i => i.id === chat.studioItemId) : null;
+        const item = chat && chat.studioItemId ? this.items.find(i => i.id === chat.studioItemId) : null;
         let link = document.getElementById('tutorBackToMap');
         if (!link) {
           if (!item) return;
@@ -12020,6 +12181,7 @@
         if (!item) return;
         if (item.status === 'ready' && !item.seen) { item.seen = true; if (item.jobId) jobs.markSeen(item.jobId); this.save(item); return; }
         const viewer = this.el('studioViewer');
+        if (item.status === 'ready' && !item.artifact && item.driveFileId) { this.renderRemote(item); return; }
         let cannot = '';
         const isFc = item.status === 'ready' && item.tool === 'flashcards';
         const isQz = item.status === 'ready' && item.tool === 'quiz';
@@ -12078,6 +12240,219 @@
             ${cannot ? `<button type="button" class="studio-btn" data-studio-act="delete" data-id="${id}">Delete</button>` : ''}
             <a class="studio-btn ghost" href="${STUDIO_REPORT_HREF}">Report a problem</a>
           </div>`;
+      },
+
+      // ── Drive sync (the sync file's `studio` field; each artifact is its own appData file) ──
+      async loadTombs() {
+        let list = this.tombList;
+        if (this.store && !this.memoryOnly) {
+          try { list = (await this.store.getItem('tombs')) || []; } catch { /* use the copy in memory */ }
+        }
+        return studioSyncReadTombs(list);
+      },
+
+      async saveTombs(tombs) {
+        this.tombList = studioSyncTombList(tombs);
+        if (this.store && !this.memoryOnly) {
+          try { await this.store.setItem('tombs', this.tombList); } catch (err) { console.warn('[STH] Study Studio deleted ids not saved:', err); }
+        }
+      },
+
+      // One round with the sync file, one at a time. Resolves to the field to write, or null to leave it out.
+      // A problem that is not a Drive error leaves the field in the file exactly as it was.
+      syncRound(token, remoteRaw, signedOut) {
+        const run = async () => {
+          try { return await this.syncRoundNow(token, remoteRaw, signedOut); }
+          catch (err) {
+            if (err && err.status) throw err;
+            console.warn('[Sync] Study aids skipped:', err);
+            return remoteRaw && typeof remoteRaw === 'object' ? remoteRaw : null;
+          }
+        };
+        const next = (this.syncChain || Promise.resolve()).then(run, run);
+        this.syncChain = next.catch(() => {});
+        return next;
+      },
+
+      async syncRoundNow(token, remoteRaw, signedOut) {
+        await this.ensureInit();
+        const remote = studioSyncRead(remoteRaw);
+        if (remote.future) return remoteRaw;
+        const tombs = studioSyncMergeTombs(await this.loadTombs(), remote.tombs);
+        await this.applySync(studioSyncPlan(this.items, remote, tombs), tombs, remote.progress);
+        if (signedOut()) return null;
+        await this.deleteFiles(token, tombs, signedOut);
+        if (signedOut()) return null;
+        await this.uploadArtifacts(token, signedOut);
+        if (signedOut()) return null;
+        return this.syncField(tombs, remote);
+      },
+
+      async applySync(plan, tombs, remoteProgress) {
+        for (const id of plan.remove) {
+          const item = this.items.find(i => i.id === id);
+          if (!item) continue;
+          this.items = this.items.filter(i => i !== item);
+          this.viewState.delete(id);
+          this.progress.delete(id);
+          this.remote.delete(id);
+          studioFc.sessions.delete(id);
+          await this.persist(null, id);
+        }
+        for (const add of plan.add) {
+          this.items.push(add);
+          await this.persist(add);
+        }
+        for (const u of plan.update) {
+          const cur = this.items.find(i => i.id === u.id);
+          if (!cur) continue;
+          Object.assign(cur, u.fields);
+          await this.persist(cur);
+        }
+        await this.saveTombs(tombs);
+        for (const item of this.items) {
+          const remote = item.status === 'ready' && (item.tool === 'flashcards' || item.tool === 'quiz') ? remoteProgress.get(item.id) : null;
+          if (!remote) continue;
+          const rec = await this.loadProgress(item.id);
+          const local = studioSyncCleanProgress(rec);
+          const merged = studioSyncMergeProgress(local, remote);
+          if (JSON.stringify(merged) === JSON.stringify(local)) continue;
+          rec.updatedAt = merged.updatedAt;
+          if (merged.flashcards) rec.flashcards = merged.flashcards;
+          if (merged.quiz) rec.quiz = merged.quiz;
+          await this.saveProgress(item.id, true);
+        }
+        if (plan.remove.includes(this.viewerId)) { this.viewerId = null; if (this.active()) location.hash = '#studio'; }
+        this.refreshViews();
+      },
+
+      // The Drive file of an aid deleted on any device is deleted once; a file that is already gone counts as deleted
+      async deleteFiles(token, tombs, signedOut) {
+        let changed = false;
+        for (const [id, t] of tombs) {
+          if (!t.driveFileId) continue;
+          try {
+            try { await driveDeleteFile(token, t.driveFileId); }
+            catch (err) {
+              if (err.status !== 404) throw err;
+              // The stored id is stale: the file may exist under another id
+              const found = await driveListSyncFile(token, studioFileName(id));
+              if (found && found !== t.driveFileId) await driveDeleteFile(token, found).catch(e => { if (e.status !== 404) throw e; });
+            }
+          } catch (err) {
+            console.warn('[Sync] Study aid file not deleted (will retry next sync):', err);
+            handleDriveTokenError(err);
+            if (signedOut()) return;
+            continue;
+          }
+          if (signedOut()) return;
+          delete t.driveFileId;
+          changed = true;
+        }
+        if (changed) await this.saveTombs(tombs);
+      },
+
+      // Artifacts never change, so each is uploaded once; a failed upload is tried again on the next sync
+      async uploadArtifacts(token, signedOut) {
+        for (const item of this.items) {
+          if (item.status !== 'ready' || !item.artifact || item.driveFileId) continue;
+          try {
+            const blob = new Blob([JSON.stringify({ v: STUDIO_FILE_VERSION, id: item.id, tool: item.tool, artifact: item.artifact })], { type: 'application/json' });
+            if (blob.size > STUDIO_FILE_MAX_BYTES) { console.warn('[Sync] Study aid too large for Drive sync:', item.id); continue; }
+            const fileId = await driveUploadRawFile(token, blob, studioFileName(item.id));
+            if (signedOut()) return;
+            item.driveFileId = fileId;
+            item.artifactBytes = blob.size;
+            await this.persist(item);
+          } catch (err) {
+            console.warn('[Sync] Study aid upload failed (will retry next sync):', err);
+            handleDriveTokenError(err);
+            if (signedOut()) return;
+          }
+        }
+      },
+
+      // The aids that are in Drive, the deleted ids and the flashcard progress, plus what this version does not know, unchanged
+      async syncField(tombs, remote) {
+        const items = this.items.filter(i => i.status === 'ready' && i.driveFileId && studioKnownTool(i.tool)).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, STUDIO_SYNC_MAX);
+        const progress = Object.create(null);
+        for (const i of items) {
+          const p = i.tool === 'flashcards' || i.tool === 'quiz' ? studioSyncCleanProgress(await this.loadProgress(i.id)) : null;
+          if (p) progress[i.id] = p;
+        }
+        const foreign = remote.foreign.filter(f => !tombs.has(f.id));
+        for (const f of foreign) if (remote.foreignProgress.has(f.id)) progress[f.id] = remote.foreignProgress.get(f.id);
+        if (!items.length && !foreign.length && !tombs.size) return null;
+        return { v: STUDIO_SYNC_VERSION, items: [...items.map(studioSyncSummary), ...foreign], progress, deleted: studioSyncTombList(tombs) };
+      },
+
+      // A study aid made on another device: its summary is here, its artifact is read from the hidden Drive file the first time it is opened
+      renderRemote(item) {
+        const viewer = this.el('studioViewer');
+        studioMap.unmount();
+        studioFc.unmount();
+        viewer.classList.remove('is-map', 'is-fc');
+        let st = this.remote.get(item.id);
+        if (!st) {
+          if (state.driveSyncToken) { st = 'loading'; this.remote.set(item.id, st); this.fetchArtifact(item); }
+          else st = 'needsSync';
+        }
+        const text = {
+          loading: 'Loading from your Google Drive…',
+          needsSync: 'This study aid was made on another device. Connect Google sync to open it here.',
+          failed: 'Could not load it from your Google Drive. Try again.',
+          missing: 'The file for this study aid is no longer in your Google Drive. Delete it or make it again.',
+          damaged: 'This study aid is damaged. Delete it or make it again.',
+          newer: 'This study aid was made by a newer version of the app. Reload the page.',
+        }[st];
+        const id = escapeHtml(item.id);
+        const n = item.sourceIds.length;
+        this.el('studioViewerCard').innerHTML = `
+          <h2>${escapeHtml(item.title)}</h2>
+          <span class="studio-item-meta">${escapeHtml(STUDIO_TOOLS[item.tool].label)} · ${n} source${n === 1 ? '' : 's'}${item.sourceNames.length ? ` (${escapeHtml(item.sourceNames.join(', '))})` : ''} · ${escapeHtml(formatRelativeDate(item.updatedAt || item.createdAt))}</span>
+          <p class="studio-item-note${st === 'loading' || st === 'needsSync' ? '' : ' is-error'}" role="status">${text}</p>
+          ${st === 'loading' ? '<span class="skeleton studio-item-skeleton" aria-hidden="true"></span>' : ''}
+          <div class="studio-viewer-actions">
+            ${st === 'needsSync' ? '<button type="button" class="studio-btn primary" data-studio-act="connect">Connect Google sync</button>' : ''}
+            ${st === 'failed' ? `<button type="button" class="studio-btn primary" data-studio-act="reload-remote" data-id="${id}">Try again</button>` : ''}
+            ${st === 'missing' || st === 'damaged' ? `<button type="button" class="studio-btn" data-studio-act="delete" data-id="${id}">Delete</button>` : ''}
+            <a class="studio-btn ghost" href="${STUDIO_REPORT_HREF}">Report a problem</a>
+          </div>`;
+      },
+
+      async fetchArtifact(item) {
+        const done = (outcome) => {
+          if (outcome) this.remote.set(item.id, outcome); else this.remote.delete(item.id);
+          if (this.items.includes(item)) this.refreshViews();
+        };
+        const token = state.driveSyncToken;
+        try {
+          let blob;
+          try { blob = await driveDownloadFile(token, item.driveFileId); }
+          catch (err) {
+            if (err.status !== 404) throw err;
+            // The stored id is stale: look the file up by its name before giving up
+            const found = await driveListSyncFile(token, studioFileName(item.id));
+            if (!found || found === item.driveFileId) return done('missing');
+            item.driveFileId = found;
+            blob = await driveDownloadFile(token, found);
+          }
+          if (state.driveSyncToken !== token) return done(null);
+          if (blob.size > STUDIO_FILE_MAX_BYTES) return done('damaged');
+          let data = null;
+          try { data = JSON.parse(await blob.text()); } catch { /* damaged */ }
+          if (data && Number.isInteger(data.v) && data.v > STUDIO_FILE_VERSION) return done('newer');
+          const a = data && data.artifact;
+          if (!data || data.v !== STUDIO_FILE_VERSION || data.id !== item.id || data.tool !== item.tool || !a || typeof a !== 'object' || a.envelope !== STUDIO_ENVELOPE || a.tool !== item.tool || !a.data || typeof a.data !== 'object') return done('damaged');
+          item.artifact = a;
+          item.artifactBytes = blob.size;
+          await this.persist(item);
+          done(null);
+        } catch (err) {
+          console.warn('[Sync] Study aid could not be read from Drive:', err);
+          handleDriveTokenError(err);
+          done(state.driveSyncToken ? 'failed' : null);
+        }
       },
 
       // ── routing ──
@@ -12338,14 +12713,21 @@
 
       async remove(id) {
         const item = this.items.find(i => i.id === id);
-        if (!item || !(await showConfirm(`Delete <strong>${escapeHtml(item.title)}</strong>? This removes it from this device.`))) return;
+        if (!item || !(await showConfirm(`Delete <strong>${escapeHtml(item.title)}</strong>? This removes it from this device and, if sync is on, from your Google Drive and your other devices.`))) return;
         if (item.jobId) await jobs.cancel(item.jobId, true);
+        if (item.status === 'ready') {
+          const tombs = await this.loadTombs();
+          tombs.set(id, { at: Date.now(), ...(item.driveFileId ? { driveFileId: item.driveFileId } : {}) });
+          await this.saveTombs(tombs);
+        }
         this.items = this.items.filter(i => i !== item);
         this.viewState.delete(id);
         this.progress.delete(id);
+        this.remote.delete(id);
         studioFc.sessions.delete(id);
         studioQz.sessions.delete(id);
         await this.persist(null, id);
+        scheduleDrivePush();
         if (this.viewerId === id) location.hash = '#studio';
         this.refreshViews();
       },
@@ -12397,6 +12779,8 @@
           else if (act === 'export-png') studioMap.exportPng();
           else if (act === 'export-md') studioMap.exportMd();
           else if (act === 'export-tsv') studioFc.exportTsv();
+          else if (act === 'connect') triggerSyncSignIn();
+          else if (act === 'reload-remote') { this.remote.delete(id); this.refreshViews(); }
           else if (act === 'regenerate') { const it = this.items.find(i => i.id === id); if (it) this.openDialog(it.tool, { language: it.language, topic: it.topic, sourceIds: it.sourceIds, options: it.options }); }
         };
         this.el('studioItemList').addEventListener('click', onAct);
@@ -14641,17 +15025,9 @@
       }
     });
 
-    const UPDATE_NOTICE_KEY = 'sth_notice_2026_11_18';
-    function showUpdateNotice() {
-      const el = document.getElementById('noticeBanner');
-      if (!el || Date.now() >= Date.UTC(2026, 10, 18) || storageGet(UPDATE_NOTICE_KEY) === '1') return;
-      el.hidden = false;
-      document.getElementById('noticeBannerClose').addEventListener('click', () => { storageSet(UPDATE_NOTICE_KEY, '1'); el.hidden = true; }, { once: true });
-    }
     async function initAfterAuth() {
       if (authInitDone) return;
       authInitDone = true;
-      showUpdateNotice();
 
       // Google OAuth init (deferred) — Docs export + Drive sync
       const gisInterval = setInterval(() => {
