@@ -2655,6 +2655,10 @@
     .jobs-row-state { display: block; margin-top: 2px; color: rgba(26,46,28,0.75); overflow-wrap: anywhere; }
     .jobs-row.is-failed .jobs-row-state { color: #7a1a1d; }
     .jobs-row-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .tool-job-note { margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: #faf8f1; font: 400 14px/1.45 'Outfit', sans-serif; color: #1a2e1c; overflow-wrap: anywhere; }
+    .tool-job-note[hidden] { display: none; }
+    .tool-job-note.is-failed { border-color: rgba(122,26,29,0.35); color: #7a1a1d; }
+    .tool-job-note .jobs-row-actions button { min-height: 44px; }
     .jobs-row-actions a, .jobs-row-actions button { display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: #fff; font: 500 12px 'Outfit', sans-serif; color: #1a2e1c; text-decoration: none; cursor: pointer; }
     .jobs-empty { margin: 4px 0; color: rgba(26,46,28,0.7); }
     @media (max-width: 900px) {
@@ -3164,6 +3168,8 @@
               <p id="toolSubtitle">Upload files to get started.</p>
             </div>
           </div>
+
+          <div id="toolJobNote" class="tool-job-note" role="status" aria-live="polite" hidden></div>
 
           <!-- SUB-SECTION: Upload -->
           <section id="sectionUpload">
@@ -4108,6 +4114,7 @@
       resourceUrl: '',
       resultText: '',
       resultMode: null,
+      toolRunId: null, // the background run (job group) whose result this tool view is waiting for
       googleTokenClient: null,
       googleAccessToken: null,
       googleTokenExpiresAt: 0,
@@ -4419,22 +4426,28 @@
 
     let _lastSavedHistoryId = null;
 
-    async function saveToHistory(mode, resultText, fileNames) {
+    // id (optional): a fixed id for a result that can be saved more than once (a background run); an entry with that id is kept as it is. Resolves to the entry.
+    async function saveToHistory(mode, resultText, fileNames, id) {
       const words = resultText.trim() ? resultText.trim().split(/\s+/).length : 0;
       const preview = resultText.trim().slice(0, 160).replace(/\n/g, ' ');
       const entry = {
-        id: `h_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
+        id: id || `h_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
         mode, resultText, fileNames, wordCount: words,
         preview: preview + (resultText.length > 160 ? '\u2026' : ''),
         timestamp: Date.now(),
       };
       _lastSavedHistoryId = entry.id;
-      const all = (await _historyStore.getItem('entries').catch(() => null)) || [];
-      all.unshift(entry);
-      await _historyStore.setItem('entries', all).catch(() => {});
-      const btn = document.getElementById('historyBtn');
-      if (btn) btn.classList.add('has-entries');
-      tabSync.post('history');
+      return withStoreLock('history', async () => {
+        const all = (await _historyStore.getItem('entries').catch(() => null)) || [];
+        const have = id && all.find(e => e.id === id);
+        if (have) return have;
+        all.unshift(entry);
+        await _historyStore.setItem('entries', all).catch(() => {});
+        const btn = document.getElementById('historyBtn');
+        if (btn) btn.classList.add('has-entries');
+        tabSync.post('history');
+        return entry;
+      });
     }
 
     async function refreshHistoryUi() {
@@ -5304,9 +5317,9 @@
     // Anything off, blocked or missing on the server falls back to the direct request.
     const JOBS_FLAG_KEY = 'sth_flag_jobs';
     const JOBS_LEADER_LOCK = 'sth-jobs-leader';
-    const JOBS_MODES = ['tutor', 'studio_mindmap', 'studio_flashcards', 'studio_quiz', 'studio_infographic', 'studio_slides'];
-    const JOBS_CADENCE_S = { tutor: [5, 5, 8, 13, 20], studio_mindmap: [10, 15, 20, 30] };
-    const JOBS_SLOW_MS = { tutor: 90000, studio_mindmap: 4 * 60 * 1000 };
+    const JOBS_MODES = ['tutor', 'studio_mindmap', 'studio_flashcards', 'studio_quiz', 'studio_infographic', 'studio_slides', 'transcribe', 'template', 'reviewer'];
+    const JOBS_CADENCE_S = { tutor: [5, 5, 8, 13, 20], studio_mindmap: [10, 15, 20, 30], transcribe: [10, 15, 20], template: [10, 15, 20, 30], reviewer: [10, 15, 20, 30] };
+    const JOBS_SLOW_MS = { tutor: 90000, studio_mindmap: 4 * 60 * 1000, transcribe: 3 * 60 * 1000, template: 4 * 60 * 1000, reviewer: 4 * 60 * 1000 };
     const JOBS_FIRST_POLL_MS = 3000;
     const JOBS_HIDDEN_POLL_MS = 60000;
     const JOBS_KICK_MS = 2000;
@@ -5342,7 +5355,7 @@
     const jobs = {
       store: null, recs: new Map(), available: false, forcedOff: false, wired: false, loadP: null, initP: null,
       leader: false, ticking: false, timer: null, kickT: null, uiTimer: null, busy: new Set(),
-      groups: new Map(), groupQ: null, groupHandlers: {},
+      groups: new Map(), groupQ: null, groupHandlers: {}, finishing: new Set(),
       serverOffUntil: 0, modes: null, lastHello: 0, authPaused: false, authAsked: false, ackBlockedUntil: 0,
       away: null, awayUntil: 0, baseTitle: '', slowKey: '', acking: false,
       el: (id) => document.getElementById(id),
@@ -5463,7 +5476,7 @@
             if (!JOBS_ACTIVE.has(r.state) && now - (r.finishedAt || r.createdAt || now) > JOBS_KEEP_MS) { await this.drop(r.id); continue; }
             if (r.state === 'preparing') { await this.resumePrepared(r); continue; }
             if (r.state === 'submitting' && now - (r.submittedAt || r.createdAt) > JOBS_UNSENT_MS) { await this.giveUpUnsent(r); continue; }
-            if (JOBS_ACTIVE.has(r.state) && r.state !== 'needsConfirm') { r.nextPollAt = now; this.away.add(r.id); }
+            if (JOBS_ACTIVE.has(r.state) && r.state !== 'needsConfirm') { r.nextPollAt = now; if (!this.groupShown(r)) this.away.add(r.id); }
           }
           await this.pruneGroups(now);
           this.elect(false);
@@ -5805,7 +5818,7 @@
         if (!r) return;
         await this.deleteInputs(rec.id);
         try { await this.handlers[rec.kind].fail(r, e); } catch (err2) { console.warn('[STH] Background job handler failed:', errorFromException(err2).code); }
-        this.el('jobsAlert').textContent = `${r.label}: could not be finished. ${e.message} (Code ${e.code})`;
+        if (!this.groupShown(r)) this.el('jobsAlert').textContent = `${r.label}: could not be finished. ${e.message} (Code ${e.code})`;
         if (server) await this.ackBatch();
       },
 
@@ -5834,7 +5847,7 @@
         const now = Date.now();
         await this.update(live.id, x => { if (x.state !== 'succeeded') return false; x.state = 'applied'; x.appliedAt = now; x.finishedAt = now; x.ackDue = true; x.seen = applied === false; });
         await this.deleteInputs(live.id);
-        this.el('jobsLive').textContent = `${live.label}: ready.`;
+        if (!this.groupShown(live)) this.el('jobsLive').textContent = `${live.label}: ready.`;
         await this.ackBatch();
       },
 
@@ -5951,6 +5964,8 @@
       groupHandler(g) { return this.groupHandlers[g.kind] || {}; },
       groupOf(jobId) { const r = this.recs.get(jobId); return r && r.group ? this.groups.get(r.group.id) || null : null; },
       groupMembers(id) { const g = this.groups.get(id); return g ? g.members.map(m => ({ ...m })) : []; },
+      // The group of a member job when its kind shows one row for the whole group (tray, away notice, alerts)
+      groupShown(r) { const g = r.group && this.groups.get(r.group.id); return g && this.groupHandler(g).describeGroup ? g : null; },
 
       // members: [{ payload, files }] in order. Resolves to the group, or null when the inputs could not be kept on this device (run them directly).
       async createGroup({ kind, mode, ref, label, members, maxParallel = JOBS_BULK_MAX, maxAttempts = 2 }) {
@@ -5966,7 +5981,8 @@
         this.advanceGroups();
         return g;
       },
-      async groupDropInputs(id, n) { for (let i = 0; i < n; i++) await this.store.removeItem(`gin:${id}:${i}`).catch(() => {}); },
+      // the inputs of members not sent yet (gin) and the answers a kind keeps until its run is finished (out)
+      async groupDropInputs(id, n) { for (let i = 0; i < n; i++) { await this.store.removeItem(`gin:${id}:${i}`).catch(() => {}); await this.store.removeItem(`out:${id}:${i}`).catch(() => {}); } },
 
       // Sends the next members while slots are free; one pass at a time per tab, and only the leader sends
       advanceGroups() {
@@ -5975,6 +5991,7 @@
         return this.groupQ;
       },
       async advanceNow() {
+        for (const g of [...this.groups.values()]) if (g.state === 'done' && !g.handled && !this.finishing.has(g.id) && this.groupHandler(g).done) await this.groupHandle(g);
         const list = [...this.groups.values()].filter(g => g.state === 'running' || g.state === 'failed').sort((a, b) => a.createdAt - b.createdAt);
         for (const g of list) await this.groupReconcile(g);
         const running = () => [...this.groups.values()].reduce((n, g) => n + g.members.filter(m => m.state === 'running').length, 0);
@@ -6006,15 +6023,17 @@
 
       async groupStart(g, i) {
         const gin = await this.store.getItem(`gin:${g.id}:${i}`).catch(() => null);
-        if (!gin) { await this.groupUpdate(g.id, x => { const m = x.members[i]; if (m.state !== 'todo') return false; m.state = 'failed'; m.error = { code: 'STH-JOB-502', message: ERRORS['JOB-502'].message }; x.state = 'failed'; }); this.groupHandler(g).failed?.(this.groups.get(g.id), i, new AppError('JOB-502')); return; }
+        // inputs gone (noInputs: cannot be sent again), or not sent within a day of the run: a person confirms with Retry
+        const stale = !g.members[i].retry && Date.now() - Math.max(g.createdAt, g.revivedAt || 0) > JOBS_UNSENT_MS;
+        if (!gin || stale) { await this.groupUpdate(g.id, x => { const m = x.members[i]; if (m.state !== 'todo') return false; m.state = 'failed'; m.error = { code: 'STH-JOB-502', message: ERRORS['JOB-502'].message }; if (!gin) m.noInputs = true; x.state = 'failed'; }); this.groupHandler(g).failed?.(this.groups.get(g.id), i, new AppError('JOB-502')); return; }
         const job = await this.prepare({ mode: g.mode, kind: 'group', ref: g.ref, label: g.label, maxAttempts: g.maxAttempts, group: { id: g.id, i, n: g.n } });
         const claimed = await this.groupUpdate(g.id, x => { const m = x.members[i]; if (m.state !== 'todo') return false; m.state = 'running'; m.jobId = job.id; m.retry = false; });
         if (!claimed) { await this.drop(job.id); return; }
         try { await this.store.setItem(`in:${job.id}`, gin); } catch { await this.drop(job.id); await this.groupMemberFailed(g.id, i, job.id, new AppError('STORE-507')); return; }
-        const now = Date.now();
-        await this.update(job.id, x => { x.state = 'submitting'; x.submittedAt = now; x.nextPollAt = now; });
+        const now = Date.now(), off = now < this.serverOffUntil; // the server said no a moment ago: run the member directly, no upload to be refused
+        await this.update(job.id, x => { x.state = off ? 'syncing' : 'submitting'; x.submittedAt = now; x.nextPollAt = now; });
         const rec = this.recs.get(job.id);
-        if (rec) this.spawn(rec, () => this.create(rec, false));
+        if (rec) this.spawn(rec, () => (off ? this.runSync(rec) : this.create(rec, false)));
       },
 
       async groupMemberDone(gid, i, jobId) {
@@ -6025,10 +6044,20 @@
       },
       async groupFinish(gid) {
         const g = await this.groupUpdate(gid, x => { if (x.state !== 'running') return false; x.state = 'done'; x.finishedAt = Date.now(); });
-        if (g) try { await this.groupHandler(g).done?.(g); } catch (err) { console.warn('[STH] Background group handler failed:', errorFromException(err).code); }
+        if (g) await this.groupHandle(g);
+      },
+      // The kind's done handler runs once; `handled` is set only after it returned, so a crash in it makes the next pass of the leader run it again (handlers are idempotent)
+      async groupHandle(g) {
+        this.finishing.add(g.id);
+        try { await this.groupHandler(g).done?.(g); await this.groupUpdate(g.id, x => { x.handled = true; }); }
+        catch (err) { console.warn('[STH] Background group handler failed:', errorFromException(err).code); }
+        finally { this.finishing.delete(g.id); }
       },
       async groupMemberFailed(gid, i, jobId, err) {
         const e = errorFromException(err);
+        const cur = this.groups.get(gid), h = this.groupHandler(cur || {}), m0 = cur && cur.members[i];
+        const soft = m0 && m0.state === 'running' && (!jobId || m0.jobId === jobId) && h.soften && h.soften(cur, i, e); // a failure the kind turns into a result for this member (the group goes on)
+        if (soft) { await h.applyMember(cur, i, soft); await this.groupMemberDone(gid, i, jobId); return; }
         const g = await this.groupUpdate(gid, x => { const m = x.members[i]; if (!m || m.state !== 'running' || (jobId && m.jobId !== jobId)) return false; m.state = 'failed'; m.error = { code: e.code, message: e.message }; if (x.state === 'running') { x.state = 'failed'; x.finishedAt = Date.now(); } });
         if (g) try { await this.groupHandler(g).failed?.(g, i, e); } catch (err2) { console.warn('[STH] Background group handler failed:', errorFromException(err2).code); }
       },
@@ -6038,7 +6067,7 @@
         const g = await this.groupUpdate(gid, x => {
           const m = x.members[i];
           if (!m || m.state !== 'failed' || x.state === 'cancelled') return false;
-          m.state = 'todo'; m.jobId = null; m.error = null; m.retry = true;
+          m.state = 'todo'; m.jobId = null; m.error = null; m.retry = true; x.revivedAt = Date.now();
           if (!x.members.some(y => y.state === 'failed')) { x.state = 'running'; x.finishedAt = null; }
         });
         if (g) this.advanceGroups();
@@ -6060,6 +6089,18 @@
         return true;
       },
 
+      // A finished or stopped group the person is done with: the group, its finished member jobs and everything kept for it
+      async dropGroup(gid) {
+        const g = this.groups.get(gid);
+        if (!g || g.state === 'running') return;
+        for (const r of [...this.recs.values()]) if (r.group && r.group.id === gid && !JOBS_ACTIVE.has(r.state)) await this.drop(r.id);
+        this.groups.delete(gid);
+        try { await withStoreLock('jobs', () => this.store.removeItem(`group:${gid}`)); } catch { /* nothing to remove */ }
+        await this.groupDropInputs(gid, g.n);
+        tabSync.post('jobs');
+        this.render();
+      },
+
       // Finished groups are kept for a week like finished jobs; inputs without a group are leftovers of a crash
       async pruneGroups(now) {
         for (const g of [...this.groups.values()]) {
@@ -6070,7 +6111,7 @@
         }
         try {
           for (const k of await this.store.keys()) {
-            const m = /^gin:(g_[^:]+):\d+$/.exec(k);
+            const m = /^(?:gin|out):(g_[^:]+):\d+$/.exec(k);
             if (m && !this.groups.has(m[1])) await this.store.removeItem(k).catch(() => {});
           }
         } catch { /* nothing to clean */ }
@@ -6103,6 +6144,8 @@
       onTrayClick(e) {
         const act = e.target.closest('[data-jobs-act]');
         const link = e.target.closest('a[data-jobs-id]');
+        const gact = e.target.closest('[data-jobs-gact]');
+        if (gact) { this.onGroupAct(gact.dataset.jobsGact, gact.dataset.gid, Number(gact.dataset.i)); return; }
         if (link) { this.markSeen(link.dataset.jobsId); this.openTray(false); return; }
         if (!act) return;
         const id = act.dataset.id, r = this.recs.get(id);
@@ -6114,9 +6157,22 @@
         else if (act.dataset.jobsAct === 'send') this.handlers[r.kind].resumeUnsent(r, true);
       },
 
+      // One tray row per group of a kind that describes its groups; their member jobs have no rows of their own
+      onGroupAct(act, gid, i) {
+        const g = this.groups.get(gid);
+        if (!g) return Promise.resolve();
+        if (act === 'cancel') return this.cancelGroup(gid);
+        if (act === 'retry') return this.retryMember(gid, i);
+        if (act === 'dismiss') return this.dropGroup(gid);
+        if (act === 'open') { this.openTray(false); return Promise.resolve(this.groupHandler(g).open?.(g)); }
+        return Promise.resolve();
+      },
+      shownGroups() { return [...this.groups.values()].filter(g => this.groupHandler(g).describeGroup); },
+
       count() {
         let n = 0;
-        for (const r of this.recs.values()) if (JOBS_ACTIVE.has(r.state) || (!r.seen && ['applied', 'done', 'failed', 'expired'].includes(r.state))) n++;
+        for (const r of this.recs.values()) if (!this.groupShown(r) && (JOBS_ACTIVE.has(r.state) || (!r.seen && ['applied', 'done', 'failed', 'expired'].includes(r.state)))) n++;
+        for (const g of this.shownGroups()) if (g.state === 'running' || g.state === 'failed' || (g.state === 'done' && !g.seen)) n++;
         return n;
       },
 
@@ -6158,6 +6214,13 @@
         return `<li class="jobs-row${r.state === 'failed' || r.state === 'expired' ? ' is-failed' : ''}" data-jobs-row="${id}"><span class="jobs-row-label">${escapeHtml(d.label)}</span><span class="jobs-row-state">${this.stateText(r)}</span><div class="jobs-row-actions">${acts.join('')}</div></li>`;
       },
 
+      groupRowHtml(g) {
+        const d = this.groupHandler(g).describeGroup(g);
+        const id = escapeHtml(g.id);
+        const acts = d.actions.map(a => `<button type="button" data-jobs-gact="${a.act}" data-gid="${id}"${a.i === undefined ? '' : ` data-i="${a.i}"`}>${escapeHtml(a.label)}</button>`);
+        return `<li class="jobs-row${d.failed ? ' is-failed' : ''}" data-jobs-grow="${id}"><span class="jobs-row-label">${escapeHtml(d.label)}</span><span class="jobs-row-state">${d.text}</span><div class="jobs-row-actions">${acts.join('')}</div></li>`;
+      },
+
       render() {
         if (!this.wired) return;
         const n = this.count();
@@ -6167,8 +6230,9 @@
         this.el('jobsTrayBtn').setAttribute('aria-label', n ? `Background jobs, ${n} need${n === 1 ? 's' : ''} attention` : 'Background jobs');
         document.title = (n ? `(${n}) ` : '') + this.baseTitle;
         if (!this.el('jobsTray').hidden) {
-          const list = [...this.recs.values()].filter(r => r.state !== 'preparing').sort((a, b) => b.createdAt - a.createdAt);
-          this.el('jobsTrayList').innerHTML = list.map(r => this.rowHtml(r)).join('');
+          const list = [...this.recs.values()].filter(r => r.state !== 'preparing' && !this.groupShown(r)).map(r => ({ at: r.createdAt, html: this.rowHtml(r) }))
+            .concat(this.shownGroups().map(g => ({ at: g.createdAt, html: this.groupRowHtml(g) }))).sort((a, b) => b.at - a.at);
+          this.el('jobsTrayList').innerHTML = list.map(x => x.html).join('');
           this.el('jobsTrayEmpty').hidden = list.length > 0;
         }
         const running = [...this.recs.values()].some(r => JOBS_ACTIVE.has(r.state));
@@ -6177,6 +6241,7 @@
         if (this.away && this.leader) this.checkAway();
         if (studio.wired) studio.refreshViews();
         tutor.syncJobs();
+        toolSyncNote();
       },
 
       tickClock() {
@@ -7223,6 +7288,7 @@
         state.resourceUrl = '';
         state.resultText = '';
         state.resultMode = null;
+        state.toolRunId = null;
       }
 
       state.mode = mode;
@@ -7235,6 +7301,7 @@
       renderUploadZones();
       showToolSection('sectionUpload');
       updateActionState();
+      toolSyncNote();
     }
 
     // ─── Upload Zone Rendering ──────────────────────
@@ -7998,116 +8065,138 @@
 
     // ─── Core Processing Flow ───────────────────────
     let processRunning = false;
+
+    // Reads the files and builds the requests of one run, in order: [{ payload, binaryFiles }]. Transcribe makes one request per batch of
+    // BATCH_SIZE pages, template and reviewer make one. Fresh files are saved to Knowledge Bay on the way.
+    // Resolves to { runs, newKbNames, srcNames, pages }.
+    async function toolBuildRuns() {
+      const documents = [];
+      // Scanned PDFs from Knowledge Bay (Template/Reviewer only — Transcribe
+      // rasterizes them above via processFileObj instead) travel as original
+      // file bytes, not inlined into the JSON documents array. See sendToWebhook.
+      const scannedPdfDocs = [];
+      const binaryFiles = [];
+      const allFiles = [];
+      for (const [role, files] of Object.entries(state.zones)) {
+        for (const f of files) allFiles.push({ ...f, role });
+      }
+
+      const newKbNames = [];
+      for (let i = 0; i < allFiles.length; i++) {
+        updateProgress(Math.round((i / allFiles.length) * 35), `Processing ${allFiles[i].name}\u2026`);
+        const doc = await processFileObj(allFiles[i]);
+        if (doc && doc._multiPage) {
+          // Rasterized PDF — flatten page images into documents
+          for (const page of doc) documents.push(page);
+        } else if (doc && doc.type === 'scanned_pdf_upload') {
+          const meta = { name: doc.name, role: doc.role, pageCount: doc.pageCount || null, contentHash: doc.contentHash ? await serverKey(doc.contentHash) : null };
+          meta.fieldName = `scanned_${binaryFiles.length}`;
+          binaryFiles.push({ fieldName: meta.fieldName, blob: doc.originalFile, filename: doc.name });
+          scannedPdfDocs.push(meta);
+        } else {
+          documents.push(doc);
+        }
+        // Auto-save fresh files to Knowledge Bay for future re-use
+        if (!allFiles[i].fromKb) {
+          const wasNew = !kb.cache.some(k => k.name === allFiles[i].name);
+          await autoSaveToKb(allFiles[i], doc);
+          if (wasNew && kb.cache.some(k => k.name === allFiles[i].name)) {
+            newKbNames.push(allFiles[i].name);
+          }
+        }
+      }
+
+      const url = normalizeUrl(state.resourceUrl);
+      let runs;
+      if (state.mode === 'transcribe') {
+        const batches = [];
+        for (let i = 0; i < documents.length; i += BATCH_SIZE) batches.push(documents.slice(i, i + BATCH_SIZE));
+        runs = batches.map((batch, bIdx) => ({
+          payload: { mode: 'transcribe', documents: batch, batchIndex: bIdx + 1, totalBatches: batches.length, userNotes: state.userNotes, url: '' },
+          binaryFiles: [],
+        }));
+      } else {
+        runs = [{ payload: { mode: state.mode, documents, scannedPdfDocs, userNotes: state.userNotes, url }, binaryFiles }];
+      }
+      return { runs, newKbNames, srcNames: allFiles.filter(f => !f.fromKb).map(f => f.name.replace(/\.[^/.]+$/, '')), pages: documents.length };
+    }
+
+    // Joins the parts of a run. A transcription is also kept in Knowledge Bay as searchable text (once: a result of that name is never added twice).
+    async function toolJoin({ mode, parts, srcNames, newKbNames }) {
+      const resultText = parts.join('\n\n');
+      // Auto-save transcription result to Knowledge Bay as searchable text
+      if (mode === 'transcribe' && resultText.trim()) {
+        try {
+          if (srcNames.length) {
+            const resultName = srcNames.join(' + ') + ' (transcribed)';
+            if (!kb.cache.some(k => k.name === resultName)) {
+              kb.cache.push({
+                id: generateId(),
+                name: resultName,
+                type: 'txt',
+                mime: 'text/plain',
+                size: resultText.length,
+                timestamp: Date.now(),
+                content: resultText.trim(),
+              });
+              await kb.persist();
+              scheduleDrivePush();
+              newKbNames.push(resultName);
+            }
+          }
+        } catch (e) { console.warn('Auto-KB transcribe result save:', e); }
+      }
+      return resultText;
+    }
+
+    function toolDoneToast(newKbNames) {
+      if (newKbNames.length) {
+        showToast(`Done! ${newKbNames.length} file${newKbNames.length > 1 ? 's' : ''} saved to Knowledge Bay for future use.`);
+      } else {
+        showToast('Processing complete!');
+      }
+    }
+
     async function runProcess() {
       if (!state.mode || processRunning) return;
       processRunning = true;
       setBusy(dom.btnAction, true);
+      state.toolRunId = null;
 
       showToolSection('sectionProcessing');
       startLoadingMessages();
       updateProgress(0, 'Preparing your files\u2026');
 
       try {
-        const documents = [];
-        // Scanned PDFs from Knowledge Bay (Template/Reviewer only — Transcribe
-        // rasterizes them above via processFileObj instead) travel as original
-        // file bytes, not inlined into the JSON documents array. See sendToWebhook.
-        const scannedPdfDocs = [];
-        const binaryFiles = [];
-        const allFiles = [];
-        for (const [role, files] of Object.entries(state.zones)) {
-          for (const f of files) allFiles.push({ ...f, role });
-        }
-
-        const newKbNames = [];
-        for (let i = 0; i < allFiles.length; i++) {
-          updateProgress(Math.round((i / allFiles.length) * 35), `Processing ${allFiles[i].name}\u2026`);
-          const doc = await processFileObj(allFiles[i]);
-          if (doc && doc._multiPage) {
-            // Rasterized PDF — flatten page images into documents
-            for (const page of doc) documents.push(page);
-          } else if (doc && doc.type === 'scanned_pdf_upload') {
-            const meta = { name: doc.name, role: doc.role, pageCount: doc.pageCount || null, contentHash: doc.contentHash ? await serverKey(doc.contentHash) : null };
-            meta.fieldName = `scanned_${binaryFiles.length}`;
-            binaryFiles.push({ fieldName: meta.fieldName, blob: doc.originalFile, filename: doc.name });
-            scannedPdfDocs.push(meta);
-          } else {
-            documents.push(doc);
-          }
-          // Auto-save fresh files to Knowledge Bay for future re-use
-          if (!allFiles[i].fromKb) {
-            const wasNew = !kb.cache.some(k => k.name === allFiles[i].name);
-            await autoSaveToKb(allFiles[i], doc);
-            if (wasNew && kb.cache.some(k => k.name === allFiles[i].name)) {
-              newKbNames.push(allFiles[i].name);
-            }
-          }
-        }
+        const { runs, newKbNames, srcNames, pages } = await toolBuildRuns();
 
         updateProgress(40, 'Sending to AI\u2026');
 
+        // From the v7 release on, with background jobs: the run goes to the server as a job group and this function ends once everything is uploaded
+        if (await toolSendAsGroup(runs, { newKbNames, srcNames, pages })) return;
+
         let resultText = '';
-        const url = normalizeUrl(state.resourceUrl);
 
         if (state.mode === 'transcribe') {
-          const batches = [];
-          for (let i = 0; i < documents.length; i += BATCH_SIZE) batches.push(documents.slice(i, i + BATCH_SIZE));
-
           const parts = [];
-          for (let bIdx = 0; bIdx < batches.length; bIdx++) {
-            const pct = 40 + Math.round((bIdx / batches.length) * 45);
+          for (let bIdx = 0; bIdx < runs.length; bIdx++) {
+            const pct = 40 + Math.round((bIdx / runs.length) * 45);
             const from = bIdx * BATCH_SIZE + 1;
-            const to = Math.min(documents.length, from + BATCH_SIZE - 1);
-            updateProgress(pct, documents.length > 1
-              ? `Reading pages ${from}-${to} of ${documents.length}`
-              : `Sending batch ${bIdx + 1} of ${batches.length}\u2026`);
+            const to = Math.min(pages, from + BATCH_SIZE - 1);
+            updateProgress(pct, pages > 1
+              ? `Reading pages ${from}-${to} of ${pages}`
+              : `Sending batch ${bIdx + 1} of ${runs.length}\u2026`);
 
-            const data = await sendToWebhook({
-              mode: 'transcribe',
-              documents: batches[bIdx],
-              batchIndex: bIdx + 1,
-              totalBatches: batches.length,
-              userNotes: state.userNotes,
-              url: '',
-            });
+            const data = await sendToWebhook(runs[bIdx].payload);
             const txt = data.text || data.result || '';
             if (txt.trim()) parts.push(txt.trim());
 
-            if (bIdx < batches.length - 1) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
+            if (bIdx < runs.length - 1) await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
           }
-          resultText = parts.join('\n\n');
-          // Auto-save transcription result to Knowledge Bay as searchable text
-          if (resultText.trim()) {
-            try {
-              const srcNames = allFiles.filter(f => !f.fromKb).map(f => f.name.replace(/\.[^/.]+$/, ''));
-              if (srcNames.length) {
-                const resultName = srcNames.join(' + ') + ' (transcribed)';
-                if (!kb.cache.some(k => k.name === resultName)) {
-                  kb.cache.push({
-                    id: generateId(),
-                    name: resultName,
-                    type: 'txt',
-                    mime: 'text/plain',
-                    size: resultText.length,
-                    timestamp: Date.now(),
-                    content: resultText.trim(),
-                  });
-                  await kb.persist();
-                  scheduleDrivePush();
-                  newKbNames.push(resultName);
-                }
-              }
-            } catch (e) { console.warn('Auto-KB transcribe result save:', e); }
-          }
+          resultText = await toolJoin({ mode: state.mode, parts, srcNames, newKbNames });
         } else {
           updateProgress(50, 'AI is analyzing your documents\u2026');
-          const data = await sendToWebhook({
-            mode: state.mode,
-            documents,
-            scannedPdfDocs,
-            userNotes: state.userNotes,
-            url,
-          }, binaryFiles);
+          const data = await sendToWebhook(runs[0].payload, runs[0].binaryFiles);
           resultText = data.text || data.result || '';
         }
 
@@ -8120,11 +8209,7 @@
         state.resultMode = state.mode;
         displayResult();
         showToolSection('sectionResult');
-        if (newKbNames.length) {
-          showToast(`Done! ${newKbNames.length} file${newKbNames.length > 1 ? 's' : ''} saved to Knowledge Bay for future use.`);
-        } else {
-          showToast('Processing complete!');
-        }
+        toolDoneToast(newKbNames);
         const fileNames = Object.values(state.zones).flat().map(f => f.name);
         saveToHistory(state.resultMode, resultText, fileNames);
         clearDraft();
@@ -8137,8 +8222,196 @@
         processRunning = false;
         setBusy(dom.btnAction, false);
         updateActionState();
+        toolSyncNote();
       }
     }
+
+    // ─── Background runs of the three tools (v7: job modes transcribe, template, reviewer) ───
+    // One run is one job group, a member per request. Used only from the v7 release on, against a v7 server, with background jobs on and
+    // room on this device; anything else (also a job path the server turns down) runs directly, as before.
+    const TOOL_JOB_TEXT = {
+      transcribe: { name: 'Your transcription', verb: 'Transcribing' },
+      template: { name: 'Your template', verb: 'Making your template' },
+      reviewer: { name: 'Your review', verb: 'Reviewing your assignment' },
+    };
+    const TOOL_JOB_SENT = 'Sent. You can leave; it will wait in History (kept 72 hours on the server).';
+    const TOOL_JOB_NO_ROOM = 'Background sending is not available on this device, so this runs the usual way. Keep this tab open until it is done.';
+    const TOOL_JOB_LIVE = new Set(['submitted', 'running', 'succeeded', 'applied', 'done']);
+
+    // The pages inside a request must fit on this device next to what is stored already (twice over, to be safe)
+    async function toolRoomFor(runs) {
+      let need = 0;
+      for (const r of runs) {
+        for (const d of r.payload.documents) need += (d.base64 || d.content || '').length;
+        for (const f of r.binaryFiles) need += f.blob ? f.blob.size : 0;
+      }
+      try {
+        const e = await navigator.storage.estimate();
+        if (e && e.quota && e.quota - (e.usage || 0) < need * 2) return false;
+      } catch { /* unknown: try it */ }
+      return true;
+    }
+
+    // Resolves true when the run is a group now and everything is uploaded (or the group stopped); false means "run it directly".
+    async function toolSendAsGroup(runs, ctx) {
+      if (!runs.length || !studioV7Live()) return false;
+      await jobs.ensureLoad();
+      if (!jobs.enabled()) return false;
+      if (!jobs.available || !(await toolRoomFor(runs))) { showToast(TOOL_JOB_NO_ROOM); return false; }
+      if (!jobs.useFor(state.mode)) return false;
+      const fileNames = Object.values(state.zones).flat().map(f => f.name);
+      const g = await jobs.createGroup({
+        kind: 'tool', mode: state.mode, label: TOOL_JOB_TEXT[state.mode].name,
+        ref: { mode: state.mode, fileNames, srcNames: ctx.srcNames, newKbNames: ctx.newKbNames, pages: ctx.pages, batch: BATCH_SIZE },
+        members: runs.map(r => ({ payload: r.payload, files: r.binaryFiles })),
+      });
+      if (!g) { showToast(TOOL_JOB_NO_ROOM); return false; }
+      state.toolRunId = g.id;
+      clearDraft(); // the pages are kept with the group now
+      // The pages leave this device only while this tab is open and in charge: members go out two at a time, the next when one is finished
+      for (;;) {
+        const cur = jobs.groups.get(g.id);
+        if (!cur || cur.state !== 'running' || !toolUnsent(cur)) break;
+        updateProgress(40 + Math.round((cur.members.filter(m => toolMemberSent(m)).length / cur.n) * 55), toolUploadText(cur));
+        await new Promise(r => setTimeout(r, 400));
+      }
+      const end = jobs.groups.get(g.id);
+      if (end && end.state === 'running') showToast(TOOL_JOB_SENT);
+      if (!dom.sectionProcessing.classList.contains('hidden')) showToolSection('sectionUpload');
+      return true;
+    }
+
+    // A member is sent once the server has taken it (finished members count too)
+    function toolMemberSent(m) {
+      if (m.state === 'done') return true;
+      const rec = m.state === 'running' && m.jobId ? jobs.recs.get(m.jobId) : null;
+      return !!rec && TOOL_JOB_LIVE.has(rec.state);
+    }
+    const toolUnsent = (g) => g.members.some(m => !toolMemberSent(m) && m.state !== 'failed' && m.state !== 'cancelled');
+    const toolUploadText = (g) => `Uploading batch ${Math.min(g.members.filter(m => toolMemberSent(m)).length + 1, g.n)} of ${g.n} — keep this tab open until uploaded`;
+
+    // "Pages 11-15" for a transcription batch, the name of the result for the other tools
+    function toolBatchText(g, i) {
+      const r = g.ref;
+      if (r.mode !== 'transcribe') return TOOL_JOB_TEXT[r.mode].name;
+      const from = i * r.batch + 1, to = Math.min(r.pages, from + r.batch - 1);
+      return from >= to ? `Page ${from}` : `Pages ${from}-${to}`;
+    }
+    function toolFailText(g, i, e) {
+      const m = g.members[i];
+      if (m && m.noInputs) return `${toolBatchText(g, i)} could not be sent again, because the files are no longer kept on this device. Start again with your files.`;
+      return `${toolBatchText(g, i)} failed. ${e.message} (Code ${e.code})`;
+    }
+    const toolOnView = (g) => state.currentRoute === g.ref.mode && state.mode === g.ref.mode && state.toolRunId === g.id;
+
+    // The end of a background run: join the parts in order, keep a transcription in Knowledge Bay, save to History, show it. Safe to run again after a
+    // crash (a History entry with the group's id and a Knowledge Bay item of the same name are never added twice).
+    async function toolFinish(g) {
+      if (g.outcome) return;
+      const r = g.ref;
+      const outs = [];
+      for (let i = 0; i < g.n; i++) outs.push(await jobs.store.getItem(`out:${g.id}:${i}`).catch(() => null));
+      const newKbNames = [...(r.newKbNames || [])];
+      let err = null, entry = null, kept = false, resultText = '';
+      if (outs.some(o => !o)) err = new AppError('JOB-502');
+      else if (!outs.some(o => o.blocked || o.text.trim())) err = new AppError('AI-204');
+      else if (!outs.some(o => !o.blocked && o.text.trim())) err = new AppError(outs.find(o => o.blocked).blocked); // every part was left out
+      else {
+        const parts = outs.filter(o => o.blocked || o.text.trim()).map(o => (r.mode === 'transcribe' ? o.text.trim() : o.text));
+        resultText = await toolJoin({ mode: r.mode, parts, srcNames: r.srcNames || [], newKbNames });
+        entry = await saveToHistory(r.mode, resultText, r.fileNames || [], `h_${g.id}`);
+        kept = (await getHistory()).some(e => e.id === entry.id);
+      }
+      const onView = toolOnView(g);
+      await jobs.groupUpdate(g.id, x => { x.outcome = err ? { code: err.code, message: err.message } : 'ok'; if (onView) x.seen = true; });
+      if (err) {
+        if (onView) handleAppError(null, err); else showToast(errorToastText(err), 'error');
+      } else if (onView) {
+        state.resultText = resultText;
+        state.resultMode = r.mode;
+        displayResult();
+        showToolSection('sectionResult');
+        toolDoneToast(newKbNames);
+        clearDraft();
+      } else {
+        showToast(`${TOOL_JOB_TEXT[r.mode].name} is ready.`, 'success', { actionLabel: 'Open', action: () => openHistoryResult(entry), persistent: true });
+      }
+      if (!err) jobs.el('jobsLive').textContent = `${TOOL_JOB_TEXT[r.mode].name}: ready.`;
+      if (kept || err) await jobs.groupDropInputs(g.id, g.n); // the parts go once the History entry is really there
+      toolSyncNote();
+    }
+
+    // One row of the tray (and the note above the tool) for a group
+    function toolDescribeGroup(g) {
+      const r = g.ref, t = TOOL_JOB_TEXT[r.mode];
+      const since = `<span data-jobs-since="${g.createdAt}">${jobsElapsed(g.createdAt)}</span>`;
+      const failed = g.members.find(m => m.state === 'failed');
+      if (g.state === 'failed' && failed) {
+        const acts = failed.noInputs ? [] : [{ act: 'retry', label: g.n > 1 ? 'Retry batch' : 'Try again', i: failed.i }];
+        return { label: t.name, failed: true, text: escapeHtml(toolFailText(g, failed.i, failed.error || new AppError('JOB-502'))), actions: acts.concat([{ act: 'cancel', label: 'Cancel' }]) };
+      }
+      if (g.state === 'running') {
+        const done = g.members.filter(m => m.state === 'done').length;
+        const text = toolUnsent(g) ? escapeHtml(toolUploadText(g)) : `${t.verb}${g.n > 1 ? `: batch ${Math.min(done + 1, g.n)} of ${g.n}` : ''} (${since})`;
+        return { label: t.name, text, actions: [{ act: 'cancel', label: 'Cancel' }] };
+      }
+      if (g.state === 'done') {
+        if (g.outcome && g.outcome !== 'ok') return { label: t.name, failed: true, text: `${escapeHtml(g.outcome.message)} (Code ${escapeHtml(g.outcome.code)})`, actions: [{ act: 'dismiss', label: 'Dismiss' }] };
+        return { label: t.name, text: 'Ready', actions: [{ act: 'open', label: 'Open' }, { act: 'dismiss', label: 'Dismiss' }] };
+      }
+      return { label: t.name, text: g.state === 'cancelled' ? 'Cancelled' : 'Stopped', actions: [{ act: 'dismiss', label: 'Dismiss' }] };
+    }
+
+    // The note above the tool: the state of this tool's background run while it is not finished (sent, uploading, stopped)
+    function toolSyncNote() {
+      const el = document.getElementById('toolJobNote');
+      if (!el) return;
+      const cur = jobs.groups.get(state.toolRunId);
+      const g = cur && cur.ref && cur.ref.mode === state.mode ? cur
+        : jobs.shownGroups().filter(x => x.ref && x.ref.mode === state.mode && (x.state === 'running' || x.state === 'failed')).sort((a, b) => b.createdAt - a.createdAt)[0];
+      if (processRunning || state.currentRoute !== state.mode || !g || (g.state !== 'running' && g.state !== 'failed')) {
+        if (!el.hidden) { el.hidden = true; el.textContent = ''; delete el.dataset.k; }
+        return;
+      }
+      const d = toolDescribeGroup(g);
+      const acts = d.actions.map(a => `<button type="button" data-jobs-gact="${a.act}" data-gid="${escapeHtml(g.id)}"${a.i === undefined ? '' : ` data-i="${a.i}"`}>${escapeHtml(a.label)}</button>`).join('');
+      const html = `<span>${g.state === 'running' && !toolUnsent(g) ? `${escapeHtml(TOOL_JOB_SENT)} ` : ''}${d.text}</span><div class="jobs-row-actions">${acts}</div>`;
+      el.classList.toggle('is-failed', !!d.failed);
+      if (el.dataset.k !== html) { el.innerHTML = html; el.dataset.k = html; }
+      el.hidden = false;
+    }
+
+    jobs.groupHandlers.tool = {
+      href: (g) => `#${g.ref.mode}`,
+      describeGroup: toolDescribeGroup,
+      // Keeps the part under its own key. Written once: applying the same member twice changes nothing.
+      applyMember: async (g, i, data) => {
+        const key = `out:${g.id}:${i}`;
+        if (await jobs.store.getItem(key).catch(() => null)) return;
+        const text = String((data && (data.text || data.result)) || '');
+        await jobs.store.setItem(key, { text, ...(data && data.blocked ? { blocked: data.blocked } : {}) });
+      },
+      // A transcription batch the AI refused (safety filter, published text) is left out with a note; the other batches go on
+      soften: (g, i, e) => (g.ref.mode === 'transcribe' && (e.key === 'AI-451' || e.key === 'AI-452') ? { text: `[${toolBatchText(g, i)}: ${ERRORS[e.key].note}]`, blocked: e.key } : null),
+      done: (g) => toolFinish(g),
+      failed: (g, i, err) => {
+        const text = toolFailText(g, i, errorFromException(err));
+        jobs.el('jobsAlert').textContent = text;
+        if (!toolOnView(g)) showToast(text, 'error', { actionLabel: 'View', action: () => jobs.openTray(true), persistent: true });
+        toolSyncNote();
+      },
+      cancelled: async (g) => {
+        await jobs.groupDropInputs(g.id, g.n);
+        showToast(`${TOOL_JOB_TEXT[g.ref.mode].name} was cancelled.`);
+        toolSyncNote();
+      },
+      send: (g, i, payload, files) => sendToWebhook(payload, files),
+      open: async (g) => {
+        const entry = (await getHistory()).find(e => e.id === `h_${g.id}`);
+        if (entry) { openHistoryResult(entry); jobs.groupUpdate(g.id, x => { x.seen = true; }); }
+        else showToast('This result is no longer in History.', 'error');
+      },
+    };
 
     // ─── Result Display ─────────────────────────────
     function displayResult() {
@@ -9200,6 +9473,7 @@
       state.zones = {};
       state.resultText = '';
       state.resultMode = null;
+      state.toolRunId = null;
       state.userNotes = '';
       state.resourceUrl = '';
       state.googleAccessToken = null;
@@ -15928,6 +16202,7 @@
 
     // Tool actions
     dom.btnAction.addEventListener('click', runProcess);
+    document.getElementById('toolJobNote').addEventListener('click', (e) => { const b = e.target.closest('[data-jobs-gact]'); if (b) jobs.onGroupAct(b.dataset.jobsGact, b.dataset.gid, Number(b.dataset.i)); });
     dom.btnClearAll.addEventListener('click', resetApp);
     dom.btnCopy.addEventListener('click', copyToClipboard);
     dom.btnDownload.addEventListener('click', downloadResult);
