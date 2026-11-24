@@ -9039,6 +9039,61 @@
       for (let i = chats.length - 1; i >= 0; i--) if (removed[chats[i].id]) chats.splice(i, 1);
     }
 
+    // Unsent text in the tutor box, kept per chat in this browser only for 48 hours after the last edit (never sent to the server or Drive)
+    const TUTOR_DRAFT_KEY = 'sth_tutor_drafts', TUTOR_DRAFT_TTL_MS = 48 * 3600000, TUTOR_DRAFT_MAX_CHARS = 20000, TUTOR_DRAFT_MAX = 50;
+    const tutorDraft = {
+      chatId: null, timer: 0, saved: '',
+      read() { try { const m = JSON.parse(storageGet(TUTOR_DRAFT_KEY) || '{}'); return m && typeof m === 'object' && !Array.isArray(m) ? m : {}; } catch { return {}; } },
+      write(map) { storageSet(TUTOR_DRAFT_KEY, JSON.stringify(map)); },
+      // drops expired or malformed drafts, then the oldest beyond the limit
+      prune(map) {
+        const now = Date.now();
+        for (const [id, d] of Object.entries(map)) if (!d || typeof d.t !== 'string' || !d.t || !Number.isFinite(d.at) || now - d.at > TUTOR_DRAFT_TTL_MS) delete map[id];
+        const ids = Object.keys(map).sort((a, b) => map[a].at - map[b].at);
+        while (ids.length > TUTOR_DRAFT_MAX) delete map[ids.shift()];
+        return map;
+      },
+      get(id) { const d = this.prune(this.read())[id]; return d ? d.t : ''; },
+      // the box -> this chat's draft (an empty box removes it; unchanged text keeps its time)
+      save() {
+        clearTimeout(this.timer); this.timer = 0;
+        const id = this.chatId;
+        if (!id) return;
+        const text = dom.tutorInput.value.slice(0, TUTOR_DRAFT_MAX_CHARS);
+        if (text === this.saved) return;
+        const map = this.prune(this.read());
+        if (!text.trim()) delete map[id];
+        else map[id] = { t: text, at: Date.now() };
+        this.write(this.prune(map));
+        this.saved = text;
+      },
+      schedule() { clearTimeout(this.timer); this.timer = setTimeout(() => this.save(), 400); },
+      drop(id) {
+        if (this.chatId === id) { clearTimeout(this.timer); this.timer = 0; this.saved = ''; }
+        const map = this.read();
+        if (id in map) { delete map[id]; this.write(map); }
+      },
+      load() {
+        dom.tutorInput.value = this.saved = this.chatId ? this.get(this.chatId) : '';
+        dom.tutorInput.style.height = 'auto';
+        if (dom.tutorInput.value) dom.tutorInput.style.height = Math.min(200, dom.tutorInput.scrollHeight) + 'px';
+        tutor.updateSendButton();
+      },
+      // the chat on screen changed: park the old text, show the new chat's own draft
+      show(id) {
+        id = id || null;
+        if (id === this.chatId) return;
+        this.save();
+        this.chatId = id;
+        this.load();
+      },
+      // another tab wrote, or this tab came back: take the stored draft unless the box has focus
+      refresh() {
+        if (!this.chatId || this.timer || document.activeElement === dom.tutorInput) return;
+        if (this.get(this.chatId) !== dom.tutorInput.value) this.load();
+      },
+    };
+
     const tutor = {
       store: null,
       chats: [],
@@ -9208,6 +9263,7 @@
         if (!chat) return;
         if (!await showConfirm(`Delete chat <strong>${escapeHtml(chat.title)}</strong>?`)) return;
         this.chats = this.chats.filter(c => c.id !== id);
+        tutorDraft.drop(id);
         await this.save([id]);
         this.renderSidebarList();
         if (this.currentId === id) {
@@ -9766,6 +9822,7 @@
       renderChat() {
         const c = this.current();
         if (this.titleEdit && (!c || c.id !== this.titleEdit.id)) this.endTitleEdit(false);
+        tutorDraft.show(c ? c.id : null);
 
         if (this.loading) {
           renderSkeleton(dom.tutorMessages, 'skeleton-msg', 3, 'user');
@@ -14852,7 +14909,11 @@
       dom.tutorInput.style.height = 'auto';
       dom.tutorInput.style.height = Math.min(200, dom.tutorInput.scrollHeight) + 'px';
       tutor.updateSendButton();
+      tutorDraft.schedule();
     });
+    window.addEventListener('storage', (e) => { if (e.key === TUTOR_DRAFT_KEY) tutorDraft.refresh(); });
+    document.addEventListener('visibilitychange', () => { if (document.hidden) tutorDraft.save(); else tutorDraft.refresh(); });
+    window.addEventListener('pagehide', () => tutorDraft.save());
     function submitTutorInput() {
       const text = dom.tutorInput.value;
       const c = tutor.current();
@@ -14864,6 +14925,7 @@
       }
       dom.tutorInput.value = '';
       dom.tutorInput.style.height = 'auto';
+      tutorDraft.drop(c.id);
       tutor.send(text);
     }
     dom.tutorInput.addEventListener('keydown', (e) => {

@@ -1,0 +1,5 @@
+[
+ {"id":"SELECT-STH-JWT","name":"STH JWT","type":"jwtAuth","data":{"keyType":"passphrase","secret":"test-secret-0123456789abcdef0123456789abcdef","algorithm":"HS256"}},
+ {"id":"VnWFZXj8xOxogUEA","name":"Upstash Redis REST","type":"httpHeaderAuth","data":{"name":"Authorization","value":"Bearer upstash-test-token"}},
+ {"id":"uenokmEVAFXfzkBr","name":"Gemini API Key","type":"httpHeaderAuth","data":{"name":"x-goog-api-key","value":"gemini-test-key"}}
+]
