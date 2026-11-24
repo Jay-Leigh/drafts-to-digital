@@ -884,8 +884,8 @@
     .studio-viewer-card { padding: 20px; background: rgba(255,255,255,0.7); border: 1px solid rgba(212,201,168,0.55); border-radius: 18px; }
     .studio-viewer-card h2 { margin: 0 0 4px; font-size: 22px; line-height: 1.25; overflow-wrap: anywhere; }
     .studio-viewer-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 16px; }
-    #studioViewer.is-map > .view-header, #studioViewer.is-fc > .view-header, #studioViewer.is-qz > .view-header { display: none; }
-    #studioViewer.is-map .studio-viewer-card, #studioViewer.is-fc .studio-viewer-card, #studioViewer.is-qz .studio-viewer-card { padding: 0; background: none; border: 0; border-radius: 0; }
+    #studioViewer.is-map > .view-header, #studioViewer.is-fc > .view-header, #studioViewer.is-qz > .view-header, #studioViewer.is-ig > .view-header { display: none; }
+    #studioViewer.is-map .studio-viewer-card, #studioViewer.is-fc .studio-viewer-card, #studioViewer.is-qz .studio-viewer-card, #studioViewer.is-ig .studio-viewer-card { padding: 0; background: none; border: 0; border-radius: 0; }
     .studio-mm { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
     .studio-mm-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
     .studio-mm-title { flex: 1 1 200px; min-width: 0; margin: 0; font-size: 20px; line-height: 1.25; overflow-wrap: anywhere; }
@@ -945,6 +945,19 @@
     .studio-mm-odetail { margin: 0 0 4px 46px; font-size: 13px; line-height: 1.45; color: rgba(26,46,28,0.7); overflow-wrap: anywhere; }
     .studio-mm-orow .studio-mm-chips { margin: 0; }
     .studio-mm-foot { margin: 0; font-size: 12px; line-height: 1.45; color: rgba(26,46,28,0.55); overflow-wrap: anywhere; }
+    .studio-ig-stage { min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; background: #f5f0e1; border: 1px solid rgba(212,201,168,0.7); border-radius: 18px; }
+    .studio-ig-stage:focus-visible { outline: 2px solid #2c5f2d; outline-offset: 2px; }
+    .studio-ig-stage svg { display: block; margin: 0 auto; max-width: none; height: auto; }
+    .studio-ig-text { padding: 0 14px 4px; background: white; border: 1px solid rgba(212,201,168,0.7); border-radius: 14px; }
+    .studio-ig-text summary { display: flex; align-items: center; min-height: 44px; font-size: 14.5px; font-weight: 600; color: #2c5f2d; cursor: pointer; }
+    .studio-ig-text summary:focus-visible { outline: 2px solid #2c5f2d; outline-offset: 2px; }
+    .studio-ig-text h3 { margin: 4px 0 2px; font-size: 16px; line-height: 1.3; overflow-wrap: anywhere; }
+    .studio-ig-text p, .studio-ig-text li { margin: 0 0 6px; font-size: 14.5px; line-height: 1.5; overflow-wrap: anywhere; }
+    .studio-ig-list { margin: 8px 0 12px; padding-left: 22px; }
+    .studio-ig-list li { margin-bottom: 14px; }
+    .studio-ig-list strong, .studio-ig-list li > span { display: block; }
+    .studio-ig-list .studio-btn { min-height: 44px; margin-top: 6px; }
+    .studio-ig-quote { color: rgba(26,46,28,0.65); font-style: italic; }
     .studio-mm.is-full { background: #f5f0e1; }
     .studio-mm.is-full .studio-mm-back { display: none; }
     .studio-mm.is-full .studio-mm-body { flex: 1 1 auto; height: auto; min-height: 0; }
@@ -953,12 +966,12 @@
     body.studio-fs-lock { overflow: hidden; }
     .tutor-back-map { margin-top: 8px; align-self: flex-start; }
     .tutor-back-map[hidden] { display: none; }
-    #viewStudio:has(#studioViewer.is-map) > .view-header, #viewStudio:has(#studioViewer.is-fc) > .view-header, #viewStudio:has(#studioViewer.is-qz) > .view-header { display: none; }
+    #viewStudio:has(#studioViewer.is-map) > .view-header, #viewStudio:has(#studioViewer.is-fc) > .view-header, #viewStudio:has(#studioViewer.is-qz) > .view-header, #viewStudio:has(#studioViewer.is-ig) > .view-header { display: none; }
     .studio-mm-fullbtn { gap: 6px; }
     @media (max-width: 640px) {
       .studio-mm-title { order: 5; flex: 1 0 100%; font-size: 17px; }
       .studio-mm-bar .studio-mm-back { order: 1; }
-      .studio-mm-bar #studioMmReport { order: 2; margin-left: auto; padding: 0 12px; font-size: 12px; }
+      .studio-mm-bar #studioMmReport, .studio-mm-bar #studioIgReport { order: 2; margin-left: auto; padding: 0 12px; font-size: 12px; }
       .studio-mm-bar .studio-menu { order: 3; }
       .studio-mm-fullbtn span { display: none; }
       .studio-mm-fullbtn { width: 44px; padding: 0; }
@@ -1028,6 +1041,7 @@
     .studio-fieldset > legend { padding: 0; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: rgba(26,46,28,0.8); }
     .studio-seg { display: flex; flex-wrap: wrap; gap: 8px; }
     .studio-seg-opt { position: relative; flex: 1 1 0; min-width: 0; }
+    .studio-seg.is-many .studio-seg-opt { flex: 1 1 96px; }
     .studio-seg-opt span { display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 10px; font-size: 14px; font-weight: 600; line-height: 1.2; text-align: center; color: #2c5f2d; background: white; border: 1px solid #2c5f2d; border-radius: 12px; cursor: pointer; }
     .studio-seg-opt input:checked + span { color: white; background: #2c5f2d; }
     .studio-seg-opt input:focus-visible + span { outline: 2px solid #2c5f2d; outline-offset: 2px; }
@@ -5247,7 +5261,7 @@
     // Anything off, blocked or missing on the server falls back to the direct request.
     const JOBS_FLAG_KEY = 'sth_flag_jobs';
     const JOBS_LEADER_LOCK = 'sth-jobs-leader';
-    const JOBS_MODES = ['tutor', 'studio_mindmap', 'studio_flashcards', 'studio_quiz'];
+    const JOBS_MODES = ['tutor', 'studio_mindmap', 'studio_flashcards', 'studio_quiz', 'studio_infographic'];
     const JOBS_CADENCE_S = { tutor: [5, 5, 8, 13, 20], studio_mindmap: [10, 15, 20, 30] };
     const JOBS_SLOW_MS = { tutor: 90000, studio_mindmap: 4 * 60 * 1000 };
     const JOBS_FIRST_POLL_MS = 3000;
@@ -5443,9 +5457,9 @@
         const c = d.caps && typeof d.caps === 'object' ? d.caps : {};
         const v = Number.isInteger(d.v) && d.v > 0 ? d.v : 0;
         const next = { v, maxSources: Number.isInteger(c.maxSources) && c.maxSources >= STUDIO_MAX_SOURCES_V6 && c.maxSources <= STUDIO_MAX_SOURCES_V7 ? c.maxSources : STUDIO_MAX_SOURCES_V7, bulk: Number.isInteger(c.bulkCap) && c.bulkCap >= 1 && c.bulkCap <= JOBS_BULK_MAX ? c.bulkCap : JOBS_BULK_MAX };
-        const before = studioMaxSources();
+        const before = studioMaxSources(), live = studioV7Live();
         service.server = next;
-        if (studioMaxSources() !== before && studio.wired) studio.syncSelectionViews();
+        if ((studioMaxSources() !== before || studioV7Live() !== live) && studio.wired) studio.syncSelectionViews();
       },
       noteHello(d, hello) {
         if (!d || typeof d !== 'object') return;
@@ -10970,6 +10984,10 @@
     const STUDIO_MAX_SOURCES_V6 = 10;
     const STUDIO_MAX_SOURCES_V7 = 15; // the server accepts source ids S1 to S15 only from v7 on
     const studioMaxSources = () => serverHas(7) ? Math.min(STUDIO_MAX_SOURCES_V7, service.server.maxSources) : STUDIO_MAX_SOURCES_V6;
+    // The one switch for every v7 feature (infographic now; slides, J4 and map-reduce reuse it): on from the release date, and only against a v7 server
+    const STUDIO_V7_RELEASE_MS = Date.UTC(2026, 11, 8); // 8 December 2026, the end of the 14-day notice
+    const studioV7Released = () => Date.now() >= STUDIO_V7_RELEASE_MS;
+    const studioV7Live = () => serverHas(7) && studioV7Released();
     const STUDIO_MAX_IMAGES = 5;
     const STUDIO_IMAGE_TOKENS = 1600;
     const STUDIO_TOKENS_PER_PAGE = 600;
@@ -10978,6 +10996,7 @@
     const STUDIO_MAX_ATTEMPTS = 2;
     const STUDIO_REQUEST_VERSION = 1;
     const STUDIO_PROMPT_VERSION = 'studio-2026-11-a';
+    const STUDIO_PROMPT_VERSION_V7 = 'studio-2026-12-a'; // the tools that arrived with v7
     const STUDIO_ENVELOPE = 'sth.studio/1';
     const STUDIO_KEEP_OPEN = 'Keep this tab open while this is made (about 1–2 minutes).';
     const STUDIO_INTERRUPTED = 'This was interrupted because the page was closed or reloaded, so the result was lost. Try again to make it.';
@@ -10994,7 +11013,7 @@
     const STUDIO_TOOLS = {
       mindmap:     { label: 'Mind map',    mode: 'studio_mindmap', enabled: true, sub: 'Turn your sources into a map of the main ideas.' },
       quiz:        { label: 'Quiz',        mode: 'studio_quiz', enabled: true, sub: 'Turn your sources into practice questions.', placeholder: 'Things to try\n\u2022 Help me prepare for my exam on Learning Unit 3\n\u2022 Only use the study guide, not the summary\n\u2022 Focus on definitions and key dates' },
-      infographic: { label: 'Infographic', enabled: false },
+      infographic: { label: 'Infographic', mode: 'studio_infographic', v7: true, get enabled() { return studioV7Live(); }, sub: 'Turn your sources into a one-page visual summary.', placeholder: 'Things to try\n\u2022 Pick one chapter or theme\n\u2022 Show the steps of one process\n\u2022 Compare two theories side by side' },
       slides:      { label: 'Slide deck',  enabled: false },
       flashcards:  { label: 'Flashcards',  mode: 'studio_flashcards', enabled: true, sub: 'Turn your sources into cards for active recall.', placeholder: 'Things to try\n\u2022 Only use one source (e.g. \'the prescribed summary\')\n\u2022 Focus on one topic, like \'HIV testing\'\n\u2022 Keep card fronts short (1-5 words) for memorising' },
     };
@@ -11008,11 +11027,13 @@
     const STUDIO_FC_COUNTS = [{ value: 15, label: 'Fewer' }, { value: 30, label: 'Standard' }, { value: 50, label: 'More' }];
     const STUDIO_FC_LEVELS = [{ value: 'easy', label: 'Easy' }, { value: 'medium', label: 'Medium' }, { value: 'hard', label: 'Hard' }];
     const STUDIO_QZ_COUNTS = [{ value: 10, label: 'Fewer' }, { value: 20, label: 'Standard' }, { value: 30, label: 'More' }];
+    const STUDIO_IG_CHOICES = [{ value: 'auto', label: 'Auto' }, { value: 'steps', label: 'Steps' }, { value: 'comparison', label: 'Comparison' }, { value: 'facts', label: 'Key facts' }, { value: 'timeline', label: 'Timeline' }];
     // The dialog's option groups per tool, in the order shown (the dialog has two slots): the saved key, the choices on offer, the default and the heading
     const STUDIO_OPTION_LEVEL = { key: 'difficulty', values: STUDIO_FC_LEVELS, default: 'medium', heading: 'Level of difficulty' };
     const STUDIO_OPTION_SETS = {
       flashcards: { groups: [{ key: 'count', values: STUDIO_FC_COUNTS, default: 30, heading: 'Number of cards' }, STUDIO_OPTION_LEVEL] },
       quiz: { groups: [{ key: 'count', values: STUDIO_QZ_COUNTS, default: 20, heading: 'Number of questions' }, STUDIO_OPTION_LEVEL] },
+      infographic: { groups: [{ key: 'layout', values: STUDIO_IG_CHOICES, default: 'auto', heading: 'Layout' }] },
     };
     const STUDIO_OPTION_SLOTS = [{ field: 'studioOptCountField', box: 'studioOptCount', name: 'studioCount' }, { field: 'studioOptLevelField', box: 'studioOptLevel', name: 'studioLevel' }];
     const studioOptionGroups = (tool) => (STUDIO_OPTION_SETS[tool] || { groups: [] }).groups;
@@ -11126,7 +11147,7 @@
         description: item.topic || '',
         sources,
         clientEstimate: sources.reduce((sum, s) => sum + s.tokens, 0),
-        promptVersion: STUDIO_PROMPT_VERSION,
+        promptVersion: STUDIO_TOOLS[item.tool].v7 ? STUDIO_PROMPT_VERSION_V7 : STUDIO_PROMPT_VERSION,
       };
     }
 
@@ -11454,6 +11475,436 @@
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 4000);
+    }
+
+    // ── Infographic: what the viewer may trust (the model's output is untrusted), the in-house icons, and the one-page SVG ──
+    const STUDIO_IG_SCHEMA = 'sth.infographic/1';
+    const STUDIO_IG_LAYOUTS = ['steps', 'comparison', 'facts', 'timeline'];
+    const STUDIO_IG_LAYOUT_NAMES = { steps: 'Steps', comparison: 'Comparison', facts: 'Key facts', timeline: 'Timeline' };
+    const STUDIO_IG_MAX_BYTES = 24000; // the server's limit for the cleaned answer; a bigger one is not one of ours
+    const STUDIO_IG_LIMITS = { title: 80, subtitle: 140, notice: 160, notices: 3, column: 30, heading: 50, text: 160, when: 24, side: 100, figures: 4, value: 16, label: 60, quote: 160, takeaway: 160, minItems: 3, maxItems: 8, maxTimeline: 10, cites: 2, scan: 100 };
+    const STUDIO_IG_MIN_WIDTH = 360; // a narrower screen scrolls the picture sideways, so the text keeps its size
+    const STUDIO_IG_LAYOUT_MAX = 720; // the layout is drawn at most this wide; a wider view or export scales the drawing
+    const STUDIO_IG_VIEW_MAX = 960;
+    const STUDIO_IG_EXPORT_WIDTH = 1080;
+    const STUDIO_IG_PDF_PT = 595;
+    const STUDIO_IG_PDF_MAX_PT = 14400; // the longest side a PDF page may have
+    const STUDIO_IG_COLORS = { bg: '#f5f0e1', ink: '#1a2e1c', muted: '#4a5d4c', foot: '#5a6b5c', card: '#ffffff', line: '#d4c9a8', accent: '#2c5f2d', dark: '#1e4620', tint: '#e8efe0', warm: '#8a4b08', warmTint: '#f8efe2', notice: '#fff7e0' };
+    // 32 icons drawn for this app on the 24 x 24 stroke grid (stroke and fill come from the group they sit in); `dot` is the fallback for an id that is not in the set
+    const STUDIO_IG_ICONS = {
+      book: '<path d="M12 6.5v13"/><path d="M12 6.5C10 4.8 6.5 4.4 3.5 5.2v13c3-.8 6.5-.4 8.5 1.3"/><path d="M12 6.5c2-1.7 5.5-2.1 8.5-1.3v13c-3-.8-6.5-.4-8.5 1.3"/>',
+      brain: '<path d="M9 4.5a3 3 0 0 0-3 3 3 3 0 0 0-2 3 3 3 0 0 0 1.5 2.6A3 3 0 0 0 7 17a3 3 0 0 0 5 1.5V6A3 3 0 0 0 9 4.5z"/><path d="M15 4.5a3 3 0 0 1 3 3 3 3 0 0 1 2 3 3 3 0 0 1-1.5 2.6A3 3 0 0 1 17 17a3 3 0 0 1-5 1.5"/>',
+      bulb: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/>',
+      target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+      check: '<circle cx="12" cy="12" r="9"/><path d="M7.5 12.5l3 3 6-7"/>',
+      warning: '<path d="M12 3.5L2.5 20h19z"/><path d="M12 10v5M12 17.6v.4"/>',
+      clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+      calendar: '<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+      'chart-up': '<path d="M3 20h18"/><path d="M4 15l5-5 4 4 7-8"/><path d="M15 6h5v5"/>',
+      'chart-down': '<path d="M3 20h18"/><path d="M4 7l5 5 4-4 7 8"/><path d="M15 16h5v-5"/>',
+      people: '<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.5 2.7-6 6-6s6 2.5 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M17 14c2.6 0 4.5 2 4.5 5"/>',
+      person: '<circle cx="12" cy="8" r="4"/><path d="M4.5 21c0-4.2 3.4-7 7.5-7s7.5 2.8 7.5 7"/>',
+      globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3c2.8 2.6 2.8 15.4 0 18M12 3c-2.8 2.6-2.8 15.4 0 18"/>',
+      flask: '<path d="M9.5 3h5M10.5 3v6L4.5 19a1.5 1.5 0 0 0 1.3 2.2h12.4a1.5 1.5 0 0 0 1.3-2.2L13.5 9V3"/><path d="M7.5 15h9"/>',
+      atom: '<circle cx="12" cy="12" r="1.5"/><ellipse cx="12" cy="12" rx="9.5" ry="4"/><ellipse cx="12" cy="12" rx="9.5" ry="4" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9.5" ry="4" transform="rotate(120 12 12)"/>',
+      dna: '<path d="M7 3c0 5 10 5 10 9s-10 4-10 9"/><path d="M17 3c0 5-10 5-10 9s10 4 10 9"/><path d="M8.5 7h7M8.5 17h7"/>',
+      heart: '<path d="M12 20s-8-4.8-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 9c0 6.2-8 11-8 11z"/>',
+      leaf: '<path d="M5 19C5 10 10 5 20 4c0 10-5 15-14 15z"/><path d="M5 19c3-5 6-8 10-10"/>',
+      money: '<circle cx="12" cy="12" r="9"/><path d="M14.8 8.8c-.6-1-1.6-1.5-2.8-1.5-1.6 0-2.8.8-2.8 2.1 0 3 5.8 1.6 5.8 4.7 0 1.3-1.2 2.2-3 2.2-1.3 0-2.4-.6-3-1.7M12 6v1.3M12 16.7V18"/>',
+      scale: '<path d="M12 4v16M7 20h10M5 7h14"/><path d="M5 7l-3 7a3.5 3.5 0 0 0 6 0zM19 7l-3 7a3.5 3.5 0 0 0 6 0z"/>',
+      gavel: '<rect x="8" y="3.5" width="9" height="5" rx="1" transform="rotate(45 12.5 6)"/><path d="M11.5 10.5L4 18"/><path d="M3 21h10"/>',
+      building: '<path d="M5 21V4h9v17M14 9h5v12M3 21h18"/><path d="M8 8h3M8 12h3M8 16h3M16.5 13h.5M16.5 17h.5"/>',
+      gear: '<circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="6.5"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1"/>',
+      link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+      shield: '<path d="M12 3l8 3v6c0 4.5-3.3 7.8-8 9-4.7-1.2-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>',
+      question: '<circle cx="12" cy="12" r="9"/><path d="M9.3 9.5a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.3-2.7 4"/><path d="M12 17.3v.2"/>',
+      star: '<path d="M12 3l2.7 5.6 6.1.8-4.4 4.3 1 6.1L12 16.9 6.6 19.8l1-6.1L3.2 9.4l6.1-.8z"/>',
+      flag: '<path d="M5 21V4"/><path d="M5 4h12l-2.5 4 2.5 4H5"/>',
+      arrow: '<path d="M4 12h15M13 6l6 6-6 6"/>',
+      compare: '<path d="M4 8h13M13 4l4 4-4 4"/><path d="M20 16H7M11 12l-4 4 4 4"/>',
+      document: '<path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5M9 13h7M9 17h7"/>',
+      pin: '<path d="M12 21s-6.5-5.7-6.5-11a6.5 6.5 0 0 1 13 0C18.5 15.3 12 21 12 21z"/><circle cx="12" cy="10" r="2.3"/>',
+    };
+    const STUDIO_IG_DOT = '<circle cx="12" cy="12" r="4"/>';
+    const studioIgIconPath = (id) => Object.prototype.hasOwnProperty.call(STUDIO_IG_ICONS, id) ? STUDIO_IG_ICONS[id] : STUDIO_IG_DOT;
+
+    // The numbers of a text as lists of equal spellings ("1 000", "1,000" and "1.000" are one thousand; "1,5" and "1.5" one and a half): the same reading the server checks figures with
+    const STUDIO_NUM_RE = /\d{1,3}(?:[   ,.'’]\d{3})+(?:[.,]\d+)?|\d+(?:[.,]\d+)?/g;
+    function studioNumbers(text) {
+      const s = String(text == null ? '' : text).normalize('NFKC').replace(/[٠-٩]/g, c => c.charCodeAt(0) - 0x0660).replace(/[۰-۹]/g, c => c.charCodeAt(0) - 0x06f0).replace(/[०-९]/g, c => c.charCodeAt(0) - 0x0966);
+      const out = [];
+      for (const m of s.matchAll(STUDIO_NUM_RE)) {
+        const t = m[0].replace(/[   '’]/g, '');
+        const keys = new Set([t.replace(/,/g, '.')]);
+        if (/^\d{1,3}(?:[.,]\d{3})+$/.test(t)) keys.add(t.replace(/[.,]/g, ''));
+        if (/^\d{1,3}(?:,\d{3})+\.\d+$/.test(t)) keys.add(t.replace(/,/g, ''));
+        if (/^\d{1,3}(?:\.\d{3})+,\d+$/.test(t)) keys.add(t.replace(/\./g, '').replace(',', '.'));
+        out.push([...keys]);
+      }
+      return out;
+    }
+
+    // Citations: at most 2 per item, one per (source, page); a source the request did not have is dropped, a page that is not a page number becomes 0
+    function studioIgCites(list, count, st) {
+      const out = [];
+      for (const c of Array.isArray(list) ? list : []) {
+        const m = c && typeof c === 'object' && typeof c.source === 'string' ? /^S([1-9]|1[0-5])$/.exec(c.source) : null;
+        if (!m || Number(m[1]) > count) { st.badCites++; continue; }
+        let page = typeof c.page === 'string' && /^\d{1,5}$/.test(c.page.trim()) ? Number(c.page) : c.page;
+        if (!Number.isInteger(page) || page < 0 || page > 20000) { if (page !== 0) st.zeroedPages++; page = 0; }
+        const n = Number(m[1]);
+        if (out.some(o => o.n === n && o.page === page)) continue;
+        if (out.length >= STUDIO_IG_LIMITS.cites) { st.trimmedCites++; continue; }
+        out.push({ n, page, verified: null });
+      }
+      return out;
+    }
+
+    // Pure. The same rules as the server's validator, for an answer from anywhere (a job, Drive, an old device). Every repair is listed in `repairs`.
+    // pick = the layout the student chose ('' or 'auto' = the model's); sourceCount = how many sources the request had.
+    // The server alone can check a number against the source text: here a figure must carry the server's `verified` mark and its number must be in its own quote.
+    function studioNormalizeInfographic(data, { pick = '', sourceCount = 15 } = {}) {
+      if (!data || typeof data !== 'object' || Array.isArray(data) || !Array.isArray(data.items)) return { ok: false, reason: 'shape' };
+      if (data.schema !== undefined && data.schema !== STUDIO_IG_SCHEMA) return { ok: false, reason: 'schema' };
+      let bytes = 0;
+      try { bytes = JSON.stringify(data).length; } catch { return { ok: false, reason: 'shape' }; }
+      if (bytes > STUDIO_IG_MAX_BYTES) return { ok: false, reason: 'too_big' };
+      const L = STUDIO_IG_LIMITS;
+      const count = Number.isInteger(sourceCount) && sourceCount >= 1 && sourceCount <= 15 ? sourceCount : 15;
+      const repairs = [];
+      const log = (n, what) => { if (n > 0) repairs.push(what.replace('#', String(n))); };
+      const st = { badCites: 0, zeroedPages: 0, trimmedCites: 0 };
+
+      const figures = [];
+      let badFigures = 0;
+      for (const raw of Array.isArray(data.figures) ? data.figures.slice(0, 20) : []) {
+        const src = raw && typeof raw === 'object' && typeof raw.source === 'string' ? /^S([1-9]|1[0-5])$/.exec(raw.source) : null;
+        if (!src || Number(src[1]) > count) { badFigures++; continue; }
+        const f = { value: studioClean(raw.value, L.value), label: studioClean(raw.label, L.label), quote: studioClean(raw.quote, L.quote) };
+        const c = studioIgCites([{ source: raw.source, page: raw.page }], count, st)[0];
+        const inQuote = new Set(studioNumbers(f.quote).flat());
+        const nums = studioNumbers(f.value);
+        if (raw.verified !== true || !f.label || !f.quote || !nums.length || !nums.every(keys => keys.some(k => inQuote.has(k))) || figures.length >= L.figures) { badFigures++; continue; }
+        figures.push({ ...f, n: c.n, page: c.page });
+      }
+      log(badFigures, 'removed # numbers that could not be checked');
+
+      const items = [];
+      let malformed = 0, unknownIcons = 0;
+      for (const raw of data.items.slice(0, L.scan)) {
+        if (!raw || typeof raw !== 'object' || Array.isArray(raw)) { malformed++; continue; }
+        const heading = studioClean(raw.heading, L.heading), text = studioClean(raw.text, L.text);
+        if (!heading && !text) { malformed++; continue; }
+        const it = { heading, text, when: studioClean(raw.when, L.when), left: studioClean(raw.left, L.side), right: studioClean(raw.right, L.side), icon: 'dot', cites: studioIgCites(raw.cites, count, st) };
+        if (typeof raw.icon === 'string' && Object.prototype.hasOwnProperty.call(STUDIO_IG_ICONS, raw.icon)) it.icon = raw.icon; else unknownIcons++;
+        items.push(it);
+      }
+      log(malformed, 'dropped # malformed items');
+      log(unknownIcons, 'replaced # unknown icons');
+      log(st.badCites, 'dropped # citations to unknown sources');
+      log(st.zeroedPages, 'reset # page numbers that are not pages to 0');
+      log(st.trimmedCites, 'dropped # surplus citations');
+
+      const columns = (Array.isArray(data.columns) ? data.columns.slice(0, 2) : []).map(x => studioClean(x, L.column));
+      const dated = items.filter(i => i.when).length;
+      const rows = items.filter(i => i.left && i.right).length;
+      const sides = columns.length === 2 && columns[0] && columns[1] && rows >= 3;
+      let layout = STUDIO_IG_LAYOUTS.includes(data.layout) ? data.layout : '';
+      if (STUDIO_IG_LAYOUTS.includes(pick)) {
+        if (layout !== pick) log(1, 'used the layout you picked');
+        layout = pick;
+      } else if (!layout) {
+        layout = dated >= 3 ? 'timeline' : sides ? 'comparison' : figures.length >= 2 ? 'facts' : 'steps';
+        log(1, 'chose the layout from the content');
+      }
+      if (layout === 'timeline' && dated < 3) { layout = 'steps'; log(1, 'changed a timeline with fewer than 3 dated items to steps'); }
+      if (layout === 'comparison' && !sides) { layout = 'facts'; log(1, 'changed a comparison without two columns and 3 rows to key facts'); }
+
+      for (const it of items) {
+        if (layout !== 'timeline') it.when = '';
+        if (layout !== 'comparison') {
+          const side = it.left && it.right ? `${it.left} / ${it.right}` : it.left || it.right;
+          if (side) it.text = studioClean([it.text, side].filter(Boolean).join(' '), L.text);
+          it.left = ''; it.right = '';
+        }
+      }
+      const cap = layout === 'timeline' ? L.maxTimeline : L.maxItems;
+      if (items.length > cap) { log(items.length - cap, `dropped # items beyond the ${cap} item limit`); items.length = cap; }
+      if (items.length < L.minItems) return { ok: false, reason: 'too_few_items' };
+      items.forEach((it, i) => { it.id = `i${i + 1}`; });
+
+      let title = studioClean(data.title, L.title);
+      if (typeof data.title === 'string' && data.title.replace(/\s+/g, ' ').trim().length > L.title) log(1, 'clamped # title');
+      if (!title) { title = studioClean(items[0].heading || items[0].text, L.title); log(1, 'filled # empty title from the first item'); }
+      return {
+        ok: true,
+        title,
+        subtitle: studioClean(data.subtitle, L.subtitle),
+        layout,
+        notices: Array.isArray(data.notices) ? data.notices.map(s => studioClean(s, L.notice)).filter(Boolean).slice(0, L.notices) : [],
+        columns: layout === 'comparison' ? columns : [],
+        items, figures,
+        takeaway: studioClean(data.takeaway, L.takeaway),
+        repairs,
+      };
+    }
+
+    const studioIgNormalized = new WeakMap();
+    function studioIgModel(artifact, opts) {
+      if (!artifact || typeof artifact !== 'object') return { ok: false, reason: 'shape' };
+      const schema = artifact.schema || (artifact.data && artifact.data.schema);
+      if (schema && schema !== STUDIO_IG_SCHEMA) return { ok: false, reason: 'schema' };
+      if (!studioIgNormalized.has(artifact)) {
+        let model;
+        try { model = studioNormalizeInfographic(artifact.data, opts); } catch { model = { ok: false, reason: 'shape' }; }
+        studioIgNormalized.set(artifact, model);
+      }
+      return studioIgNormalized.get(artifact);
+    }
+
+    // The editable text that lands in the tutor composer when "Ask tutor" is chosen on an item
+    function studioIgPrompt(model, it, nameOf) {
+      const lines = [`Explain "${it.heading || it.text}" from my infographic "${model.title}".`];
+      const said = [it.text, it.left && `${model.columns[0] || 'Left'}: ${it.left}`, it.right && `${model.columns[1] || 'Right'}: ${it.right}`].filter(x => x && x !== it.heading);
+      if (said.length) lines.push(`The infographic says: ${said.join(' ')}`);
+      const cites = studioMapCiteText(it.cites, nameOf);
+      lines.push(`Use my attached sources and give page references${cites ? ` (${cites})` : ''}.`);
+      return lines.join('\n');
+    }
+
+    // Citation chips: a button that opens the source, or plain text when the source is gone
+    function studioFillChips(box, item, cites) {
+      box.replaceChildren();
+      for (const c of cites) {
+        const src = studio.citeSource(item, c.n);
+        const name = src.name.length > 22 ? `${src.name.slice(0, 21)}…` : src.name;
+        const chip = document.createElement(src.exists ? 'button' : 'span');
+        chip.className = `studio-mm-chip${src.exists ? '' : ' is-gone'}`;
+        chip.dataset.n = String(c.n); chip.dataset.page = String(c.page);
+        if (src.exists) {
+          chip.type = 'button';
+          chip.setAttribute('aria-label', `Open ${src.name}${c.page ? `, page ${c.page}` : ''}`);
+          chip.title = `Open ${src.name}`;
+        } else chip.title = 'Source removed';
+        chip.appendChild(document.createTextNode(`${name}${c.page ? ` · p. ${c.page}` : ''}`));
+        box.appendChild(chip);
+      }
+    }
+
+    // ── the drawing: pure functions of the model; every string goes through studioXml and icons come from the fixed table, so nothing the model wrote reaches an attribute ──
+    // The kit holds the measuring canvas, the wrapped-text writer, icons and the source footnote numbers (in the order they are drawn)
+    function studioIgKit(lw, sourceNames) {
+      const ctx = document.createElement('canvas').getContext('2d');
+      const C = STUDIO_IG_COLORS, M = lw < 480 ? 16 : 28;
+      const F = {
+        title: { s: lw < 480 ? 22 : 26, w: 700, c: C.ink }, sub: { s: 15, w: 400, c: C.muted }, head: { s: 15, w: 700, c: C.ink }, body: { s: 14, w: 400, c: C.ink },
+        soft: { s: 14, w: 400, c: C.muted }, when: { s: 14, w: 700, c: C.dark }, small: { s: 12, w: 400, c: C.foot }, white: { s: 15, w: 700, c: '#ffffff' },
+      };
+      const lh = (f) => Math.round(f.s * 1.35);
+      const k = {
+        lw, M, cw: lw - 2 * M, C, F, lh, parts: [], refs: [], refIx: new Map(), sourceNames,
+        wrap(str, f, w, max) { ctx.font = `${f.w} ${f.s}px sans-serif`; return studioWrap(ctx, str, Math.max(20, w), max); },
+        // wrapped lines with their top at `top`; returns the height used
+        text(x, top, lines, f, anchor) {
+          const base = Math.round((lh(f) - f.s) / 2 + f.s * 0.8);
+          lines.forEach((l, i) => k.parts.push(`<text x="${x}" y="${top + i * lh(f) + base}" font-size="${f.s}" font-weight="${f.w}" fill="${f.c}"${anchor ? ` text-anchor="${anchor}"` : ''}>${studioXml(l)}</text>`));
+          return lines.length * lh(f);
+        },
+        // a slot keeps its place in the drawing order while its size is still unknown
+        slot() { k.parts.push(''); return k.parts.length - 1; },
+        glyph(id, x, y, size, color) { return `<g transform="translate(${x} ${y}) scale(${size / 24})" fill="none" stroke="${color}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${studioIgIconPath(id)}</g>`; },
+        badge(id, cx, cy, r, bg, fg) { k.parts.push(`<circle cx="${cx}" cy="${cy}" r="${r}" fill="${bg}"/>`, k.glyph(id, cx - r * 0.55, cy - r * 0.55, r * 1.1, fg)); },
+        card(x, y, w, h, fill, line) { return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="${fill || C.card}" stroke="${line || C.line}"/>`; },
+        // the footnote text "[1, 2]" for a list of citations; a source and page get one number for the whole picture
+        ref(cites) {
+          const ix = [];
+          for (const c of cites) {
+            const key = `${c.n}:${c.page}`;
+            if (!k.refIx.has(key)) { k.refs.push(c); k.refIx.set(key, k.refs.length); }
+            ix.push(k.refIx.get(key));
+          }
+          return ix.length ? `[${ix.join(', ')}]` : '';
+        },
+      };
+      return k;
+    }
+
+    // A block of text (heading, text, footnote numbers) at x with width w: returns { lines, h } to draw later at any y
+    function studioIgBlock(k, it, w, { when } = {}) {
+      const F = k.F;
+      const rf = k.ref(it.cites);
+      const parts = [];
+      const add = (str, f, max, gap = 0) => { if (!str) return; const lines = k.wrap(str, f, w, max); parts.push({ lines, f, gap }); };
+      if (when) add(when, F.when, 2);
+      add(it.heading || it.text, F.head, 3, when ? 2 : 0);
+      if (it.heading) add(it.text, F.body, 8, 3);
+      add(rf, F.small, 1, 3);
+      const h = parts.reduce((a, p) => a + p.gap + p.lines.length * k.lh(p.f), 0);
+      return { h, draw(x, y) { let cy = y; for (const p of parts) { cy += p.gap; cy += k.text(x, cy, p.lines, p.f); } } };
+    }
+
+    function studioIgFigures(k, model, y) {
+      const figs = model.figures;
+      if (!figs.length) return y;
+      const { F, M, cw } = k, gap = 8;
+      const cols = figs.length === 1 ? 1 : cw >= 560 ? Math.min(figs.length, 4) : 2;
+      const tw = (cw - gap * (cols - 1)) / cols, inner = tw - 20;
+      const tiles = figs.map(f => {
+        let big = { s: 15, w: 700, c: STUDIO_IG_COLORS.accent }, vl = null;
+        for (const s of [28, 24, 20, 17]) {
+          const fs = { s, w: 700, c: STUDIO_IG_COLORS.accent }, lines = k.wrap(f.value, fs, inner, 1);
+          if (lines.length === 1 && lines[0] === f.value) { big = fs; vl = lines; break; }
+        }
+        vl = vl || k.wrap(f.value, big, inner, 2);
+        const ll = k.wrap(f.label, F.body, inner, 3);
+        const rl = k.wrap(k.ref([{ n: f.n, page: f.page }]), F.small, inner, 1);
+        return { vl, big, ll, rl, h: 10 + vl.length * k.lh(big) + 2 + ll.length * k.lh(F.body) + 2 + k.lh(F.small) + 8 };
+      });
+      for (let r = 0; r < tiles.length; r += cols) {
+        const row = tiles.slice(r, r + cols), h = Math.max(...row.map(t => t.h));
+        row.forEach((t, i) => {
+          const x = M + i * (tw + gap);
+          k.parts.push(k.card(x, y, tw, h, STUDIO_IG_COLORS.tint));
+          let cy = y + 10;
+          cy += k.text(x + 10, cy, t.vl, t.big) + 2;
+          cy += k.text(x + 10, cy, t.ll, F.body) + 2;
+          k.text(x + 10, cy, t.rl, F.small);
+        });
+        y += h + gap;
+      }
+      return y + 4;
+    }
+
+    // One numbered card per step, joined by a line
+    function studioIgSteps(k, model, y) {
+      const { F, M, cw, C } = k, cardX = M + 48, cardW = cw - 48, textX = cardX + 42, textW = cardW - 54, gap = 10;
+      const line = k.slot();
+      const first = y + 18;
+      let last = first;
+      model.items.forEach((it, i) => {
+        const b = studioIgBlock(k, it, textW), h = Math.max(52, b.h + 24);
+        k.parts.push(k.card(cardX, y, cardW, h));
+        k.parts.push(`<circle cx="${M + 18}" cy="${y + 18}" r="18" fill="${C.accent}"/>`);
+        k.text(M + 18, y + 18 - Math.round(k.lh(F.white) / 2), [String(i + 1)], F.white, 'middle');
+        k.parts.push(k.glyph(it.icon, cardX + 12, y + 12, 24, C.accent));
+        b.draw(textX, y + 12);
+        last = y + 18;
+        y += h + gap;
+      });
+      k.parts[line] = `<path d="M${M + 18} ${first}V${last}" stroke="${C.accent}" stroke-width="2" opacity="0.45"/>`;
+      return y;
+    }
+
+    // A column of cards, two across on a wide picture
+    function studioIgFacts(k, model, y) {
+      const { M, cw, C } = k, gap = 10;
+      const cols = cw >= 520 ? 2 : 1, cardW = (cw - gap * (cols - 1)) / cols, textW = cardW - 58 - 12;
+      const blocks = model.items.map(it => studioIgBlock(k, it, textW));
+      for (let r = 0; r < blocks.length; r += cols) {
+        const row = blocks.slice(r, r + cols), h = Math.max(60, ...row.map(b => b.h + 24));
+        row.forEach((b, i) => {
+          const x = M + i * (cardW + gap), it = model.items[r + i];
+          k.parts.push(k.card(x, y, cardW, h));
+          k.badge(it.icon, x + 12 + 18, y + 12 + 18, 18, C.accent, '#ffffff');
+          b.draw(x + 58, y + 12);
+        });
+        y += h + gap;
+      }
+      return y;
+    }
+
+    // A line down the left with a dated entry on each icon
+    function studioIgTimeline(k, model, y) {
+      const { M, cw, C } = k, textX = M + 46, textW = cw - 46, gap = 16;
+      const line = k.slot();
+      const first = y + 16;
+      let last = first;
+      for (const it of model.items) {
+        const b = studioIgBlock(k, it, textW, { when: it.when });
+        k.badge(it.icon, M + 16, y + 16, 16, C.accent, '#ffffff');
+        b.draw(textX, y + 3);
+        last = y + 16;
+        y += Math.max(40, b.h + 6) + gap;
+      }
+      k.parts[line] = `<path d="M${M + 16} ${first}V${last}" stroke="${C.accent}" stroke-width="2" opacity="0.45"/>`;
+      return y - gap + 4;
+    }
+
+    // Two named columns, a row per item with its two sides side by side
+    function studioIgComparison(k, model, y) {
+      const { F, M, cw, C } = k, gap = 8, colW = (cw - gap) / 2, tones = [C.accent, C.warm], tints = [C.tint, C.warmTint];
+      const heads = model.columns.map(c => k.wrap(c, F.white, colW - 20, 2));
+      const hh = Math.max(...heads.map(l => l.length)) * k.lh(F.white) + 16;
+      heads.forEach((l, i) => {
+        const x = M + i * (colW + gap);
+        k.parts.push(`<rect x="${x}" y="${y}" width="${colW}" height="${hh}" rx="10" fill="${tones[i]}"/>`);
+        k.text(x + 10, y + 8, l, F.white);
+      });
+      y += hh + gap;
+      const cellW = (cw - 24 - gap) / 2, textW = cw - 12 - 34 - 12;
+      for (const it of model.items) {
+        const rf = k.ref(it.cites);
+        const hl = k.wrap(it.heading || it.text, F.head, textW, 3);
+        const sl = it.heading && it.text ? k.wrap(it.text, F.soft, textW, 4) : [];
+        const sides = [it.left, it.right].map(s => (s ? k.wrap(s, F.body, cellW - 16, 8) : []));
+        const cellH = Math.max(1, ...sides.map(l => l.length)) * k.lh(F.body) + 12;
+        const rl = rf ? k.wrap(rf, F.small, cw - 24, 1) : [];
+        const top = hl.length * k.lh(F.head) + (sl.length ? 2 + sl.length * k.lh(F.soft) : 0);
+        const h = 12 + Math.max(24, top) + 8 + cellH + (rl.length ? 4 + k.lh(F.small) : 0) + 12;
+        k.parts.push(k.card(M, y, cw, h));
+        k.parts.push(k.glyph(it.icon, M + 12, y + 12, 24, C.accent));
+        const hy = y + 12 + k.text(M + 46, y + 12, hl, F.head);
+        if (sl.length) k.text(M + 46, hy + 2, sl, F.soft);
+        const cy = y + 12 + Math.max(24, top) + 8;
+        sides.forEach((l, i) => {
+          const x = M + 12 + i * (cellW + gap);
+          k.parts.push(`<rect x="${x}" y="${cy}" width="${cellW}" height="${cellH}" rx="8" fill="${tints[i]}"/><rect x="${x}" y="${cy}" width="3" height="${cellH}" fill="${tones[i]}"/>`);
+          k.text(x + 10, cy + 6, l, F.body);
+        });
+        if (rl.length) k.text(M + 12, cy + cellH + 4, rl, F.small);
+        y += h + 10;
+      }
+      return y;
+    }
+
+    const STUDIO_IG_LAYOUT_FN = { steps: studioIgSteps, comparison: studioIgComparison, facts: studioIgFacts, timeline: studioIgTimeline };
+
+    // The whole picture as one SVG string. width = the width it is shown or exported at (at least 360); the layout is drawn at most 720 wide and scaled up beyond that.
+    // nameOf(n) = name of source Sn; sourceNames = what the footer says it was made from. Returns { svg, width, height }.
+    function studioIgSvg(model, { width = STUDIO_IG_LAYOUT_MAX, nameOf = (n) => `Source ${n}`, sourceNames = [] } = {}) {
+      const outW = Math.max(STUDIO_IG_MIN_WIDTH, Math.round(width)), lw = Math.min(STUDIO_IG_LAYOUT_MAX, outW);
+      const k = studioIgKit(lw, sourceNames), { F, M, cw, C } = k;
+      let y = M;
+      y += k.text(M, y, k.wrap(model.title, F.title, cw, 3), F.title) + 4;
+      if (model.subtitle) y += k.text(M, y, k.wrap(model.subtitle, F.sub, cw, 3), F.sub) + 4;
+      for (const n of model.notices) {
+        const lines = k.wrap(n, F.body, cw - 20, 4), h = lines.length * k.lh(F.body) + 16;
+        k.parts.push(k.card(M, y + 4, cw, h, C.notice));
+        k.text(M + 10, y + 12, lines, F.body);
+        y += h + 8;
+      }
+      y += 10;
+      y = studioIgFigures(k, model, y);
+      y = STUDIO_IG_LAYOUT_FN[model.layout](k, model, y) + 6;
+      if (model.takeaway) {
+        const lines = k.wrap(model.takeaway, F.head, cw - 24, 5), h = lines.length * k.lh(F.head) + 20 + k.lh(F.small);
+        k.parts.push(`<rect x="${M}" y="${y}" width="${cw}" height="${h}" rx="12" fill="${C.accent}"/>`);
+        k.text(M + 12, y + 8, ['KEY TAKEAWAY'], { s: 12, w: 700, c: '#e8efe0' });
+        k.text(M + 12, y + 8 + k.lh(F.small) + 2, lines, { ...F.head, c: '#ffffff' });
+        y += h + 14;
+      }
+      if (k.refs.length) {
+        y += k.text(M, y, ['Sources'], F.head) + 2;
+        k.refs.forEach((c, i) => { y += k.text(M, y, k.wrap(`[${i + 1}] ${nameOf(c.n)}${c.page ? ` · p. ${c.page}` : ''}`, F.small, cw, 2), F.small); });
+        y += 10;
+      }
+      const names = sourceNames.filter(Boolean);
+      y += k.text(M, y, k.wrap(`Made with Student Tools Hub${names.length ? ` from: ${names.join(', ')}` : ''}. AI-generated, so check it against your sources.`, F.small, cw, 4), F.small);
+      const height = Math.ceil(y + M);
+      const outH = Math.ceil(height * outW / lw);
+      const desc = `${STUDIO_IG_LAYOUT_NAMES[model.layout]} infographic with ${model.items.length} items.${model.takeaway ? ` Key takeaway: ${model.takeaway}` : ''}`;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${outW}" height="${outH}" viewBox="0 0 ${lw} ${height}" font-family="sans-serif" role="img" aria-labelledby="studioIgT studioIgD"><title id="studioIgT">${studioXml(model.title)}</title><desc id="studioIgD">${studioXml(desc)}</desc><rect width="${lw}" height="${height}" fill="${C.bg}"/>${k.parts.join('')}</svg>`;
+      return { svg, width: outW, height: outH };
     }
 
     // ── Flashcards: what the viewer may trust, and the review schedule. The model's output is untrusted; every string passes through here and is shown with textContent only ──
@@ -11826,7 +12277,8 @@
     const STUDIO_ID_RE = /^[\w-]{1,64}$/;
     const STUDIO_DRIVE_ID_RE = /^[\w-]{8,200}$/;
     const studioFileName = (id) => `sth-studio-${id}.json`;
-    const studioKnownTool = (tool) => Object.prototype.hasOwnProperty.call(STUDIO_TOOLS, tool) && !!STUDIO_TOOLS[tool].enabled;
+    // A tool of v7 is known from the release date on whatever the server says (the viewer works without it), so a synced aid is never mistaken for a foreign one
+    const studioKnownTool = (tool) => Object.prototype.hasOwnProperty.call(STUDIO_TOOLS, tool) && (STUDIO_TOOLS[tool].v7 ? studioV7Released() : !!STUDIO_TOOLS[tool].enabled);
     const studioTs = (n) => typeof n === 'number' && isFinite(n) && n > 0 && n < 4e12 ? Math.floor(n) : 0;
 
     function studioSyncSummary(item) {
@@ -12366,6 +12818,7 @@
           studioMap.refreshCites();
           studioFc.refreshCites();
           studioQz.refreshCites();
+          studioIg.refreshCites();
           return;
         }
         studioMap.leaveFullscreen();
@@ -12431,7 +12884,7 @@
         }
         link.hidden = !item;
         if (item) {
-          link.textContent = `← Back to ${{ flashcards: 'flashcards', quiz: 'quiz' }[item.tool] || 'mind map'}`;
+          link.textContent = `← Back to ${{ flashcards: 'flashcards', quiz: 'quiz', infographic: 'infographic' }[item.tool] || 'mind map'}`;
           link.setAttribute('href', `#studio/${item.id}`);
         }
       },
@@ -12445,13 +12898,15 @@
         let cannot = '';
         const isFc = item.status === 'ready' && item.tool === 'flashcards';
         const isQz = item.status === 'ready' && item.tool === 'quiz';
+        const isIg = item.status === 'ready' && item.tool === 'infographic';
         if (!isFc) studioFc.unmount();
         if (!isQz) studioQz.unmount();
+        if (!isIg) studioIg.unmount();
         if (isFc) {
           const model = studioFcModel(item.artifact);
           if (model.ok) {
             studioMap.unmount();
-            viewer.classList.remove('is-map', 'is-qz');
+            viewer.classList.remove('is-map', 'is-qz', 'is-ig');
             viewer.classList.add('is-fc');
             if (studioFc.showing(item)) studioFc.refreshCites(); else studioFc.mount(item, model);
             return;
@@ -12462,9 +12917,20 @@
           const model = studioQzModel(item.artifact);
           if (model.ok) {
             studioMap.unmount();
-            viewer.classList.remove('is-map', 'is-fc');
+            viewer.classList.remove('is-map', 'is-fc', 'is-ig');
             viewer.classList.add('is-qz');
             if (studioQz.showing(item)) studioQz.refreshCites(); else studioQz.mount(item, model);
+            return;
+          }
+          cannot = model.reason === 'schema' ? 'This study aid was made by a newer version of the app. Reload the page.' : 'This study aid is damaged. Regenerate it.';
+        }
+        if (isIg) {
+          const model = studioIgModel(item.artifact, { pick: item.options && item.options.layout, sourceCount: item.sourceIds.length });
+          if (model.ok) {
+            studioMap.unmount();
+            viewer.classList.remove('is-map', 'is-fc', 'is-qz');
+            viewer.classList.add('is-ig');
+            if (studioIg.showing(item)) studioIg.refreshCites(); else studioIg.mount(item, model);
             return;
           }
           cannot = model.reason === 'schema' ? 'This study aid was made by a newer version of the app. Reload the page.' : 'This study aid is damaged. Regenerate it.';
@@ -12472,14 +12938,14 @@
         if (item.status === 'ready' && item.tool === 'mindmap') {
           const model = studioMapModel(item.artifact);
           if (model.ok) {
-            viewer.classList.remove('is-fc', 'is-qz');
+            viewer.classList.remove('is-fc', 'is-qz', 'is-ig');
             viewer.classList.add('is-map');
             if (studioMap.showing(item)) studioMap.refreshCites(); else studioMap.mount(item, model);
             return;
           }
           cannot = model.reason === 'schema' ? 'This study aid was made by a newer version of the app. Reload the page.' : 'This study aid is damaged. Regenerate it.';
         }
-        viewer.classList.remove('is-map', 'is-fc', 'is-qz');
+        viewer.classList.remove('is-map', 'is-fc', 'is-qz', 'is-ig');
         studioMap.unmount();
         const id = escapeHtml(item.id);
         const n = item.sourceIds.length;
@@ -12651,7 +13117,8 @@
         const viewer = this.el('studioViewer');
         studioMap.unmount();
         studioFc.unmount();
-        viewer.classList.remove('is-map', 'is-fc');
+        studioIg.unmount();
+        viewer.classList.remove('is-map', 'is-fc', 'is-qz', 'is-ig');
         let st = this.remote.get(item.id);
         if (!st) {
           if (state.driveSyncToken) { st = 'loading'; this.remote.set(item.id, st); this.fetchArtifact(item); }
@@ -12719,7 +13186,7 @@
       async show(arg) {
         this.wire();
         this.viewerId = arg || null;
-        if (!arg) { studioMap.unmount(); studioFc.unmount(); studioQz.unmount(); }
+        if (!arg) { studioMap.unmount(); studioFc.unmount(); studioQz.unmount(); studioIg.unmount(); }
         this.el('studioMain').hidden = !!arg;
         this.el('studioViewer').hidden = !arg;
         this.renderSources();
@@ -12779,6 +13246,7 @@
           if (!g) return;
           this.el(slot.field).querySelector('legend').textContent = g.heading;
           this.el(slot.box).innerHTML = seg(slot.name, g.values, opts[g.key]);
+          this.el(slot.box).classList.toggle('is-many', g.values.length > 3);
         });
         const savedLang = storageGet(STUDIO_LANG_KEY);
         const pick = [prefill.language, savedLang].find(c => STUDIO_LANGUAGES.some(l => l.code === c)) || 'en';
@@ -13041,6 +13509,9 @@
           else if (act === 'export-png') studioMap.exportPng();
           else if (act === 'export-md') studioMap.exportMd();
           else if (act === 'export-tsv') studioFc.exportTsv();
+          else if (act === 'export-ig-png') studioIg.exportPng();
+          else if (act === 'export-ig-svg') studioIg.exportSvg();
+          else if (act === 'export-ig-pdf') studioIg.exportPdf();
           else if (act === 'connect') triggerSyncSignIn();
           else if (act === 'reload-remote') { this.remote.delete(id); this.refreshViews(); }
           else if (act === 'regenerate') { const it = this.items.find(i => i.id === id); if (it) this.openDialog(it.tool, { language: it.language, topic: it.topic, sourceIds: it.sourceIds, options: it.options }); }
@@ -13803,6 +14274,184 @@
         if (!item) return;
         studioDownload(new Blob([studioMapMarkdown(model, item.sourceNames.map(studioStem))], { type: 'text/markdown;charset=utf-8' }), `${studioSlug(model.title)}-mind-map.md`);
         showToast('Outline downloaded');
+      },
+    };
+
+    // ── Infographic viewer: the drawing (one SVG, redrawn when the width changes), a text version of the same content, downloads ──
+    const studioIg = {
+      item: null, model: null, art: null, ro: null, width: 0, raf: 0, citeSig: '', chipBoxes: [],
+      el: (id) => document.getElementById(id),
+      sourceName(n) { return studio.citeSource(this.item, n).name; },
+      showing(item) { return !!this.item && this.item.id === item.id && this.art === item.artifact && !!this.el('studioIg'); },
+
+      mount(item, model) {
+        this.unmount();
+        this.item = item; this.model = model; this.art = item.artifact;
+        const id = escapeHtml(item.id);
+        this.el('studioViewerCard').innerHTML = `
+          <div class="studio-mm studio-ig" id="studioIg">
+            <div class="studio-mm-bar">
+              <a class="studio-btn ghost studio-mm-back" href="#studio" aria-label="Back to Study Studio">&larr; Back</a>
+              <h2 class="studio-mm-title" id="studioIgTitle"></h2>
+              <a class="studio-btn ghost" id="studioIgReport" href="${STUDIO_REPORT_HREF}">Report a problem</a>
+              <details class="studio-menu" id="studioIgMenu">
+                <summary aria-label="More actions"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></summary>
+                <div class="studio-menu-list">
+                  <button type="button" data-studio-act="export-ig-png" data-id="${id}">Download image (PNG)</button>
+                  <button type="button" data-studio-act="export-ig-svg" data-id="${id}">Download vector image (SVG)</button>
+                  <button type="button" data-studio-act="export-ig-pdf" data-id="${id}">Download PDF</button>
+                  <button type="button" data-studio-act="regenerate" data-id="${id}">Regenerate</button>
+                  <button type="button" class="is-danger" data-studio-act="delete" data-id="${id}">Delete</button>
+                </div>
+              </details>
+            </div>
+            <p class="studio-mm-notice" id="studioIgNotice" hidden><span></span><button type="button" aria-label="Dismiss">&times;</button></p>
+            <div class="studio-ig-stage" id="studioIgStage" role="region" tabindex="0" aria-label="Infographic. On a narrow screen it scrolls sideways. The text version below has the same content as a list."></div>
+            <details class="studio-ig-text" id="studioIgText"><summary>Text version</summary><div id="studioIgTextBody"></div></details>
+            <p class="studio-mm-foot" id="studioIgFoot"></p>
+          </div>`;
+        const root = this.el('studioIg');
+        if (/^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(item.language || '')) root.setAttribute('lang', item.language);
+        this.el('studioIgTitle').textContent = model.title;
+        const names = item.sourceNames.map(studioStem);
+        this.el('studioIgFoot').textContent = `Made with Student Tools Hub${names.length ? ` from: ${names.join(', ')}` : ''}. AI-generated, so check it against your sources.`;
+        const notice = this.el('studioIgNotice');
+        if (model.notices.length) {
+          notice.firstElementChild.textContent = model.notices.join(' ');
+          notice.hidden = false;
+          notice.lastElementChild.addEventListener('click', () => { notice.hidden = true; });
+        }
+        this.el('studioIgText').addEventListener('click', (e) => {
+          const chip = e.target.closest('button.studio-mm-chip');
+          if (chip) { studio.openCite(this.item, Number(chip.dataset.n), Number(chip.dataset.page)); return; }
+          const ask = e.target.closest('button[data-ig-ask]');
+          if (ask) this.ask(Number(ask.dataset.igAsk));
+        });
+        this.fillText();
+        this.citeSig = this.citeSigNow();
+        this.ro = new ResizeObserver(() => { cancelAnimationFrame(this.raf); this.raf = requestAnimationFrame(() => this.draw()); });
+        this.ro.observe(this.el('studioIgStage'));
+        this.draw();
+      },
+
+      unmount() {
+        if (this.ro) this.ro.disconnect();
+        cancelAnimationFrame(this.raf);
+        this.ro = null; this.item = null; this.model = null; this.art = null; this.width = 0; this.raf = 0; this.chipBoxes = [];
+      },
+
+      // The drawing is as wide as the box, between 360 and 960; a narrower box scrolls it sideways so the text stays readable
+      draw() {
+        const stage = this.el('studioIgStage');
+        if (!stage || !this.model || !stage.clientWidth) return;
+        const width = Math.min(STUDIO_IG_VIEW_MAX, Math.max(STUDIO_IG_MIN_WIDTH, stage.clientWidth));
+        if (width === this.width && stage.firstChild) return;
+        this.width = width;
+        stage.innerHTML = this.render(width).svg;
+      },
+
+      render(width) {
+        return studioIgSvg(this.model, { width, nameOf: (n) => this.sourceName(n), sourceNames: this.item.sourceNames.map(studioStem) });
+      },
+
+      // The same content as the drawing, as a list a screen reader can walk through, with working citations and "Ask tutor"
+      fillText() {
+        const { model, item } = this;
+        const box = this.el('studioIgTextBody');
+        box.replaceChildren();
+        this.chipBoxes = [];
+        const add = (parent, tag, text, cls) => { const e = document.createElement(tag); if (cls) e.className = cls; e.textContent = text; parent.appendChild(e); return e; };
+        const chips = (parent, cites) => {
+          if (!cites.length) return;
+          const c = document.createElement('div');
+          c.className = 'studio-mm-chips';
+          parent.appendChild(c);
+          this.chipBoxes.push({ box: c, cites });
+          studioFillChips(c, item, cites);
+        };
+        add(box, 'h3', model.title);
+        if (model.subtitle) add(box, 'p', model.subtitle);
+        const list = add(box, 'ol', '', 'studio-ig-list');
+        model.items.forEach((it, i) => {
+          const li = add(list, 'li', '');
+          add(li, 'strong', it.heading || it.text);
+          if (it.when) add(li, 'span', `${it.when}`);
+          if (it.heading && it.text) add(li, 'span', it.text);
+          if (it.left) add(li, 'span', `${model.columns[0] || 'Left'}: ${it.left}`);
+          if (it.right) add(li, 'span', `${model.columns[1] || 'Right'}: ${it.right}`);
+          chips(li, it.cites);
+          const ask = add(li, 'button', 'Ask tutor', 'studio-btn');
+          ask.type = 'button';
+          ask.dataset.igAsk = String(i);
+          ask.setAttribute('aria-label', `Ask tutor about ${it.heading || it.text}`);
+        });
+        if (model.figures.length) {
+          add(box, 'h3', 'Key numbers');
+          const ul = add(box, 'ul', '', 'studio-ig-list');
+          for (const f of model.figures) {
+            const li = add(ul, 'li', '');
+            add(li, 'strong', `${f.value}: ${f.label}`);
+            add(li, 'span', `“${f.quote}”`, 'studio-ig-quote');
+            chips(li, [{ n: f.n, page: f.page }]);
+          }
+        }
+        if (model.takeaway) { const p = add(box, 'p', ''); add(p, 'strong', 'Key takeaway: '); p.appendChild(document.createTextNode(model.takeaway)); }
+      },
+
+      citeSigNow() { return this.item.sourceIds.map(id => kb.loading || kb.cache.some(k => k.id === id) ? '1' : '0').join(''); },
+      refreshCites() {
+        if (!this.item || !this.model) return;
+        const sig = this.citeSigNow();
+        if (sig === this.citeSig) return;
+        this.citeSig = sig;
+        for (const c of this.chipBoxes) if (c.box.isConnected) studioFillChips(c.box, this.item, c.cites);
+      },
+
+      ask(i) {
+        const it = this.model && this.model.items[i];
+        if (it) studio.openTutorChat(this.item, `Infographic · ${this.model.title}`.slice(0, 60), studioIgPrompt(this.model, it, (n) => this.sourceName(n)), null, 'infographic');
+      },
+
+      // ── downloads: the picture is drawn again at 1080 wide ──
+      fail(err, what) {
+        console.warn(`[STH] Infographic ${what} failed:`, err && err.message);
+        const code = err && err.key === 'EXP-503' ? 'EXP-503' : 'EXP-500';
+        showToast(err && err.tooBig ? 'Too big for an image. Download the vector image (SVG) instead.' : errorToastText(new AppError(code)), 'error');
+      },
+
+      exportSvg() {
+        if (!this.item) return;
+        studioDownload(new Blob([this.render(STUDIO_IG_EXPORT_WIDTH).svg], { type: 'image/svg+xml;charset=utf-8' }), `${studioSlug(this.model.title)}-infographic.svg`);
+        showToast('Image downloaded');
+      },
+
+      async exportPng() {
+        if (!this.item) return;
+        try {
+          const { svg, width, height } = this.render(STUDIO_IG_EXPORT_WIDTH);
+          const png = await studioSvgPng(svg, width, height);
+          studioDownload(png.blob, `${studioSlug(this.model.title)}-infographic.png`);
+          showToast('Image downloaded');
+        } catch (err) { this.fail(err, 'image'); }
+      },
+
+      // One page: the picture as a PNG on a page 595 points wide (pdf-lib, loaded the first time)
+      async exportPdf() {
+        if (!this.item) return;
+        try {
+          try { await loadScriptOnce(PDF_LIB_URLS[0]).catch(() => loadScriptOnce(PDF_LIB_URLS[1])); }
+          catch { throw new AppError('EXP-503'); }
+          const { svg, width, height } = this.render(STUDIO_IG_EXPORT_WIDTH);
+          const png = await studioSvgPng(svg, width, height, { maxRatio: 1.5 });
+          const doc = await PDFLib.PDFDocument.create();
+          doc.setTitle(this.model.title);
+          const img = await doc.embedPng(await png.blob.arrayBuffer());
+          const fit = Math.min(1, STUDIO_IG_PDF_MAX_PT / (STUDIO_IG_PDF_PT * height / width));
+          const w = STUDIO_IG_PDF_PT * fit, h = w * height / width;
+          doc.addPage([w, h]).drawImage(img, { x: 0, y: 0, width: w, height: h });
+          studioDownload(new Blob([await doc.save()], { type: 'application/pdf' }), `${studioSlug(this.model.title)}-infographic.pdf`);
+          showToast('PDF downloaded');
+        } catch (err) { this.fail(err, 'PDF'); }
       },
     };
 
@@ -15309,7 +15958,7 @@
     const UPDATE_NOTICE_KEY = 'sth_notice_2026_12_08';
     function showUpdateNotice() {
       const el = document.getElementById('noticeBanner');
-      if (!el || Date.now() >= Date.UTC(2026, 11, 8) || storageGet(UPDATE_NOTICE_KEY) === '1') return;
+      if (!el || studioV7Released() || storageGet(UPDATE_NOTICE_KEY) === '1') return;
       el.hidden = false;
       document.getElementById('noticeBannerClose').addEventListener('click', () => { storageSet(UPDATE_NOTICE_KEY, '1'); el.hidden = true; }, { once: true });
     }
