@@ -40,7 +40,8 @@ NEXT, in this order (owner decision 2026-10-30):
   2. DONE: Flashcards (job mode + viewer + review + TSV), one n8n import
   3. DONE: Quiz (multiple choice, true/false; n8n v6)
   4. DONE: S1c release: Drive sync of study aids, privacy/terms update, TERMS_VERSION bump, studio flag removed, Home card
-  5. NEXT: Infographic (HTML/SVG; image mode later), then Slide deck (still to decide: in or out)
-LATER / optional: J4 transcribe/template/reviewer on jobs; map-reduce worker for true 1M-token runs; email notices, cross-device pickup, quotas (none for now); Upstash pay-as-you-go cap about USD 5 if usage passes 60%.
-OWNER TASKS: Google branding re-verification (retry after Search Console verified), publish the OAuth app after S1c (Testing mode expires sign-ins in 7 days), purge old `ocr:*` and `gemini-file:*` keys, Gmail 90-day filters on both mailboxes.
+  5. NEXT (owner decision 2026-11-24, one n8n import for all of it, v7): Infographic (AI returns JSON, client draws SVG; layouts Steps/Comparison/Key facts/Timeline, user picks or Auto; built-in icon set, no emoji; exports PNG, SVG, PDF; background jobs and Drive sync), then Slide deck (in; download .pptx and view in-app), J4 (transcribe/template/reviewer on jobs), map-reduce worker for true 1M-token runs (design and Opus review first: cost ceiling, chunking, progress, cancel). Accuracy and robustness first.
+LATER / optional: email notices, cross-device pickup, quotas (none for now); Upstash pay-as-you-go cap about USD 5 when we commercialise.
+OWNER TASKS: Google branding re-verification (automated re-verify keeps returning "home page not registered"; appeal submitted via Verification Center 2026-11-24, wait for the human review; OAuth app is already In production, only non-sensitive scopes).
+DONE (owner, 2026-11-24): purged 82 legacy `ocr:*` keys (leave `gemini-file:*`, 47 h expiry), Gmail 90-day Apps Script on both mailboxes.
 Known follow-ups: with all browser storage blocked, tutor New chat and Knowledge Bay saves fail; no sign-out control when sync shows "Re-connect Google"; iOS Safari may block opening the exported Doc tab; Escape does not close the result modal; 401 after export does not re-auth; error-report scrubber mangles ".docx or PDF"; stale test s1a G5 (placeholder text).
