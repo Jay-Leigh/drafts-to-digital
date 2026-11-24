@@ -11841,7 +11841,7 @@
       if (!createdAt) return null;
       const ids = Array.isArray(raw.sourceIds) ? raw.sourceIds : [], names = Array.isArray(raw.sourceNames) ? raw.sourceNames : [];
       const sourceIds = [], sourceNames = [];
-      for (let i = 0; i < ids.length && sourceIds.length < studioMaxSources(); i++) {
+      for (let i = 0; i < ids.length && sourceIds.length < STUDIO_MAX_SOURCES_V7; i++) {
         if (typeof ids[i] !== 'string' || !STUDIO_ID_RE.test(ids[i])) continue;
         sourceIds.push(ids[i]);
         sourceNames.push(typeof names[i] === 'string' ? names[i].slice(0, 200) : '');
