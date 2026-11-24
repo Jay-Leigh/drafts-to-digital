@@ -4468,6 +4468,9 @@
       if (kept.length !== all.length) {
         await _historyStore.setItem('entries', kept).catch(() => {});
       }
+      for (const k of await _historyStore.keys().catch(() => [])) {
+        if (k.startsWith('kbSaved:') && !((await _historyStore.getItem(k).catch(() => 0)) >= cutoff)) await _historyStore.removeItem(k).catch(() => {});
+      }
     }
 
     async function deleteHistoryEntry(id) {
@@ -4646,7 +4649,7 @@
       if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
       const { action, actionLabel, persistent } = opts;
       if (action && actionLabel) {
-        dom.toast.innerHTML = `<div class="toast-body"><span class="toast-msg">${msg}</span><button class="toast-action-btn">${actionLabel}</button><button class="toast-close-btn">&times;</button></div>`;
+        dom.toast.innerHTML = `<div class="toast-body"><span class="toast-msg">${escapeHtml(msg)}</span><button class="toast-action-btn">${actionLabel}</button><button class="toast-close-btn">&times;</button></div>`;
         dom.toast.querySelector('.toast-action-btn').addEventListener('click', () => { dom.toast.classList.remove('show', 'toast-persistent'); action(); });
         dom.toast.querySelector('.toast-close-btn').addEventListener('click', () => { dom.toast.classList.remove('show', 'toast-persistent'); });
       } else {
@@ -5316,6 +5319,9 @@
     // IndexedDB; one tab (the leader) asks for their state in batches, applies each answer once and acknowledges it.
     // Anything off, blocked or missing on the server falls back to the direct request.
     const JOBS_FLAG_KEY = 'sth_flag_jobs';
+    const JOBS_ORPHAN_KEY = 'sth_jobs_orphans'; // leftover inputs and when they were first seen
+    const JOBS_CREATING_MS = 10 * 60 * 1000;
+    const JOBS_RUNNING_MAX_MS = 8 * 24 * 60 * 60 * 1000;
     const JOBS_LEADER_LOCK = 'sth-jobs-leader';
     const JOBS_MODES = ['tutor', 'studio_mindmap', 'studio_flashcards', 'studio_quiz', 'studio_infographic', 'studio_slides', 'transcribe', 'template', 'reviewer'];
     const JOBS_CADENCE_S = { tutor: [5, 5, 8, 13, 20], studio_mindmap: [10, 15, 20, 30], transcribe: [10, 15, 20], template: [10, 15, 20, 30], reviewer: [10, 15, 20, 30] };
@@ -5331,6 +5337,8 @@
     const JOBS_BUSY_FIRST_MS = 20000;
     const JOBS_BUSY_MAX_MS = 60000;
     const JOBS_BUSY_GIVE_UP_MS = 15 * 60 * 1000;
+    const JOBS_BUSY_BULK_S = { transcribe: [60, 120, 180], template: [60, 120, 180], reviewer: [60, 120, 180] }; // seconds between full re-sends when the server is busy, never faster
+    const JOBS_BUSY_BULK_TRIES = 6; // full-body attempts per member (the first send included)
     const JOBS_UNSENT_MS = 24 * 60 * 60 * 1000;
     const JOBS_KEEP_MS = 7 * 24 * 60 * 60 * 1000;
         const JOBS_AWAY_MS = 30000;
@@ -5800,9 +5808,11 @@
         }
         if (code !== 'STH-JOB-429') { await this.finalFail(cur, errorFromPayload({ ok: false, error: { code: code || 'STH-SRV-500' } }), true); return; }
         const since = cur.busySince || Date.now();
-        if (Date.now() - since > JOBS_BUSY_GIVE_UP_MS) { await this.finalFail(cur, new AppError('JOB-429'), true); return; }
         const n = cur.busyTries || 0;
-        const wait = Math.min(JOBS_BUSY_MAX_MS, JOBS_BUSY_FIRST_MS * Math.pow(1.5, n)) * (0.8 + Math.random() * 0.4);
+        const bulk = JOBS_BUSY_BULK_S[cur.mode]; // the three tool modes carry big bodies: a slow, capped retry (each one uploads the whole request again)
+        if (bulk && n + 1 >= JOBS_BUSY_BULK_TRIES) { await this.finalFail(cur, new AppError('JOB-429', { message: 'The service is busy right now. Try again in a few minutes.' }), true); return; }
+        if (Date.now() - since > JOBS_BUSY_GIVE_UP_MS && !bulk) { await this.finalFail(cur, new AppError('JOB-429'), true); return; }
+        const wait = bulk ? bulk[Math.min(n, bulk.length - 1)] * 1000 * (1 + Math.random() * 0.3) : Math.min(JOBS_BUSY_MAX_MS, JOBS_BUSY_FIRST_MS * Math.pow(1.5, n)) * (0.8 + Math.random() * 0.4);
         await this.update(cur.id, x => {
           if (x.state !== 'submitted' && x.state !== 'running') return false;
           x.state = 'waiting'; x.waitKind = 'busy'; x.busySince = since; x.busyTries = n + 1; x.createTries = 0; x.nextPollAt = Date.now() + wait;
@@ -5971,15 +5981,15 @@
       async createGroup({ kind, mode, ref, label, members, maxParallel = JOBS_BULK_MAX, maxAttempts = 2 }) {
         if (!this.available || !members.length) return null;
         const id = `g_${jobsRandom(16)}`;
-        try { for (let i = 0; i < members.length; i++) await this.store.setItem(`gin:${id}:${i}`, { payload: members[i].payload, files: members[i].files || [] }); }
-        catch { await this.groupDropInputs(id, members.length); return null; }
-        const g = { v: 1, id, kind, mode, ref, label, n: members.length, maxParallel: Math.max(1, Math.min(maxParallel, JOBS_BULK_MAX)), maxAttempts, state: 'running', createdAt: Date.now(), finishedAt: null, members: members.map((_, i) => ({ i, state: 'todo', jobId: null, error: null })) };
+        // the group record goes first (state `creating`, ignored until the inputs are in) so a tab cleaning up leftovers never mistakes these inputs for orphans
+        const g = { v: 1, id, kind, mode, ref, label, n: members.length, maxParallel: Math.max(1, Math.min(maxParallel, JOBS_BULK_MAX)), maxAttempts, state: 'creating', createdAt: Date.now(), finishedAt: null, members: members.map((_, i) => ({ i, state: 'todo', jobId: null, error: null })) };
         this.groups.set(id, g);
         try { await withStoreLock('jobs', () => this.store.setItem(`group:${id}`, g)); } catch { /* kept in memory for this visit */ }
-        tabSync.post('jobs');
-        this.render();
+        try { for (let i = 0; i < members.length; i++) await this.store.setItem(`gin:${id}:${i}`, { payload: members[i].payload, files: members[i].files || [] }); }
+        catch { await this.groupDropInputs(id, members.length); this.groups.delete(id); await this.store.removeItem(`group:${id}`).catch(() => {}); return null; }
+        const run = await this.groupUpdate(id, x => { x.state = 'running'; });
         this.advanceGroups();
-        return g;
+        return run || g;
       },
       // the inputs of members not sent yet (gin) and the answers a kind keeps until its run is finished (out)
       async groupDropInputs(id, n) { for (let i = 0; i < n; i++) { await this.store.removeItem(`gin:${id}:${i}`).catch(() => {}); await this.store.removeItem(`out:${id}:${i}`).catch(() => {}); } },
@@ -6025,7 +6035,7 @@
         const gin = await this.store.getItem(`gin:${g.id}:${i}`).catch(() => null);
         // inputs gone (noInputs: cannot be sent again), or not sent within a day of the run: a person confirms with Retry
         const stale = !g.members[i].retry && Date.now() - Math.max(g.createdAt, g.revivedAt || 0) > JOBS_UNSENT_MS;
-        if (!gin || stale) { await this.groupUpdate(g.id, x => { const m = x.members[i]; if (m.state !== 'todo') return false; m.state = 'failed'; m.error = { code: 'STH-JOB-502', message: ERRORS['JOB-502'].message }; if (!gin) m.noInputs = true; x.state = 'failed'; }); this.groupHandler(g).failed?.(this.groups.get(g.id), i, new AppError('JOB-502')); return; }
+        if (!gin || stale) { await this.groupUpdate(g.id, x => { const m = x.members[i]; if (m.state !== 'todo') return false; m.state = 'failed'; m.error = { code: 'STH-JOB-502', message: ERRORS['JOB-502'].message }; if (!gin) m.noInputs = true; else m.stale = true; x.state = 'failed'; }); this.groupHandler(g).failed?.(this.groups.get(g.id), i, new AppError('JOB-502')); return; }
         const job = await this.prepare({ mode: g.mode, kind: 'group', ref: g.ref, label: g.label, maxAttempts: g.maxAttempts, group: { id: g.id, i, n: g.n } });
         const claimed = await this.groupUpdate(g.id, x => { const m = x.members[i]; if (m.state !== 'todo') return false; m.state = 'running'; m.jobId = job.id; m.retry = false; });
         if (!claimed) { await this.drop(job.id); return; }
@@ -6037,14 +6047,16 @@
       },
 
       async groupMemberDone(gid, i, jobId) {
-        const g = await this.groupUpdate(gid, x => { const m = x.members[i]; if (!m || m.state === 'done' || (jobId && m.jobId !== jobId)) return false; m.state = 'done'; m.error = null; });
+        const g = await this.groupUpdate(gid, x => { const m = x.members[i]; if (!m || m.state !== 'running' || (jobId && m.jobId !== jobId)) return false; m.state = 'done'; m.error = null; });
         if (!g) return;
         await this.store.removeItem(`gin:${gid}:${i}`).catch(() => {});
         if (g.state === 'running' && g.members.every(m => m.state === 'done')) await this.groupFinish(gid); else this.advanceGroups();
       },
       async groupFinish(gid) {
+        const mine = !this.finishing.has(gid);
+        this.finishing.add(gid); // before the first await: the leader's own pass must not start the same handler
         const g = await this.groupUpdate(gid, x => { if (x.state !== 'running') return false; x.state = 'done'; x.finishedAt = Date.now(); });
-        if (g) await this.groupHandle(g);
+        if (g) await this.groupHandle(g); else if (mine) this.finishing.delete(gid);
       },
       // The kind's done handler runs once; `handled` is set only after it returned, so a crash in it makes the next pass of the leader run it again (handlers are idempotent)
       async groupHandle(g) {
@@ -6056,7 +6068,7 @@
       async groupMemberFailed(gid, i, jobId, err) {
         const e = errorFromException(err);
         const cur = this.groups.get(gid), h = this.groupHandler(cur || {}), m0 = cur && cur.members[i];
-        const soft = m0 && m0.state === 'running' && (!jobId || m0.jobId === jobId) && h.soften && h.soften(cur, i, e); // a failure the kind turns into a result for this member (the group goes on)
+        const soft = m0 && m0.state === 'running' && (cur.state === 'running' || cur.state === 'failed') && (!jobId || m0.jobId === jobId) && h.soften && h.soften(cur, i, e); // a failure the kind turns into a result for this member (the group goes on)
         if (soft) { await h.applyMember(cur, i, soft); await this.groupMemberDone(gid, i, jobId); return; }
         const g = await this.groupUpdate(gid, x => { const m = x.members[i]; if (!m || m.state !== 'running' || (jobId && m.jobId !== jobId)) return false; m.state = 'failed'; m.error = { code: e.code, message: e.message }; if (x.state === 'running') { x.state = 'failed'; x.finishedAt = Date.now(); } });
         if (g) try { await this.groupHandler(g).failed?.(g, i, e); } catch (err2) { console.warn('[STH] Background group handler failed:', errorFromException(err2).code); }
@@ -6075,7 +6087,7 @@
       },
 
       // Stops the group: nothing new is sent, running members are cancelled on the server, completed members are kept
-      async cancelGroup(gid) {
+      async cancelGroup(gid, silent) {
         const running = [];
         const g = await this.groupUpdate(gid, x => {
           if (x.state === 'cancelled' || x.state === 'done') return false;
@@ -6085,7 +6097,7 @@
         if (!g) return false;
         for (const id of running) await this.cancel(id, true);
         for (const m of g.members) if (m.state !== 'done') await this.store.removeItem(`gin:${gid}:${m.i}`).catch(() => {});
-        try { await this.groupHandler(g).cancelled?.(g); } catch (err) { console.warn('[STH] Background group handler failed:', errorFromException(err).code); }
+        if (!silent) try { await this.groupHandler(g).cancelled?.(g); } catch (err) { console.warn('[STH] Background group handler failed:', errorFromException(err).code); }
         return true;
       },
 
@@ -6101,19 +6113,30 @@
         this.render();
       },
 
-      // Finished groups are kept for a week like finished jobs; inputs without a group are leftovers of a crash
+      // Finished groups are kept for a week like finished jobs. A group still running after 8 days never will finish, one still being created after 10 minutes died on the way.
+      // Inputs without any group record are leftovers of a crash: removed once they have been seen for 10 minutes (a group of another tab may be on its way in).
       async pruneGroups(now) {
         for (const g of [...this.groups.values()]) {
-          if (g.state === 'running' || now - (g.finishedAt || g.createdAt) <= JOBS_KEEP_MS) continue;
+          const dead = g.state === 'creating' ? now - g.createdAt > JOBS_CREATING_MS : g.state === 'running' ? now - g.createdAt > JOBS_RUNNING_MAX_MS : now - (g.finishedAt || g.createdAt) > JOBS_KEEP_MS;
+          if (!dead) continue;
+          for (const r of [...this.recs.values()]) if (r.group && r.group.id === g.id) { if (JOBS_ACTIVE.has(r.state)) await this.cancel(r.id, true); await this.drop(r.id); }
           this.groups.delete(g.id);
           try { await withStoreLock('jobs', () => this.store.removeItem(`group:${g.id}`)); } catch { /* nothing to remove */ }
           await this.groupDropInputs(g.id, g.n);
         }
         try {
-          for (const k of await this.store.keys()) {
+          const keys = await this.store.keys();
+          const have = new Set(keys.filter(k => k.startsWith('group:')).map(k => k.slice(6)));
+          let seen = {};
+          try { seen = JSON.parse(storageGet(JOBS_ORPHAN_KEY) || '{}') || {}; } catch { seen = {}; }
+          const next = {};
+          for (const k of keys) {
             const m = /^(?:gin|out):(g_[^:]+):\d+$/.exec(k);
-            if (m && !this.groups.has(m[1])) await this.store.removeItem(k).catch(() => {});
+            if (!m || this.groups.has(m[1]) || have.has(m[1])) continue;
+            const first = Number(seen[k]) || now;
+            if (now - first > JOBS_CREATING_MS) await this.store.removeItem(k).catch(() => {}); else next[k] = first;
           }
+          storageSet(JOBS_ORPHAN_KEY, JSON.stringify(next));
         } catch { /* nothing to clean */ }
       },
 
@@ -6158,16 +6181,18 @@
       },
 
       // One tray row per group of a kind that describes its groups; their member jobs have no rows of their own
-      onGroupAct(act, gid, i) {
+      // Stopping a group (Cancel, or Dismiss of a stopped one) throws away its finished parts, so a person is asked first
+      async onGroupAct(act, gid, i) {
         const g = this.groups.get(gid);
-        if (!g) return Promise.resolve();
-        if (act === 'cancel') return this.cancelGroup(gid);
-        if (act === 'retry') return this.retryMember(gid, i);
-        if (act === 'dismiss') return this.dropGroup(gid);
-        if (act === 'open') { this.openTray(false); return Promise.resolve(this.groupHandler(g).open?.(g)); }
-        return Promise.resolve();
+        if (!g) return;
+        const done = g.members.filter(m => m.state === 'done').length;
+        if (done && (act === 'cancel' || (act === 'dismiss' && g.state === 'failed')) && !(await showConfirm(`Cancel and discard ${done} finished part${done === 1 ? '' : 's'}?`, 'Discard'))) return;
+        if (act === 'cancel') await this.cancelGroup(gid);
+        else if (act === 'retry') await this.retryMember(gid, i);
+        else if (act === 'dismiss') { if (g.state === 'failed') await this.cancelGroup(gid, true); await this.dropGroup(gid); }
+        else if (act === 'open') { this.openTray(false); await this.groupHandler(g).open?.(g); }
       },
-      shownGroups() { return [...this.groups.values()].filter(g => this.groupHandler(g).describeGroup); },
+      shownGroups() { return [...this.groups.values()].filter(g => g.state !== 'creating' && this.groupHandler(g).describeGroup); },
 
       count() {
         let n = 0;
@@ -6264,7 +6289,7 @@
           apply: async (j, data) => {
             const g = jobs.groupOf(j.id);
             if (!g) return false;
-            if (g.members[j.group.i].state !== 'done') await jobs.groupHandler(g).applyMember?.(g, j.group.i, data);
+            if (g.members[j.group.i].state === 'running' && (g.state === 'running' || g.state === 'failed')) await jobs.groupHandler(g).applyMember?.(g, j.group.i, data);
             await jobs.groupMemberDone(g.id, j.group.i, j.id);
             return false;
           },
@@ -8122,12 +8147,18 @@
     }
 
     // Joins the parts of a run. A transcription is also kept in Knowledge Bay as searchable text (once: a result of that name is never added twice).
-    async function toolJoin({ mode, parts, srcNames, newKbNames }) {
+    // kbKey (a background run): a marker under the History lock says this run's item was added already, whichever tab did it
+    async function toolJoin({ mode, parts, srcNames, newKbNames, kbKey }) {
       const resultText = parts.join('\n\n');
       // Auto-save transcription result to Knowledge Bay as searchable text
       if (mode === 'transcribe' && resultText.trim()) {
         try {
-          if (srcNames.length) {
+          const claimed = !kbKey || await withStoreLock('history', async () => {
+            if (await _historyStore.getItem(kbKey).catch(() => null)) return false;
+            await _historyStore.setItem(kbKey, Date.now());
+            return true;
+          });
+          if (srcNames.length && claimed) {
             const resultName = srcNames.join(' + ') + ' (transcribed)';
             if (!kb.cache.some(k => k.name === resultName)) {
               kb.cache.push({
@@ -8159,6 +8190,7 @@
 
     async function runProcess() {
       if (!state.mode || processRunning) return;
+      if ([...jobs.groups.values()].some(g => g.ref && g.ref.sig === toolSig() && (g.state === 'running' || g.state === 'creating'))) { showToast('This is already running. Follow it in Background jobs.'); return; }
       processRunning = true;
       setBusy(dom.btnAction, true);
       state.toolRunId = null;
@@ -8235,6 +8267,7 @@
       reviewer: { name: 'Your review', verb: 'Reviewing your assignment' },
     };
     const TOOL_JOB_SENT = 'Sent. You can leave; it will wait in History (kept 72 hours on the server).';
+    const TOOL_JOB_SYNCING = 'Running in this browser. Keep the app open until it is ready.';
     const TOOL_JOB_NO_ROOM = 'Background sending is not available on this device, so this runs the usual way. Keep this tab open until it is done.';
     const TOOL_JOB_LIVE = new Set(['submitted', 'running', 'succeeded', 'applied', 'done']);
 
@@ -8262,21 +8295,21 @@
       const fileNames = Object.values(state.zones).flat().map(f => f.name);
       const g = await jobs.createGroup({
         kind: 'tool', mode: state.mode, label: TOOL_JOB_TEXT[state.mode].name,
-        ref: { mode: state.mode, fileNames, srcNames: ctx.srcNames, newKbNames: ctx.newKbNames, pages: ctx.pages, batch: BATCH_SIZE },
+        ref: { mode: state.mode, sig: toolSig(), fileNames, srcNames: ctx.srcNames, newKbNames: ctx.newKbNames, pages: ctx.pages, batch: BATCH_SIZE },
         members: runs.map(r => ({ payload: r.payload, files: r.binaryFiles })),
       });
       if (!g) { showToast(TOOL_JOB_NO_ROOM); return false; }
       state.toolRunId = g.id;
       clearDraft(); // the pages are kept with the group now
-      // The pages leave this device only while this tab is open and in charge: members go out two at a time, the next when one is finished
+      // All the pages are kept on this device now. This view waits only for the first wave (two batches) to be accepted; the leader tab sends the rest as slots free.
       for (;;) {
         const cur = jobs.groups.get(g.id);
-        if (!cur || cur.state !== 'running' || !toolUnsent(cur)) break;
+        if (!cur || cur.state !== 'running' || toolWaveDone(cur)) break;
         updateProgress(40 + Math.round((cur.members.filter(m => toolMemberSent(m)).length / cur.n) * 55), toolUploadText(cur));
         await new Promise(r => setTimeout(r, 400));
       }
       const end = jobs.groups.get(g.id);
-      if (end && end.state === 'running') showToast(TOOL_JOB_SENT);
+      if (end && end.state === 'running') showToast(toolSentText(end));
       if (!dom.sectionProcessing.classList.contains('hidden')) showToolSection('sectionUpload');
       return true;
     }
@@ -8287,8 +8320,22 @@
       const rec = m.state === 'running' && m.jobId ? jobs.recs.get(m.jobId) : null;
       return !!rec && TOOL_JOB_LIVE.has(rec.state);
     }
-    const toolUnsent = (g) => g.members.some(m => !toolMemberSent(m) && m.state !== 'failed' && m.state !== 'cancelled');
-    const toolUploadText = (g) => `Uploading batch ${Math.min(g.members.filter(m => toolMemberSent(m)).length + 1, g.n)} of ${g.n} — keep this tab open until uploaded`;
+    const toolUnsent = (g) => g.members.some(m => m.state === 'todo' || (m.state === 'running' && !toolMemberSent(m)));
+    const toolRec = (m) => (m.state === 'running' && m.jobId ? jobs.recs.get(m.jobId) : null);
+    // the first wave is through once each of its members is taken by the server, waits for a free slot (busy or other runs hold them all), or runs directly in this browser
+    const toolSlotsFull = () => [...jobs.groups.values()].reduce((n, x) => n + x.members.filter(m => m.state === 'running').length, 0) >= JOBS_BULK_MAX;
+    const toolWaveDone = (g) => g.members.slice(0, Math.min(g.n, g.maxParallel)).every(m => { const r = toolRec(m); return toolMemberSent(m) || (r && (r.state === 'syncing' || (r.state === 'waiting' && r.waitKind === 'busy'))) || (m.state === 'todo' && toolSlotsFull()); });
+    const toolWaitReason = () => (navigator.onLine === false ? ' Waiting for your connection.' : jobs.authPaused ? ' Sign in again to continue.' : '');
+    const toolUploadText = (g) => `Uploading batch ${Math.min(g.members.filter(m => toolMemberSent(m)).length + 1, g.n)} of ${g.n} \u2014 keep this tab open until uploaded${toolWaitReason()}`;
+    // what the person is told once the run has left the form: what is uploaded, what still waits, and that closing the app delays the rest
+    function toolSentText(g) {
+      if (g.members.some(m => { const r = toolRec(m); return r && r.state === 'syncing'; })) return TOOL_JOB_SYNCING;
+      if (!toolUnsent(g)) return TOOL_JOB_SENT;
+      const sent = g.members.filter(m => toolMemberSent(m)).map(m => m.i + 1);
+      const list = !sent.length ? '' : sent.every((v, k) => !k || v === sent[k - 1] + 1) && sent.length > 1 ? `${sent[0]}-${sent[sent.length - 1]}` : sent.join(', ');
+      return `Sent. ${sent.length ? `Batch ${list} ${sent.length > 1 ? 'are' : 'is'} uploaded; the rest` : 'The rest'} upload while the app is open (reopen it within 24 hours to finish). The result will wait in History.${toolWaitReason()}`;
+    }
+    const toolSig = () => JSON.stringify([state.mode, Object.entries(state.zones).map(([role, fs]) => [role, fs.map(f => [f.name, f.size])]), state.userNotes, state.resourceUrl]);
 
     // "Pages 11-15" for a transcription batch, the name of the result for the other tools
     function toolBatchText(g, i) {
@@ -8299,10 +8346,12 @@
     }
     function toolFailText(g, i, e) {
       const m = g.members[i];
+      if (m && m.stale) return `${toolBatchText(g, i)} was not sent within a day, because the app was closed. Retry batch sends it now.`;
       if (m && m.noInputs) return `${toolBatchText(g, i)} could not be sent again, because the files are no longer kept on this device. Start again with your files.`;
       return `${toolBatchText(g, i)} failed. ${e.message} (Code ${e.code})`;
     }
-    const toolOnView = (g) => state.currentRoute === g.ref.mode && state.mode === g.ref.mode && state.toolRunId === g.id;
+    // on the view of this run, with the form as it was sent (a changed form is new work the result must not cover)
+    const toolOnView = (g) => state.currentRoute === g.ref.mode && state.mode === g.ref.mode && state.toolRunId === g.id && toolSig() === g.ref.sig;
 
     // The end of a background run: join the parts in order, keep a transcription in Knowledge Bay, save to History, show it. Safe to run again after a
     // crash (a History entry with the group's id and a Knowledge Bay item of the same name are never added twice).
@@ -8318,7 +8367,7 @@
       else if (!outs.some(o => !o.blocked && o.text.trim())) err = new AppError(outs.find(o => o.blocked).blocked); // every part was left out
       else {
         const parts = outs.filter(o => o.blocked || o.text.trim()).map(o => (r.mode === 'transcribe' ? o.text.trim() : o.text));
-        resultText = await toolJoin({ mode: r.mode, parts, srcNames: r.srcNames || [], newKbNames });
+        resultText = await toolJoin({ mode: r.mode, parts, srcNames: r.srcNames || [], newKbNames, kbKey: `kbSaved:${g.id}` });
         entry = await saveToHistory(r.mode, resultText, r.fileNames || [], `h_${g.id}`);
         kept = (await getHistory()).some(e => e.id === entry.id);
       }
@@ -8332,9 +8381,8 @@
         displayResult();
         showToolSection('sectionResult');
         toolDoneToast(newKbNames);
-        clearDraft();
       } else {
-        showToast(`${TOOL_JOB_TEXT[r.mode].name} is ready.`, 'success', { actionLabel: 'Open', action: () => openHistoryResult(entry), persistent: true });
+        showToast(`${TOOL_JOB_TEXT[r.mode].name} is ready.`, 'success', { actionLabel: 'Open', action: () => { openHistoryResult(entry); jobs.groupUpdate(g.id, x => { x.seen = true; }); }, persistent: true });
       }
       if (!err) jobs.el('jobsLive').textContent = `${TOOL_JOB_TEXT[r.mode].name}: ready.`;
       if (kept || err) await jobs.groupDropInputs(g.id, g.n); // the parts go once the History entry is really there
@@ -8342,17 +8390,17 @@
     }
 
     // One row of the tray (and the note above the tool) for a group
-    function toolDescribeGroup(g) {
+    function toolDescribeGroup(g, inNote) {
       const r = g.ref, t = TOOL_JOB_TEXT[r.mode];
       const since = `<span data-jobs-since="${g.createdAt}">${jobsElapsed(g.createdAt)}</span>`;
       const failed = g.members.find(m => m.state === 'failed');
       if (g.state === 'failed' && failed) {
         const acts = failed.noInputs ? [] : [{ act: 'retry', label: g.n > 1 ? 'Retry batch' : 'Try again', i: failed.i }];
-        return { label: t.name, failed: true, text: escapeHtml(toolFailText(g, failed.i, failed.error || new AppError('JOB-502'))), actions: acts.concat([{ act: 'cancel', label: 'Cancel' }]) };
+        return { label: t.name, failed: true, text: escapeHtml(toolFailText(g, failed.i, failed.error || new AppError('JOB-502'))), actions: acts.concat([{ act: 'cancel', label: 'Cancel' }, { act: 'dismiss', label: 'Dismiss' }]) };
       }
       if (g.state === 'running') {
         const done = g.members.filter(m => m.state === 'done').length;
-        const text = toolUnsent(g) ? escapeHtml(toolUploadText(g)) : `${t.verb}${g.n > 1 ? `: batch ${Math.min(done + 1, g.n)} of ${g.n}` : ''} (${since})`;
+        const text = `${t.verb}${g.n > 1 ? `: batch ${Math.min(done + 1, g.n)} of ${g.n}` : ''} (${since})${toolUnsent(g) && !inNote ? escapeHtml(' The rest upload while the app is open.' + toolWaitReason()) : ''}`;
         return { label: t.name, text, actions: [{ act: 'cancel', label: 'Cancel' }] };
       }
       if (g.state === 'done') {
@@ -8373,14 +8421,15 @@
         if (!el.hidden) { el.hidden = true; el.textContent = ''; delete el.dataset.k; }
         return;
       }
-      const d = toolDescribeGroup(g);
+      const d = toolDescribeGroup(g, true);
       const acts = d.actions.map(a => `<button type="button" data-jobs-gact="${a.act}" data-gid="${escapeHtml(g.id)}"${a.i === undefined ? '' : ` data-i="${a.i}"`}>${escapeHtml(a.label)}</button>`).join('');
-      const html = `<span>${g.state === 'running' && !toolUnsent(g) ? `${escapeHtml(TOOL_JOB_SENT)} ` : ''}${d.text}</span><div class="jobs-row-actions">${acts}</div>`;
+      const html = `<span>${g.state === 'running' ? `${escapeHtml(toolSentText(g))} ` : ''}${d.text}</span><div class="jobs-row-actions">${acts}</div>`;
       el.classList.toggle('is-failed', !!d.failed);
       if (el.dataset.k !== html) { el.innerHTML = html; el.dataset.k = html; }
       el.hidden = false;
     }
 
+    let toolSendChain = Promise.resolve(), toolLastSendAt = 0;
     jobs.groupHandlers.tool = {
       href: (g) => `#${g.ref.mode}`,
       describeGroup: toolDescribeGroup,
@@ -8405,7 +8454,16 @@
         showToast(`${TOOL_JOB_TEXT[g.ref.mode].name} was cancelled.`);
         toolSyncNote();
       },
-      send: (g, i, payload, files) => sendToWebhook(payload, files),
+      // The run goes directly (the server turned jobs down): one batch in flight, BATCH_DELAY_MS between them, quiet (no progress text, no sign-in window from a background tab)
+      send: (g, i, payload, files) => {
+        const run = toolSendChain.then(async () => {
+          const gap = toolLastSendAt + BATCH_DELAY_MS - Date.now();
+          if (gap > 0 && toolLastSendAt) await new Promise(r => setTimeout(r, gap));
+          try { return await webhookRequest(payload, { binaryFiles: files, quiet: true, authPrompt: !document.hidden }); } finally { toolLastSendAt = Date.now(); }
+        });
+        toolSendChain = run.catch(() => {});
+        return run;
+      },
       open: async (g) => {
         const entry = (await getHistory()).find(e => e.id === `h_${g.id}`);
         if (entry) { openHistoryResult(entry); jobs.groupUpdate(g.id, x => { x.seen = true; }); }
