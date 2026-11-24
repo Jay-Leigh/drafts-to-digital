@@ -10,6 +10,7 @@ Files (in the `n8n/` folder of the repo):
 | `sth-workflow-v4-jobs.json` | Import INSTEAD of v3 (step 19) for background jobs (tutor and mind map keep running after the app is closed). It is v3 plus the job webhooks; never import both. |
 | `sth-workflow-v5-flashcards.json` | Import INSTEAD of v4 (step 20) for Study Studio flashcards (also as a background job). It is v4 plus the `studio_flashcards` mode; never import both. |
 | `sth-workflow-v6-quiz.json` | Import INSTEAD of v5 (step 21) for Study Studio quiz (also as a background job). It is v5 plus the `studio_quiz` mode; never import both. |
+| `sth-workflow-v7-bundle.json` | Import INSTEAD of v6 (step 22) for the Study Studio infographic and slides, transcribe / template / reviewer as background jobs, and big runs in parts. It is v6 plus those modes and the version gate; never import both. |
 
 Tested against n8n 2.29.7 (the version you run). Nothing below needs n8n server environment variables.
 
@@ -296,7 +297,7 @@ Leave `gemini-file:*` (47-hour expiry) and `session:*` (3-hour expiry) alone.
 |---|---|---|---|
 | `auth:code` | you (step 3) | none | the access code, plain text |
 | `cfg:daily_units` | you (optional) | none | daily ceiling in weighted units; unset, empty or not a number = no ceiling; `0` blocks all new-path Gemini calls |
-| `cfg:studio_max_tokens` | you (optional) | none | Studio mind map input cap in estimated tokens; unset, junk or negative = 400000; values are clamped to 50000..900000 (higher values risk timeouts and Gemini 429s) |
+| `cfg:studio_max_tokens` | you (optional) | none | Studio input cap (every tool) in estimated tokens; unset, junk or negative = 400000; values are clamped to 50000..900000 (higher values risk timeouts and Gemini 429s). From v7 it also limits one part of a big run and the digests of its reduce run (further limited to 200000 and 300000) |
 | `usage:YYYYMMDD` | workflow (after each Gemini answer, both paths; v3: Study Studio answers too) | 3 days | weighted units used on that UTC day |
 | `auth:fail:<ip>` | workflow | 600 s (window starts at the first attempt) | attempts by that IP; above 10 = blocked; cleared by a correct code |
 | `auth:ok:<ip>` | workflow | 3600 s | successful sign-ins by that IP; above 20 = refused; never cleared |
@@ -313,10 +314,14 @@ Leave `gemini-file:*` (47-hour expiry) and `session:*` (3-hour expiry) alone.
 | `sth:jobs:run:studio_flashcards` | workflow (v5) | 1 d | flashcards jobs currently running (sorted set, same rules as the two above); the total cap `cfg:jobs_max_running` counts it |
 | `sth:jobs:run:studio_quiz` | workflow (v6) | 1 d | quiz jobs currently running (sorted set, same rules); the total cap `cfg:jobs_max_running` counts it. `cfg:studio_max_tokens` and `cfg:daily_units` apply to the quiz exactly as to the other Studio tools |
 | `sth:jobs:n:YYYYMMDD` | workflow (v4) | 30 days | daily counts (admitted, busy, succeeded, failed), no content |
+| `sth:jobs:run:studio_infographic`, `sth:jobs:run:studio_slides`, `sth:jobs:run:studio_digest`, `sth:jobs:run:transcribe`, `sth:jobs:run:template`, `sth:jobs:run:reviewer` | workflow (v7) | 1 d | jobs of the new modes currently running (sorted sets, same rules as the others); the total cap `cfg:jobs_max_running` counts them |
+| `sth:jobs:run:bulk` | workflow (v7) | 1 d | bulk jobs currently running (sorted set, same rules): transcribe, template, reviewer, digest, and any part or reduce run of a big run. At most 2 at once; the other 2 of the 4 slots stay for the tutor and single study aids |
+| `cfg:bulk_ratio` | you (optional, v7) | none | share of `cfg:daily_units` that bulk work may use, 0 to 1; unset or junk = 0.6; `0` = no bulk work. Bulk work stops at that share, everything else at the ceiling. Without `cfg:daily_units` nothing is blocked |
+| `cfg:mr_max_units` | you (optional, v7) | none | largest estimated cost of one big run in weighted units; unset or junk = 2000000; clamped to 100000..20000000. The app reads it (op `budget`) and refuses a bigger run before sending anything |
 
 `<ip>` is the last hop of `X-Forwarded-For` (added by Cloud Run).
 
-Weighted units = prompt tokens + 4 x (output tokens + thinking tokens), taken from Gemini's `usageMetadata`. They are not dollars: Gemini 2.5 Flash output costs roughly 8 times its input price, so the factor 4 understates output-heavy traffic. Pick the ceiling from observation: after a normal day read `GET usage:YYYYMMDD`, then set the ceiling at a comfortable multiple of that.
+Weighted units = prompt tokens + 4 x (output tokens + thinking tokens), taken from Gemini's `usageMetadata`. Study Studio uses 8.33 (v3); from v7 transcribe, template and reviewer do too (a timeout or 5xx of a v7 job call is counted at the worst case: prompt estimate + output limit + thinking); the tutor and the reference lookup still use 4. They are not dollars: Gemini 2.5 Flash output costs roughly 8 times its input price, so the factor 4 understates output-heavy traffic. Pick the ceiling from observation: after a normal day read `GET usage:YYYYMMDD`, then set the ceiling at a comfortable multiple of that.
 
 Upstash CLI commands:
 
@@ -622,3 +627,106 @@ Expect `{"ok":false,"error":{"code":"STH-STU-413","retryable":false,"reason":"to
 Expect, after 15 to 60 seconds, `{"ok":true,"artifact":{"envelope":"sth.studio/1","tool":"quiz","schema":"sth.quiz/1",...,"data":{"schema":"sth.quiz/1","title":"...","notices":[],"questions":[{"id":"q1","type":"mcq","stem":"...","options":[{"id":"A",...},{"id":"B",...},{"id":"C",...},{"id":"D",...}],"answer":"C","explanation":"...","hint":"...","topic":"...","cites":[{"source":"S1","page":0}]},...]}}}`: at least 5 questions (half of 10; this tiny source may give fewer than 10, which is fine), ids `q1`, `q2`, ..., every `answer` is one of the option ids, `calls` 1, and `page` 0 because the text has no page markers. Read two or three questions: the marked answer should really be the right one and the wrong options should be plausible. `GET usage:YYYYMMDD` in Upstash has grown. `STH-STU-422` means the model's answer was unusable (try once more). The hello of step 19.2 now answers `"modes":["tutor","studio_mindmap","studio_flashcards","studio_quiz"]`. Delete the JSON files when done.
 
 **If something goes wrong:** rollback = import `sth-workflow-v5-flashcards.json` again (step 13; re-select `STH JWT`); a client that asks for `studio_quiz` then gets no usable answer (v5 does not know the mode), so switch the quiz feature off in the app first.
+
+## 22. Infographic, slides, background transcribe / template / reviewer, big runs: import v7 INSTEAD of v6
+
+`sth-workflow-v7-bundle.json` = v6 + five things. It replaces v6: import v7 in place of v6, never both. The answers of every v6 mode stay exactly as they were (the direct requests of transcribe, template and reviewer too). 12 nodes are new (197 in all), 29 changed; the 3 changed Study Studio nodes and the job nodes now handle the new modes.
+
+**What is new**
+
+- Two Study Studio tools, `studio_infographic` and `studio_slides`, on the same JWT path (`/webhook/student-tools-v2`) and as background jobs. The model returns JSON only; n8n checks it (layouts, icon ids, numbers). A number is kept only when its quote is found in the cited source; a figure, a bullet or an item with a number that cannot be checked is removed and listed in `repairs`.
+- Big runs in parts (the app splits the material, n8n answers one part or the final step at a time): `studio_digest` (the digest of one part) and the fields `part` and `strategy:"reduce"` on the other tools. They are accepted only as background jobs flagged `bulk`, never on the direct path. A part may hold up to 200,000 estimated tokens, the digests of a reduce run up to 300,000 (both also limited by `cfg:studio_max_tokens`).
+- `transcribe`, `template` and `reviewer` also run as background jobs (deadline 10 minutes; 2 transcribe jobs at once, 1 template, 1 reviewer). A job makes ONE Gemini call (time-out 280 seconds, no repeat inside the node); the app retries the job when it fails, so every repeat is visible and metered. The direct request is unchanged (up to 3 tries, 300 seconds).
+- The version gate: `hello` now answers `"v":7` and `"caps":{...}`. The app turns the new features on only when it sees `v` 7, so it does not matter whether the app update or this import comes first, and after a rollback to v6 the features switch themselves off. Study sources: 1 to 15 (was 10).
+- Job slots: still 4 in total. At most 2 bulk jobs (transcribe, template, reviewer, digest, parts and reduce runs) run together; the other 2 slots stay for the tutor and single study aids. New server-side limit for bulk work: it stops at `cfg:bulk_ratio` (default 0.6) of `cfg:daily_units`, with `STH-QUOTA-430` and the reason `bulk`.
+- New job operation `budget` (one Upstash read): today's usage, the ceiling, what is left, the Studio token cap and the per-run limit `cfg:mr_max_units`. If Upstash does not answer, the app gets "unknown" and goes on.
+- A mode that no rule knows now gets `{"ok":false,"error":{"code":"STH-INPUT-400","retryable":false,"reason":"mode"}}` (new fallback output of `Route by Mode`).
+- Tutor: the whole document is sent for a "summarise the whole book" question only up to 400,000 estimated tokens; above that the tutor searches excerpts and adds one sentence that Study Studio can make the overview.
+- The three upload calls to Gemini (`Gemini Init Upload`, `Gemini Upload Bytes`, each in three copies) now time out after 60 seconds.
+
+**Procedure** (same as step 21, with v7)
+
+1. Back up (step 1). 2. Import `sth-workflow-v7-bundle.json` in place (step 4); do it when no job is running (a restart loses running jobs; the app starts them again). 3. Credentials (step 5): `STH JWT` on `Student Hub Endpoint (JWT)`, `Job Start Endpoint`, `Job Endpoint` and `Auth Sign JWT`; `Gemini API Key` on `Studio - Call Gemini` and on the three new nodes `Call Gemini (Transcription, job)`, `Call Gemini (Template, job)`, `Call Gemini (Reviewer, job)`; `Upstash Redis REST` on `Job - Budget Read` and the other Redis nodes (a red triangle means not selected). 4. Settings (6 and 6b): Do not save for successful and failed executions, error workflow = this workflow, `Timeout Workflow` 720 seconds. 5. Publish (step 7). 6. Run the tests below, then 19.1 of step 19.
+
+Nothing new to create in Upstash: the new keys are optional (step 16: `cfg:bulk_ratio`, `cfg:mr_max_units`) or written by the workflow.
+
+**Tests (cmd.exe; `%TOKEN%` from 8.2; `%JID%` and `%JKEY%` as in step 19)**
+
+22.1 Hello (free, no Upstash call):
+
+```
+curl.exe -s -X POST "%N8N%/webhook/sth-job" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary "{\"v\":1,\"op\":\"status\",\"jobs\":[]}"
+```
+Expect `{"ok":true,"jobsEnabled":true,"modes":["tutor","studio_mindmap","studio_flashcards","studio_quiz","studio_infographic","studio_slides","studio_digest","transcribe","template","reviewer"],"v":7,"caps":{"maxSources":15,"tools":["mindmap","flashcards","quiz","infographic","slides","digest"],"maxParts":16,"partMaxTokens":200000,"reduceMaxTokens":300000,"jobCap":4,"bulkCap":2,"reserve":2},"now":...}`. `"v":7` is what the app looks for.
+
+22.2 A mode nobody knows (free):
+
+```
+curl.exe -s -X POST "%N8N%/webhook/student-tools-v2" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary "{\"mode\":\"nope\"}"
+```
+Expect `{"ok":false,"error":{"code":"STH-INPUT-400","retryable":false,"reason":"mode"}}`.
+
+22.3 Budget (one Upstash read):
+
+```
+curl.exe -s -X POST "%N8N%/webhook/sth-job" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary "{\"v\":1,\"op\":\"budget\",\"jobs\":[]}"
+```
+Expect `{"ok":true,"v":7,"day":"YYYYMMDD","now":...,"ceiling":...,"used":...,"remaining":...,"bulkRatio":0.6,"bulkCeiling":...,"bulkRemaining":...,"studioMaxTokens":400000,"mrMaxUnits":2000000}`. `ceiling`, `remaining`, `bulkCeiling` and `bulkRemaining` are `null` while `cfg:daily_units` is not set. `used` matches `GET usage:YYYYMMDD` in Upstash.
+
+22.4 Part of a big run on the direct path is refused (free, no Gemini call). Create `dg-part.json` in Notepad (one line):
+
+```
+{"mode":"studio_digest","v":1,"tool":"digest","language":{"code":"en"},"part":{"i":1,"n":2},"sources":[{"id":"S1","name":"a","kind":"txt","markers":"none","text":"x"}]}
+```
+```
+curl.exe -s -X POST "%N8N%/webhook/student-tools-v2" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary @dg-part.json
+```
+Expect `{"ok":false,"error":{"code":"STH-INPUT-400","retryable":false,"reason":"job_only"}}`.
+
+22.5 Sixteen sources are one too many (free). Create `ig-413.json` in Notepad (one line):
+
+```
+{"mode":"studio_infographic","v":1,"tool":"infographic","language":{"code":"en"},"options":{"layout":"auto"},"description":"","sources":[{"id":"S1","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S2","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S3","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S4","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S5","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S6","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S7","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S8","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S9","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S10","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S11","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S12","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S13","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S14","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S15","name":"a","kind":"txt","markers":"none","text":"x"},{"id":"S16","name":"a","kind":"txt","markers":"none","text":"x"}]}
+```
+```
+curl.exe -s -X POST "%N8N%/webhook/student-tools-v2" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary @ig-413.json
+```
+Expect `{"ok":false,"error":{"code":"STH-STU-413","retryable":false,"reason":"too_many_sources"}}`.
+
+22.6 (optional, costs a few cents: run it ONCE) One real infographic. Create `ig-ok.json` (one line) and send it the same way as 22.5:
+
+```
+{"mode":"studio_infographic","v":1,"tool":"infographic","language":{"code":"en"},"options":{"layout":"auto"},"description":"Biology revision","sources":[{"id":"S1","name":"notes.txt","kind":"txt","markers":"none","text":"Photosynthesis. Plants make sugar from light. Light reactions happen in the thylakoid membranes and make ATP and NADPH. The Calvin cycle happens in the stroma and uses ATP and NADPH to fix carbon dioxide into sugar. Respiration. Cells release energy from sugar. Glycolysis happens in the cytoplasm and splits glucose into two pyruvate. The Krebs cycle happens in the mitochondrial matrix and makes carbon dioxide, NADH and FADH2. The electron transport chain on the inner membrane makes most of the ATP."}]}
+```
+Expect, after 10 to 40 seconds, `{"ok":true,"artifact":{"envelope":"sth.studio/1","tool":"infographic","schema":"sth.infographic/1","promptVersion":"studio-2026-12-a","strategy":"direct",...,"data":{"schema":"sth.infographic/1","title":"...","layout":"steps",...,"items":[{"heading":"...","text":"...","when":"","left":"","right":"","icon":"...","cites":[{"source":"S1","page":0}]},...],"figures":[...],"takeaway":"..."}}}`: at least 3 items, every `icon` one of 32 names or `dot`, `layout` one of `steps`, `comparison`, `facts`, `timeline`. `figures` may be empty (a number is kept only when its quote is in the text). `STH-STU-422` means the answer was unusable (try once more). `GET usage:YYYYMMDD` has grown.
+
+22.7 (optional, costs a few cents: run it ONCE) A background transcription of pasted text. Create the job, wait about 10 seconds, ask for the result, then collect it:
+
+```
+curl.exe -s -X POST "%N8N%/webhook/sth-job-start" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary "{\"mode\":\"transcribe\",\"documents\":[{\"type\":\"text\",\"name\":\"a.txt\",\"content\":\"Cells are the basic unit of life.\"}],\"job\":{\"v\":1,\"op\":\"create\",\"id\":\"%JID%\",\"key\":\"%JKEY%\",\"attempt\":1,\"mode\":\"transcribe\"}}"
+curl.exe -s -X POST "%N8N%/webhook/sth-job" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary "{\"v\":1,\"op\":\"result\",\"jobs\":[{\"id\":\"%JID%\",\"key\":\"%JKEY%\"}]}"
+curl.exe -s -X POST "%N8N%/webhook/sth-job" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary "{\"v\":1,\"op\":\"ack\",\"jobs\":[{\"id\":\"%JID%\",\"key\":\"%JKEY%\"}]}"
+```
+Expect `{"ok":true,"accepted":true}`, then `{"ok":true,"id":"j_...","mode":"transcribe","result":{"text":"..."}}` (the same shape as the direct answer), then `{"ok":true,"acked":["j_..."]}`. In the Upstash CLI `HGETALL sth:job:<your id>` shows `m` = `transcribe` and no text.
+
+22.8 In the Upstash CLI: `ZCARD sth:jobs:run:bulk` is `0` when nothing runs (`ZRANGE sth:jobs:run:bulk 0 -1` lists the bulk jobs running now). `HGETALL sth:jobs:n:YYYYMMDD` shows `busy` counts; bulk jobs that find the 2 bulk slots taken count there too.
+
+**Load test (do it once before the app uses the new modes)**
+
+1. In the app start a transcription of about 40 pages (8 batches) and, a few seconds later, 2 tutor questions with a document attached, all at the same time. 2. At most 2 batches run at once, the tutor answers must not wait for them, and every answer must arrive. 3. Watch Cloud Run > your n8n service > Metrics: memory must stay clearly under its limit and the instance must not restart (batches carry page images). 4. If memory gets close to the limit, `SET cfg:jobs_max_running 2` (then only 1 bulk job runs at a time).
+
+**Keys you can set without importing**
+
+```
+SET cfg:bulk_ratio 0.5          (bulk work stops at half of cfg:daily_units; 0 = no bulk work; DEL = 0.6)
+SET cfg:mr_max_units 1500000    (largest estimated cost of one big run; DEL = 2000000)
+SET cfg:studio_max_tokens 600000   (as step 18)
+SET cfg:jobs_max_running 2      (as step 19; bulk jobs never use more than max(1, total - 2) slots)
+```
+All take effect on the next request.
+
+**Error codes and reasons that are new** (HTTP 200, `{"ok":false,"error":{...}}`; as a job: the stored failure): `STH-INPUT-400` with reason `mode` (unknown mode), `job_only` (a part or reduce request on the direct path), `not_bulk` (a part or reduce job without the bulk flag), `part`, `strategy`, `digest_invalid`, `reduce_sources`, `options`; `STH-STU-413` with reason `part_too_big` or `reduce_too_big` (both with `maxTokens`); `STH-STU-422` with reason `too_few_items` (infographic), `too_few_slides`, `too_few_topics` (digest), plus the usual `truncated`, `parse`, `schema`, `empty`, `too_big`; `STH-QUOTA-430` with reason `bulk` (bulk work only, the soft ceiling). A transcribe, template or reviewer job ends with `STH-AI-451` or `STH-AI-452` when the model blocks the content, `STH-AI-204` for an empty answer, `STH-AI-429`, `STH-AI-500`, `STH-AI-503`, `STH-AI-504` (retryable: the app starts attempt 2) or `STH-AI-403`.
+
+**Limits you should know:** a job of the new modes counts about 46 Upstash commands (ADMIT is 24, was 15, because it now counts 11 running sets); `budget` is 1. The app asks `budget` before a big run and may cache the answer for a minute. A restart or crash of the n8n service loses running jobs (the app starts them again after the deadline plus a minute). Gemini calls of a big run are billed at once and the shared ceiling `cfg:daily_units` is the only hard stop; the per-run limit `cfg:mr_max_units` is checked by the app, not by n8n.
+
+**If something goes wrong:** rollback = import `sth-workflow-v6-quiz.json` again (step 13; re-select `STH JWT`), after the app update that uses the v7 modes is reverted or while it is still switched off: a v6 `hello` has no `v`, so an app that follows the gate then behaves as before (10 sources, no infographic or slides, jobs only for the v6 modes). Answers still stored for v7 modes expire by themselves within 72 hours.
