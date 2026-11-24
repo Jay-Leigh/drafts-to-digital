@@ -4789,8 +4789,8 @@
       'AI-413':    { title: 'Too much material', message: 'Too much material is attached. Remove some sources and try again.', retryable: false, auto: 'none' },
       'AI-422':    { title: 'PDF not readable', message: 'The AI could not open this PDF. Try re-saving it as a PDF and upload it again.', retryable: false, auto: 'none' },
       'AI-429':    { title: 'AI busy', message: 'The AI is busy right now. Please try again in about a minute.', retryable: true, auto: 'none' },
-      'AI-451':    { title: 'Blocked by safety filters', message: 'The AI safety filters blocked this content. Try different material.', retryable: false, auto: 'none' },
-      'AI-452':    { title: 'Published text', message: 'This looks like published text the AI cannot reproduce. Try your own notes instead.', retryable: false, auto: 'none' },
+      'AI-451':    { title: 'Blocked by safety filters', message: 'The AI safety filters blocked this content. Try different material.', note: 'The AI safety filters blocked this part, so it is left out.', retryable: false, auto: 'none' },
+      'AI-452':    { title: 'Published text', message: 'This looks like published text the AI cannot reproduce. Try your own notes instead.', note: 'This part looks like published text the AI cannot reproduce, so it is left out.', retryable: false, auto: 'none' },
       'AI-500':    { title: 'AI trouble', message: 'The AI service is having trouble. Please try again in a moment.', retryable: true, auto: 'none' },
       'AI-503':    { title: 'AI trouble', message: 'The AI service is having trouble. Please try again in a moment.', retryable: true, auto: 'none' },
       'AI-504':    { title: 'AI trouble', message: 'The AI service is having trouble. Please try again in a moment.', retryable: true, auto: 'none' },
@@ -4798,7 +4798,12 @@
       'QUOTA-430': { title: 'Daily AI limit', message: "Today's AI capacity is used up. It resets tomorrow.", retryable: false, auto: 'none', banner: 'quota' },
       'STU-409':   { title: 'Study Studio busy', message: 'Study Studio is busy making other study aids right now. Please try again in a few minutes.', retryable: true, auto: 'none' },
       'STU-413':   { title: 'Too much material', message: 'That is too much material for one study aid. Choose fewer sources, or name a chapter in the topic.', retryable: false, auto: 'none' },
+      'STU-416':   { title: 'Too big, even in parts', message: 'That is too much material even to make in parts. Choose fewer sources.', retryable: false, auto: 'none' },
       'STU-422':   { title: 'Answer not usable', message: 'The AI’s answer didn’t come out right. Try again, or narrow the topic.', retryable: true, auto: 'none' },
+      'STU-424':   { title: 'A part did not finish', message: 'One part could not be made, so the run is paused. Try that part again, skip it, or cancel.', retryable: true, auto: 'none' },
+      'QUOTA-431': { title: 'Not enough AI capacity left', message: "There is not enough shared AI capacity left today for this large run. Try a smaller run, or start it again tomorrow.", retryable: false, auto: 'none' },
+      'EXP-500':   { title: 'Download not made', message: 'The download could not be made. Please try again.', retryable: true, auto: 'none' },
+      'EXP-503':   { title: 'Download tool not loaded', message: 'A tool needed for this download could not be loaded. Check your connection and try again.', retryable: true, auto: 'none' },
       'JOB-404':   { title: 'Result expired', message: 'This result is no longer kept (results stay for 72 hours). Please send it again.', retryable: false, auto: 'none' },
       'JOB-409':   { title: 'Request clash', message: 'That request clashed with another one. Please try again.', retryable: false, auto: 'none' },
       'JOB-410':   { title: 'Cancelled', message: 'You cancelled this.', retryable: false, auto: 'none' },
@@ -4954,7 +4959,9 @@
 
     // ─── Service status banner ──────────────────────
     const DOWN_MESSAGE = 'The server seems to be down or very busy. Nothing is lost. Please try again in a little while (this can take up to an hour).';
-    const service = { offline: false, down: null, degraded: null, failures: [], dismissed: null };
+    const service = { offline: false, down: null, degraded: null, failures: [], dismissed: null, server: { v: 0, maxSources: 0, bulk: 0 } };
+    // What the server said in its last hello (the job endpoint's status answer): v is 0 for a v6 server. Every feature that needs a newer server asks serverHas(n).
+    const serverHas = (v) => service.server.v >= v;
 
     // status: 'offline' | 'online' | 'down' | 'degraded' | 'ok'. A future health check can call this directly.
     function setServiceStatus(status, code, message) {
@@ -5259,6 +5266,7 @@
         const JOBS_AWAY_MS = 30000;
     const JOBS_CREATE_TIMEOUT_MS = 300000;
     const JOBS_CALL_TIMEOUT_MS = 20000;
+    const JOBS_BULK_MAX = 2; // bulk (group) jobs sent at once in all groups together; the server keeps the other slots for the tutor
     const JOBS_ACTIVE = new Set(['preparing', 'submitting', 'submitted', 'running', 'waiting', 'succeeded', 'syncing', 'needsConfirm']);
     const JOBS_SIGNIN_MESSAGE = 'Sign in again to collect your results.';
     const JOBS_B64URL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
@@ -5277,6 +5285,7 @@
     const jobs = {
       store: null, recs: new Map(), available: false, forcedOff: false, wired: false, loadP: null, initP: null,
       leader: false, ticking: false, timer: null, kickT: null, uiTimer: null, busy: new Set(),
+      groups: new Map(), groupQ: null, groupHandlers: {},
       serverOffUntil: 0, modes: null, lastHello: 0, authPaused: false, authAsked: false, ackBlockedUntil: 0,
       away: null, awayUntil: 0, baseTitle: '', slowKey: '', acking: false,
       el: (id) => document.getElementById(id),
@@ -5311,9 +5320,10 @@
             await this.store.setItem('probe', 1);
             await this.store.removeItem('probe');
             for (const k of await this.store.keys()) {
-              if (!k.startsWith('job:')) continue;
+              const g = k.startsWith('group:');
+              if (!g && !k.startsWith('job:')) continue;
               const r = await this.store.getItem(k);
-              if (r && r.v === 1 && r.id) this.recs.set(r.id, r);
+              if (r && r.v === 1 && r.id) (g ? this.groups : this.recs).set(r.id, r);
             }
             this.available = true;
           } catch (err) {
@@ -5363,19 +5373,23 @@
       async reload() {
         if (!this.available) return;
         try {
-          const next = new Map();
+          const next = new Map(), nextGroups = new Map();
           for (const k of await this.store.keys()) {
-            if (!k.startsWith('job:')) continue;
+            const g = k.startsWith('group:');
+            if (!g && !k.startsWith('job:')) continue;
             const r = await this.store.getItem(k);
             if (!r || !r.id) continue;
+            if (g) { nextGroups.set(r.id, r); continue; }
             const old = this.recs.get(r.id);
             if (old && old.state === r.state) { r.nextPollAt = old.nextPollAt; r.pollStep = old.pollStep; r.createTries = Math.max(r.createTries || 0, old.createTries || 0); }
             next.set(r.id, r);
           }
           this.recs = next;
+          this.groups = nextGroups;
         } catch (err) { console.warn('[STH] Background jobs refresh failed:', err && err.name); }
         this.render();
         this.schedule();
+        this.advanceGroups();
       },
 
       // ── lifecycle ──
@@ -5394,6 +5408,7 @@
             if (r.state === 'submitting' && now - (r.submittedAt || r.createdAt) > JOBS_UNSENT_MS) { await this.giveUpUnsent(r); continue; }
             if (JOBS_ACTIVE.has(r.state) && r.state !== 'needsConfirm') { r.nextPollAt = now; this.away.add(r.id); }
           }
+          await this.pruneGroups(now);
           this.elect(false);
           this.hello();
           this.render();
@@ -5419,12 +5434,23 @@
       async hello() {
         if (!this.available || navigator.onLine === false) return;
         this.lastHello = Date.now();
-        try { this.noteHello(await this.call({ v: 1, op: 'status', jobs: [] })); }
+        try { this.noteHello(await this.call({ v: 1, op: 'status', jobs: [] }), true); }
         catch (err) { if (this.looksAbsent(errorFromException(err))) this.serverOffUntil = Date.now() + JOBS_SERVER_OFF_MS; }
       },
-      noteHello(d) {
+      // A hello answer is the whole truth about the server (no v means v6); a poll answer only changes it when it carries v
+      noteServer(d, hello) {
+        if (!hello && d.v === undefined) return;
+        const c = d.caps && typeof d.caps === 'object' ? d.caps : {};
+        const v = Number.isInteger(d.v) && d.v > 0 ? d.v : 0;
+        const next = { v, maxSources: Number.isInteger(c.maxSources) && c.maxSources >= STUDIO_MAX_SOURCES_V6 && c.maxSources <= STUDIO_MAX_SOURCES_V7 ? c.maxSources : STUDIO_MAX_SOURCES_V7, bulk: Number.isInteger(c.bulkCap) && c.bulkCap >= 1 && c.bulkCap <= JOBS_BULK_MAX ? c.bulkCap : JOBS_BULK_MAX };
+        const before = studioMaxSources();
+        service.server = next;
+        if (studioMaxSources() !== before && studio.wired) studio.syncSelectionViews();
+      },
+      noteHello(d, hello) {
         if (!d || typeof d !== 'object') return;
         this.lastHello = Date.now();
+        this.noteServer(d, hello);
         if (d.jobsEnabled === false) this.serverOffUntil = Date.now() + JOBS_SERVER_OFF_MS;
         const m = d.modes;
         this.modes = Array.isArray(m) ? m.map(String) : m && typeof m === 'object' ? Object.keys(m) : null;
@@ -5508,6 +5534,7 @@
         try {
           const now = Date.now();
           if (this.hasLiveServerJobs() && now - this.lastHello > JOBS_HELLO_MS) this.hello();
+          await this.advanceGroups();
           const due = [...this.recs.values()].filter(r => !this.busy.has(r.id) && JOBS_ACTIVE.has(r.state) && (r.nextPollAt || 0) <= now);
           for (const r of due) {
             if (r.state === 'submitting' || r.state === 'waiting') this.spawn(r, () => this.create(r, false));
@@ -5570,8 +5597,8 @@
       },
 
       // ── making a job ──
-      async prepare({ mode, kind, ref, label, maxAttempts = 2 }) {
-        const rec = { v: 1, id: `j_${jobsRandom(16)}`, key: jobsRandom(32), mode, kind, ref, label, attempt: 1, maxAttempts, state: 'preparing', error: null, createdAt: Date.now(), submittedAt: null, lastCreateAt: null, createTries: 0, finishedAt: null, nextPollAt: 0, pollStep: 0, applyCtx: null, seen: false, appliedAt: null };
+      async prepare({ mode, kind, ref, label, maxAttempts = 2, group = null }) {
+        const rec = { v: 1, id: `j_${jobsRandom(16)}`, key: jobsRandom(32), mode, kind, ref, label, attempt: 1, maxAttempts, state: 'preparing', error: null, createdAt: Date.now(), submittedAt: null, lastCreateAt: null, createTries: 0, finishedAt: null, nextPollAt: 0, pollStep: 0, applyCtx: null, seen: false, appliedAt: null, ...(group ? { group } : {}) };
         await this.add(rec);
         return rec;
       },
@@ -5814,7 +5841,7 @@
         if (!old || !JOBS_ACTIVE.has(old.state) || old.state === 'preparing') return;
         const inputs = await this.inputsOf(id);
         if (!inputs) return;
-        const nu = await this.prepare({ mode: old.mode, kind: old.kind, ref: old.ref, label: old.label, maxAttempts: old.maxAttempts });
+        const nu = await this.prepare({ mode: old.mode, kind: old.kind, ref: old.ref, label: old.label, maxAttempts: old.maxAttempts, group: old.group });
         await this.store.setItem(`in:${nu.id}`, inputs);
         const now = Date.now();
         await this.update(nu.id, x => { x.state = 'submitting'; x.submittedAt = now; x.applyCtx = old.applyCtx; x.nextPollAt = now; });
@@ -5846,6 +5873,150 @@
         if (ready) parts.push(`${ready} result${ready === 1 ? ' is' : 's are'} ready`);
         if (failed) parts.push(`${failed} could not be finished`);
         showToast(`While you were away: ${parts.join(' and ')}.`, 'success', { actionLabel: 'View', action: () => this.openTray(true), persistent: true });
+      },
+
+      // ── groups: N ordered member jobs that share one outcome (bulk work). Members wait in `gin:<group>:<i>` and are sent when a slot frees (at most
+      // JOBS_BULK_MAX bulk jobs at once, all groups together). A failed member stops the group (running members finish; completed ones are kept) until retryMember.
+      // The registry is the only state: a reloaded tab carries on from the group record, and the leader tab is the only one that sends. ──
+      async groupUpdate(id, fn) {
+        let out = null;
+        await withStoreLock('jobs', async () => {
+          let g = null;
+          try { g = await this.store.getItem(`group:${id}`); } catch { /* use memory */ }
+          g = g || this.groups.get(id);
+          if (!g || fn(g) === false) return;
+          try { await this.store.setItem(`group:${id}`, g); } catch { /* kept in memory */ }
+          out = g;
+        });
+        if (out) { this.groups.set(id, out); tabSync.post('jobs'); this.render(); }
+        return out;
+      },
+      groupHandler(g) { return this.groupHandlers[g.kind] || {}; },
+      groupOf(jobId) { const r = this.recs.get(jobId); return r && r.group ? this.groups.get(r.group.id) || null : null; },
+      groupMembers(id) { const g = this.groups.get(id); return g ? g.members.map(m => ({ ...m })) : []; },
+
+      // members: [{ payload, files }] in order. Resolves to the group, or null when the inputs could not be kept on this device (run them directly).
+      async createGroup({ kind, mode, ref, label, members, maxParallel = JOBS_BULK_MAX, maxAttempts = 2 }) {
+        if (!this.available || !members.length) return null;
+        const id = `g_${jobsRandom(16)}`;
+        try { for (let i = 0; i < members.length; i++) await this.store.setItem(`gin:${id}:${i}`, { payload: members[i].payload, files: members[i].files || [] }); }
+        catch { await this.groupDropInputs(id, members.length); return null; }
+        const g = { v: 1, id, kind, mode, ref, label, n: members.length, maxParallel: Math.max(1, Math.min(maxParallel, JOBS_BULK_MAX)), maxAttempts, state: 'running', createdAt: Date.now(), finishedAt: null, members: members.map((_, i) => ({ i, state: 'todo', jobId: null, error: null })) };
+        this.groups.set(id, g);
+        try { await withStoreLock('jobs', () => this.store.setItem(`group:${id}`, g)); } catch { /* kept in memory for this visit */ }
+        tabSync.post('jobs');
+        this.render();
+        this.advanceGroups();
+        return g;
+      },
+      async groupDropInputs(id, n) { for (let i = 0; i < n; i++) await this.store.removeItem(`gin:${id}:${i}`).catch(() => {}); },
+
+      // Sends the next members while slots are free; one pass at a time per tab, and only the leader sends
+      advanceGroups() {
+        if (!this.canWork()) return Promise.resolve();
+        this.groupQ = (this.groupQ || Promise.resolve()).then(() => this.advanceNow()).catch(err => console.warn('[STH] Background group step failed:', errorFromException(err).code));
+        return this.groupQ;
+      },
+      async advanceNow() {
+        const list = [...this.groups.values()].filter(g => g.state === 'running' || g.state === 'failed').sort((a, b) => a.createdAt - b.createdAt);
+        for (const g of list) await this.groupReconcile(g);
+        const running = () => [...this.groups.values()].reduce((n, g) => n + g.members.filter(m => m.state === 'running').length, 0);
+        for (const g of list) {
+          for (let i = 0; i < g.n; i++) {
+            const cur = this.groups.get(g.id);
+            if (!cur || (cur.state !== 'running' && cur.state !== 'failed')) break;
+            const m = cur.members[i];
+            if (m.state !== 'todo' || (cur.state === 'failed' && !m.retry)) continue;
+            if (running() >= JOBS_BULK_MAX || cur.members.filter(x => x.state === 'running').length >= cur.maxParallel) break;
+            await this.groupStart(cur, i);
+          }
+        }
+      },
+
+      // Brings a group record in line with its member jobs after a crash or a lost write
+      async groupReconcile(g) {
+        for (const m of g.members.filter(x => x.state === 'running')) {
+          const r = m.jobId && this.recs.get(m.jobId);
+          if (!r || r.state === 'preparing') {
+            if (r) await this.drop(r.id);
+            await this.groupUpdate(g.id, x => { const y = x.members[m.i]; if (y.state !== 'running' || y.jobId !== m.jobId) return false; y.state = 'todo'; y.jobId = null; });
+          } else if (r.state === 'applied' || r.state === 'done') await this.groupMemberDone(g.id, m.i, m.jobId);
+          else if (r.state === 'failed' || r.state === 'expired' || r.state === 'cancelled') await this.groupMemberFailed(g.id, m.i, m.jobId, errorFromPayload({ ok: false, error: { code: r.error ? r.error.code : 'STH-JOB-502' } }) || new AppError('JOB-502'));
+        }
+        const cur = this.groups.get(g.id);
+        if (cur && cur.state === 'running' && cur.members.every(m => m.state === 'done')) await this.groupFinish(cur.id);
+      },
+
+      async groupStart(g, i) {
+        const gin = await this.store.getItem(`gin:${g.id}:${i}`).catch(() => null);
+        if (!gin) { await this.groupUpdate(g.id, x => { const m = x.members[i]; if (m.state !== 'todo') return false; m.state = 'failed'; m.error = { code: 'STH-JOB-502', message: ERRORS['JOB-502'].message }; x.state = 'failed'; }); this.groupHandler(g).failed?.(this.groups.get(g.id), i, new AppError('JOB-502')); return; }
+        const job = await this.prepare({ mode: g.mode, kind: 'group', ref: g.ref, label: g.label, maxAttempts: g.maxAttempts, group: { id: g.id, i, n: g.n } });
+        const claimed = await this.groupUpdate(g.id, x => { const m = x.members[i]; if (m.state !== 'todo') return false; m.state = 'running'; m.jobId = job.id; m.retry = false; });
+        if (!claimed) { await this.drop(job.id); return; }
+        try { await this.store.setItem(`in:${job.id}`, gin); } catch { await this.drop(job.id); await this.groupMemberFailed(g.id, i, job.id, new AppError('STORE-507')); return; }
+        const now = Date.now();
+        await this.update(job.id, x => { x.state = 'submitting'; x.submittedAt = now; x.nextPollAt = now; });
+        const rec = this.recs.get(job.id);
+        if (rec) this.spawn(rec, () => this.create(rec, false));
+      },
+
+      async groupMemberDone(gid, i, jobId) {
+        const g = await this.groupUpdate(gid, x => { const m = x.members[i]; if (!m || m.state === 'done' || (jobId && m.jobId !== jobId)) return false; m.state = 'done'; m.error = null; });
+        if (!g) return;
+        await this.store.removeItem(`gin:${gid}:${i}`).catch(() => {});
+        if (g.state === 'running' && g.members.every(m => m.state === 'done')) await this.groupFinish(gid); else this.advanceGroups();
+      },
+      async groupFinish(gid) {
+        const g = await this.groupUpdate(gid, x => { if (x.state !== 'running') return false; x.state = 'done'; x.finishedAt = Date.now(); });
+        if (g) try { await this.groupHandler(g).done?.(g); } catch (err) { console.warn('[STH] Background group handler failed:', errorFromException(err).code); }
+      },
+      async groupMemberFailed(gid, i, jobId, err) {
+        const e = errorFromException(err);
+        const g = await this.groupUpdate(gid, x => { const m = x.members[i]; if (!m || m.state !== 'running' || (jobId && m.jobId !== jobId)) return false; m.state = 'failed'; m.error = { code: e.code, message: e.message }; if (x.state === 'running') { x.state = 'failed'; x.finishedAt = Date.now(); } });
+        if (g) try { await this.groupHandler(g).failed?.(g, i, e); } catch (err2) { console.warn('[STH] Background group handler failed:', errorFromException(err2).code); }
+      },
+
+      // Sends a failed member again (its inputs are kept); the group runs again once no member is failed
+      async retryMember(gid, i) {
+        const g = await this.groupUpdate(gid, x => {
+          const m = x.members[i];
+          if (!m || m.state !== 'failed' || x.state === 'cancelled') return false;
+          m.state = 'todo'; m.jobId = null; m.error = null; m.retry = true;
+          if (!x.members.some(y => y.state === 'failed')) { x.state = 'running'; x.finishedAt = null; }
+        });
+        if (g) this.advanceGroups();
+        return !!g;
+      },
+
+      // Stops the group: nothing new is sent, running members are cancelled on the server, completed members are kept
+      async cancelGroup(gid) {
+        const running = [];
+        const g = await this.groupUpdate(gid, x => {
+          if (x.state === 'cancelled' || x.state === 'done') return false;
+          x.state = 'cancelled'; x.finishedAt = Date.now();
+          for (const m of x.members) { if (m.state === 'running') running.push(m.jobId); if (m.state !== 'done') { m.state = 'cancelled'; m.retry = false; } }
+        });
+        if (!g) return false;
+        for (const id of running) await this.cancel(id, true);
+        for (const m of g.members) if (m.state !== 'done') await this.store.removeItem(`gin:${gid}:${m.i}`).catch(() => {});
+        try { await this.groupHandler(g).cancelled?.(g); } catch (err) { console.warn('[STH] Background group handler failed:', errorFromException(err).code); }
+        return true;
+      },
+
+      // Finished groups are kept for a week like finished jobs; inputs without a group are leftovers of a crash
+      async pruneGroups(now) {
+        for (const g of [...this.groups.values()]) {
+          if (g.state === 'running' || now - (g.finishedAt || g.createdAt) <= JOBS_KEEP_MS) continue;
+          this.groups.delete(g.id);
+          try { await withStoreLock('jobs', () => this.store.removeItem(`group:${g.id}`)); } catch { /* nothing to remove */ }
+          await this.groupDropInputs(g.id, g.n);
+        }
+        try {
+          for (const k of await this.store.keys()) {
+            const m = /^gin:(g_[^:]+):\d+$/.exec(k);
+            if (m && !this.groups.has(m[1])) await this.store.removeItem(k).catch(() => {});
+          }
+        } catch { /* nothing to clean */ }
       },
 
       // ── UI ──
@@ -5965,6 +6136,20 @@
           send: (j, payload) => studioSend(payload),
           retry: (j) => studio.retry(j.ref.itemId),
           rebind: (oldJob, newJob) => studio.rebindJob(oldJob.ref.itemId, newJob.id),
+        },
+        group: {
+          describe: (j) => { const g = jobs.groupOf(j.id); return { label: `${j.label} (part ${j.group.i + 1} of ${j.group.n})`, href: g && jobs.groupHandler(g).href ? jobs.groupHandler(g).href(g) : '#studio' }; },
+          apply: async (j, data) => {
+            const g = jobs.groupOf(j.id);
+            if (!g) return false;
+            if (g.members[j.group.i].state !== 'done') await jobs.groupHandler(g).applyMember?.(g, j.group.i, data);
+            await jobs.groupMemberDone(g.id, j.group.i, j.id);
+            return false;
+          },
+          fail: (j, err) => jobs.groupMemberFailed(j.group.id, j.group.i, j.id, err),
+          send: (j, payload, files) => { const g = jobs.groupOf(j.id); if (!g || !jobs.groupHandler(g).send) throw new AppError('JOB-502'); return jobs.groupHandler(g).send(g, j.group.i, payload, files); },
+          retry: (j) => jobs.retryMember(j.group.id, j.group.i),
+          rebind: async (oldJob, newJob) => { await jobs.groupUpdate(oldJob.group.id, x => { const m = x.members[oldJob.group.i]; if (m.jobId !== oldJob.id) return false; m.jobId = newJob.id; }); },
         },
         tutor: {
           describe: (j) => ({ label: j.label, href: `#tutor/${j.ref.chatId}` }),
@@ -6312,13 +6497,15 @@
     }
 
     const _loadedScripts = new Map();
-    function loadScriptOnce(src) {
+    // integrity (an SRI hash) makes the browser refuse a changed file; it needs a CORS-enabled host
+    function loadScriptOnce(src, integrity) {
       if (!_loadedScripts.has(src)) {
         _loadedScripts.set(src, new Promise((resolve, reject) => {
           const script = document.createElement('script');
           script.src = src;
+          if (integrity) { script.integrity = integrity; script.crossOrigin = 'anonymous'; }
           script.onload = resolve;
-          script.onerror = () => { _loadedScripts.delete(src); reject(new Error(`Failed to load ${src}`)); };
+          script.onerror = () => { _loadedScripts.delete(src); script.remove(); reject(new Error(`Failed to load ${src}`)); };
           document.head.appendChild(script);
         }));
       }
@@ -10780,7 +10967,9 @@
     const STUDIO_CAP_TTL_MS = 24 * 60 * 60 * 1000; // the owner may raise the cap again, so a remembered one expires
     const STUDIO_COST_FROM_TOKENS = 100000; // show a cost line above this
     const STUDIO_LONG_RUN_TOKENS = 300000; // above this: several minutes, one attempt only (a repeat would be billed twice)
-    const STUDIO_MAX_SOURCES = 10;
+    const STUDIO_MAX_SOURCES_V6 = 10;
+    const STUDIO_MAX_SOURCES_V7 = 15; // the server accepts source ids S1 to S15 only from v7 on
+    const studioMaxSources = () => serverHas(7) ? Math.min(STUDIO_MAX_SOURCES_V7, service.server.maxSources) : STUDIO_MAX_SOURCES_V6;
     const STUDIO_MAX_IMAGES = 5;
     const STUDIO_IMAGE_TOKENS = 1600;
     const STUDIO_TOKENS_PER_PAGE = 600;
@@ -10804,10 +10993,10 @@
     const studioSvg = (key, size = 18, extra = '') => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${extra}>${STUDIO_ICONS[key]}</svg>`;
     const STUDIO_TOOLS = {
       mindmap:     { label: 'Mind map',    mode: 'studio_mindmap', enabled: true, sub: 'Turn your sources into a map of the main ideas.' },
-      quiz:        { label: 'Quiz',        mode: 'studio_quiz', enabled: true, options: true, sub: 'Turn your sources into practice questions.', placeholder: 'Things to try\n\u2022 Help me prepare for my exam on Learning Unit 3\n\u2022 Only use the study guide, not the summary\n\u2022 Focus on definitions and key dates' },
+      quiz:        { label: 'Quiz',        mode: 'studio_quiz', enabled: true, sub: 'Turn your sources into practice questions.', placeholder: 'Things to try\n\u2022 Help me prepare for my exam on Learning Unit 3\n\u2022 Only use the study guide, not the summary\n\u2022 Focus on definitions and key dates' },
       infographic: { label: 'Infographic', enabled: false },
       slides:      { label: 'Slide deck',  enabled: false },
-      flashcards:  { label: 'Flashcards',  mode: 'studio_flashcards', enabled: true, options: true, sub: 'Turn your sources into cards for active recall.', placeholder: 'Things to try\n\u2022 Only use one source (e.g. \'the prescribed summary\')\n\u2022 Focus on one topic, like \'HIV testing\'\n\u2022 Keep card fronts short (1-5 words) for memorising' },
+      flashcards:  { label: 'Flashcards',  mode: 'studio_flashcards', enabled: true, sub: 'Turn your sources into cards for active recall.', placeholder: 'Things to try\n\u2022 Only use one source (e.g. \'the prescribed summary\')\n\u2022 Focus on one topic, like \'HIV testing\'\n\u2022 Keep card fronts short (1-5 words) for memorising' },
     };
     const STUDIO_LANGUAGES = [
       { code: 'en', name: 'English' }, { code: 'af', name: 'Afrikaans' },
@@ -10818,22 +11007,18 @@
     ];
     const STUDIO_FC_COUNTS = [{ value: 15, label: 'Fewer' }, { value: 30, label: 'Standard' }, { value: 50, label: 'More' }];
     const STUDIO_FC_LEVELS = [{ value: 'easy', label: 'Easy' }, { value: 'medium', label: 'Medium' }, { value: 'hard', label: 'Hard' }];
-    const STUDIO_FC_DEFAULTS = { count: 30, difficulty: 'medium' };
     const STUDIO_QZ_COUNTS = [{ value: 10, label: 'Fewer' }, { value: 20, label: 'Standard' }, { value: 30, label: 'More' }];
-    const STUDIO_QZ_DEFAULTS = { count: 20, difficulty: 'medium' };
-    // The dialog's option groups per tool: the amounts on offer, the default, and the heading of the amount group
+    // The dialog's option groups per tool, in the order shown (the dialog has two slots): the saved key, the choices on offer, the default and the heading
+    const STUDIO_OPTION_LEVEL = { key: 'difficulty', values: STUDIO_FC_LEVELS, default: 'medium', heading: 'Level of difficulty' };
     const STUDIO_OPTION_SETS = {
-      flashcards: { counts: STUDIO_FC_COUNTS, defaults: STUDIO_FC_DEFAULTS, heading: 'Number of cards' },
-      quiz: { counts: STUDIO_QZ_COUNTS, defaults: STUDIO_QZ_DEFAULTS, heading: 'Number of questions' },
+      flashcards: { groups: [{ key: 'count', values: STUDIO_FC_COUNTS, default: 30, heading: 'Number of cards' }, STUDIO_OPTION_LEVEL] },
+      quiz: { groups: [{ key: 'count', values: STUDIO_QZ_COUNTS, default: 20, heading: 'Number of questions' }, STUDIO_OPTION_LEVEL] },
     };
+    const STUDIO_OPTION_SLOTS = [{ field: 'studioOptCountField', box: 'studioOptCount', name: 'studioCount' }, { field: 'studioOptLevelField', box: 'studioOptLevel', name: 'studioLevel' }];
+    const studioOptionGroups = (tool) => (STUDIO_OPTION_SETS[tool] || { groups: [] }).groups;
     function studioCleanOptions(tool, raw) {
-      const set = STUDIO_OPTION_SETS[tool];
-      if (!set) return {};
       const o = raw && typeof raw === 'object' ? raw : {};
-      return {
-        count: set.counts.some(c => c.value === o.count) ? o.count : set.defaults.count,
-        difficulty: STUDIO_FC_LEVELS.some(l => l.value === o.difficulty) ? o.difficulty : set.defaults.difficulty,
-      };
+      return Object.fromEntries(studioOptionGroups(tool).map(g => [g.key, g.values.some(v => v.value === o[g.key]) ? o[g.key] : g.default]));
     }
     const STUDIO_STATUS_TEXT = { queued: 'Waiting to start', generating: 'Generating', ready: 'Ready', failed: 'Couldn’t finish' };
 
@@ -11239,14 +11424,13 @@
       return { svg: out.join(''), width, height };
     }
 
-    // Draws that SVG into a canvas. The pixel ratio is lowered so width x height stays under STUDIO_PNG_MAX_PIXELS (and one side under STUDIO_PNG_MAX_SIDE); below 0.6 it refuses
-    async function studioMapPng(model, expanded, meta) {
-      const { svg, width, height } = studioMapSvg(model, expanded, meta);
-      const ratio = Math.min(2, Math.sqrt(STUDIO_PNG_MAX_PIXELS / (width * height)), STUDIO_PNG_MAX_SIDE / Math.max(width, height));
-      if (ratio < STUDIO_PNG_MIN_RATIO) { const e = new Error('Map too big for an image'); e.tooBig = true; throw e; }
+    // Draws an SVG string into a canvas. The pixel ratio (at most maxRatio) is lowered so width x height stays under STUDIO_PNG_MAX_PIXELS (and one side under STUDIO_PNG_MAX_SIDE); below 0.6 it refuses
+    async function studioSvgPng(svg, width, height, { maxRatio = 2 } = {}) {
+      const ratio = Math.min(maxRatio, Math.sqrt(STUDIO_PNG_MAX_PIXELS / (width * height)), STUDIO_PNG_MAX_SIDE / Math.max(width, height));
+      if (ratio < STUDIO_PNG_MIN_RATIO) { const e = new Error('Image too big'); e.tooBig = true; throw e; }
       const img = new Image();
       img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-      await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = () => reject(new Error('Map image failed to load')); });
+      await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = () => reject(new Error('Image failed to load')); });
       const canvas = document.createElement('canvas');
       canvas.width = Math.max(1, Math.floor(width * ratio));
       canvas.height = Math.max(1, Math.floor(height * ratio));
@@ -11254,6 +11438,11 @@
       const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
       if (!blob) throw new Error('PNG could not be made');
       return { blob, width: canvas.width, height: canvas.height, ratio };
+    }
+
+    function studioMapPng(model, expanded, meta) {
+      const { svg, width, height } = studioMapSvg(model, expanded, meta);
+      return studioSvgPng(svg, width, height);
     }
 
     function studioDownload(blob, filename) {
@@ -11652,7 +11841,7 @@
       if (!createdAt) return null;
       const ids = Array.isArray(raw.sourceIds) ? raw.sourceIds : [], names = Array.isArray(raw.sourceNames) ? raw.sourceNames : [];
       const sourceIds = [], sourceNames = [];
-      for (let i = 0; i < ids.length && sourceIds.length < STUDIO_MAX_SOURCES; i++) {
+      for (let i = 0; i < ids.length && sourceIds.length < studioMaxSources(); i++) {
         if (typeof ids[i] !== 'string' || !STUDIO_ID_RE.test(ids[i])) continue;
         sourceIds.push(ids[i]);
         sourceNames.push(typeof names[i] === 'string' ? names[i].slice(0, 200) : '');
@@ -11970,7 +12159,7 @@
           else if (est.state === 'needsDrive') p.needsDrive.push(it);
         }
         const cap = studioCap();
-        const over = p.tokens > cap || p.count > STUDIO_MAX_SOURCES || p.images > STUDIO_MAX_IMAGES;
+        const over = p.tokens > cap || p.count > studioMaxSources() || p.images > STUDIO_MAX_IMAGES;
         p.level = over ? 'over' : p.tokens >= cap * 0.75 ? 'near' : 'ok';
         if (!p.count && !p.unusable.length) p.reason = 'Pick at least one source.';
         else if (over) p.reason = 'Choose fewer sources.';
@@ -12057,7 +12246,7 @@
         box.classList.toggle('is-near', plan.level === 'near');
         box.classList.toggle('is-over', plan.level === 'over');
         this.el(ids.text).textContent = plan.count
-          ? `${word}: ${plan.approx ? '≈' : ''}${studioFormatTokens(plan.tokens)} of ${studioFormatTokens(cap)} tokens (about ${pages} page${pages === 1 ? '' : 's'}) · ${plan.count} of ${STUDIO_MAX_SOURCES} sources${plan.images ? ` · ${plan.images} of ${STUDIO_MAX_IMAGES} images` : ''}`
+          ? `${word}: ${plan.approx ? '≈' : ''}${studioFormatTokens(plan.tokens)} of ${studioFormatTokens(cap)} tokens (about ${pages} page${pages === 1 ? '' : 's'}) · ${plan.count} of ${studioMaxSources()} sources${plan.images ? ` · ${plan.images} of ${STUDIO_MAX_IMAGES} images` : ''}`
           : 'Tick the sources you want to use.';
         this.el(ids.fill).style.width = `${Math.min(100, Math.round(plan.tokens / cap * 100))}%`;
         bar.setAttribute('aria-valuemax', String(cap));
@@ -12581,15 +12770,16 @@
         const topic = this.el('studioTopic');
         topic.dataset.placeholder ??= topic.placeholder;
         topic.placeholder = t.placeholder || topic.dataset.placeholder;
-        this.el('studioOptCountField').hidden = this.el('studioOptLevelField').hidden = !t.options;
+        const groups = studioOptionGroups(tool);
         const opts = studioCleanOptions(tool, prefill.options);
-        if (t.options) {
-          const set = STUDIO_OPTION_SETS[tool];
-          const seg = (name, list, def) => list.map(o => `<label class="studio-seg-opt"><input type="radio" class="studio-sr" name="${name}" value="${o.value}"${o.value === def ? ' checked' : ''} /><span>${o.label}${typeof o.value === 'number' ? ` (${o.value})` : ''}</span></label>`).join('');
-          this.el('studioOptCountField').querySelector('legend').textContent = set.heading;
-          this.el('studioOptCount').innerHTML = seg('studioCount', set.counts, opts.count);
-          this.el('studioOptLevel').innerHTML = seg('studioLevel', STUDIO_FC_LEVELS, opts.difficulty);
-        }
+        const seg = (name, list, def) => list.map(o => `<label class="studio-seg-opt"><input type="radio" class="studio-sr" name="${name}" value="${o.value}"${o.value === def ? ' checked' : ''} /><span>${o.label}${typeof o.value === 'number' ? ` (${o.value})` : ''}</span></label>`).join('');
+        STUDIO_OPTION_SLOTS.forEach((slot, i) => {
+          const g = groups[i];
+          this.el(slot.field).hidden = !g;
+          if (!g) return;
+          this.el(slot.field).querySelector('legend').textContent = g.heading;
+          this.el(slot.box).innerHTML = seg(slot.name, g.values, opts[g.key]);
+        });
         const savedLang = storageGet(STUDIO_LANG_KEY);
         const pick = [prefill.language, savedLang].find(c => STUDIO_LANGUAGES.some(l => l.code === c)) || 'en';
         this.el('studioLanguage').value = pick;
@@ -12605,7 +12795,7 @@
         this.el('studioDialog').classList.add('open');
         d.inerted = [...document.body.children].filter(el => el.id !== 'studioDialog' && !['toast', 'loginOverlay'].includes(el.id) && el.tagName !== 'SCRIPT' && !el.hasAttribute('inert'));
         d.inerted.forEach(el => el.setAttribute('inert', ''));
-        (t.options ? this.el('studioOptCount').querySelector('input:checked') : this.el('studioLanguage')).focus();
+        (groups.length ? this.el(STUDIO_OPTION_SLOTS[0].box).querySelector('input:checked') : this.el('studioLanguage')).focus();
       },
 
       drawDialogState(plan) {
@@ -12653,7 +12843,8 @@
         if (this.el('studioGenerateBtn').getAttribute('aria-disabled') === 'true') return;
         const tool = this.dialog.tool;
         const params = { tool, language: this.el('studioLanguage').value, topic: this.el('studioTopic').value.trim().slice(0, STUDIO_TOPIC_MAX), sourceIds: this.orderedSelection() };
-        if (STUDIO_TOOLS[tool].options) params.options = { count: Number(this.el('studioOptCount').querySelector('input:checked').value), difficulty: this.el('studioOptLevel').querySelector('input:checked').value };
+        const groups = studioOptionGroups(tool);
+        if (groups.length) params.options = Object.fromEntries(groups.map((g, i) => [g.key, g.values.find(v => String(v.value) === this.el(STUDIO_OPTION_SLOTS[i].box).querySelector('input:checked').value).value]));
         storageSet(STUDIO_LANG_KEY, params.language);
         this.closeDialog();
         const background = jobs.useFor(STUDIO_TOOLS[tool].mode);
