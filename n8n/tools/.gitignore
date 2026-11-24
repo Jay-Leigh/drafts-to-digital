@@ -1,0 +1,9 @@
+/sth-workflow-*.json
+/gen/
+/n8nrun/
+/npmsrc/
+node_modules/
+*.log
+e2e/test-*.json
+e2e/*.pid
+e2e/probe*.json

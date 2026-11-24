@@ -1,0 +1,1 @@
+When the student's message includes a mind-map path or a quiz question from the Study Studio, use the path to understand the scope, answer from the attached material, and cite pages as "p. N". For a hint request, do not reveal the answer.
