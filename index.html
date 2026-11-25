@@ -1051,6 +1051,14 @@
     .studio-dialog-foot { align-items: center; justify-content: space-between; flex-wrap: wrap; }
     .studio-dialog-foot .studio-meter { flex: 1 1 220px; min-width: 0; margin: 0; padding: 0; border: 0; background: transparent; }
     .studio-foot-actions { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+    .studio-dialog .modal-body[hidden] { display: none; }
+    .studio-mr-lead { margin: 0 0 12px; font-size: 14.5px; line-height: 1.5; color: #1a2e1c; }
+    .studio-mr-facts { margin: 0 0 12px; padding-left: 18px; font-size: 14px; line-height: 1.5; color: rgba(26,46,28,0.85); }
+    .studio-mr-facts li { margin-bottom: 6px; }
+    #studioMrFoot .studio-btn, .studio-item-mr .studio-btn { min-height: 44px; }
+    #studioMrFoot .studio-foot-actions .studio-btn { flex: 1 1 140px; }
+    .studio-item-mr { display: flex; flex-wrap: wrap; gap: 8px; }
+    #studioMrFoot .studio-foot-actions { flex-wrap: wrap; justify-content: flex-end; }
     @media (min-width: 901px) and (max-height: 860px) {
       .sidebar:has([data-studio-entry]) .nav-link { min-height: 38px; padding-top: 8px; padding-bottom: 8px; }
       .sidebar:has([data-studio-entry]) .sidebar-nav-section { padding-top: 10px; }
@@ -3793,7 +3801,7 @@
         </div>
         <button type="button" class="studio-close" id="studioDialogClose" aria-label="Close">&times;</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" id="studioFormBody">
         <fieldset class="studio-fieldset" id="studioOptCountField" hidden>
           <legend>Number of cards</legend>
           <div class="studio-seg" id="studioOptCount"></div>
@@ -3823,7 +3831,7 @@
           <p id="studioTopicCount" class="studio-count" hidden></p>
         </div>
       </div>
-      <div class="modal-foot studio-dialog-foot">
+      <div class="modal-foot studio-dialog-foot" id="studioFormFoot">
         <div id="studioDialogMeter" class="studio-meter">
           <p id="studioDialogMeterText" class="studio-meter-text"></p>
           <div class="studio-meter-bar" role="meter" id="studioDialogMeterBar" aria-label="Amount of source material" aria-valuemin="0" aria-valuemax="900000" aria-valuenow="0" aria-valuetext=""><span class="studio-meter-fill" id="studioDialogMeterFill"></span></div>
@@ -3833,6 +3841,19 @@
         <div class="studio-foot-actions">
           <button type="button" class="studio-btn ghost" id="studioDialogCancel">Cancel</button>
           <button type="button" class="studio-btn primary" id="studioGenerateBtn" aria-describedby="studioDialogReason">Generate</button>
+        </div>
+      </div>
+      <!-- The question about a big run (map-reduce): shown instead of the form; nothing is sent before Start -->
+      <div class="modal-body studio-mr" id="studioMrBody" hidden>
+        <p class="studio-mr-lead" id="studioMrLead"></p>
+        <ul class="studio-mr-facts" id="studioMrFacts"></ul>
+        <p class="studio-reason" id="studioMrNote" role="status"></p>
+      </div>
+      <div class="modal-foot studio-dialog-foot" id="studioMrFoot" hidden>
+        <div class="studio-foot-actions">
+          <button type="button" class="studio-btn ghost" id="studioMrBack">Choose fewer sources</button>
+          <button type="button" class="studio-btn ghost" id="studioMrCancel">Cancel</button>
+          <button type="button" class="studio-btn primary" id="studioMrStart">Start</button>
         </div>
       </div>
     </div>
@@ -5032,7 +5053,7 @@
 
     // ─── Service status banner ──────────────────────
     const DOWN_MESSAGE = 'The server seems to be down or very busy. Nothing is lost. Please try again in a little while (this can take up to an hour).';
-    const service = { offline: false, down: null, degraded: null, failures: [], dismissed: null, server: { v: 0, maxSources: 0, bulk: 0 } };
+    const service = { offline: false, down: null, degraded: null, failures: [], dismissed: null, server: { v: 0, maxSources: 0, bulk: 0, maxParts: 0, partMax: 0, reduceMax: 0 } };
     // What the server said in its last hello (the job endpoint's status answer): v is 0 for a v6 server. Every feature that needs a newer server asks serverHas(n).
     const serverHas = (v) => service.server.v >= v;
 
@@ -5323,7 +5344,7 @@
     const JOBS_CREATING_MS = 10 * 60 * 1000;
     const JOBS_RUNNING_MAX_MS = 8 * 24 * 60 * 60 * 1000;
     const JOBS_LEADER_LOCK = 'sth-jobs-leader';
-    const JOBS_MODES = ['tutor', 'studio_mindmap', 'studio_flashcards', 'studio_quiz', 'studio_infographic', 'studio_slides', 'transcribe', 'template', 'reviewer'];
+    const JOBS_MODES = ['tutor', 'studio_mindmap', 'studio_flashcards', 'studio_quiz', 'studio_infographic', 'studio_slides', 'studio_digest', 'transcribe', 'template', 'reviewer'];
     const JOBS_CADENCE_S = { tutor: [5, 5, 8, 13, 20], studio_mindmap: [10, 15, 20, 30], transcribe: [10, 15, 20], template: [10, 15, 20, 30], reviewer: [10, 15, 20, 30] };
     const JOBS_SLOW_MS = { tutor: 90000, studio_mindmap: 4 * 60 * 1000, transcribe: 3 * 60 * 1000, template: 4 * 60 * 1000, reviewer: 4 * 60 * 1000 };
     const JOBS_FIRST_POLL_MS = 3000;
@@ -5520,7 +5541,10 @@
         if (!hello && d.v === undefined) return;
         const c = d.caps && typeof d.caps === 'object' ? d.caps : {};
         const v = Number.isInteger(d.v) && d.v > 0 ? d.v : 0;
-        const next = { v, maxSources: Number.isInteger(c.maxSources) && c.maxSources >= STUDIO_MAX_SOURCES_V6 && c.maxSources <= STUDIO_MAX_SOURCES_V7 ? c.maxSources : STUDIO_MAX_SOURCES_V7, bulk: Number.isInteger(c.bulkCap) && c.bulkCap >= 1 && c.bulkCap <= JOBS_BULK_MAX ? c.bulkCap : JOBS_BULK_MAX };
+        const next = { v, maxSources: Number.isInteger(c.maxSources) && c.maxSources >= STUDIO_MAX_SOURCES_V6 && c.maxSources <= STUDIO_MAX_SOURCES_V7 ? c.maxSources : STUDIO_MAX_SOURCES_V7, bulk: Number.isInteger(c.bulkCap) && c.bulkCap >= 1 && c.bulkCap <= JOBS_BULK_MAX ? c.bulkCap : JOBS_BULK_MAX,
+          maxParts: Number.isInteger(c.maxParts) && c.maxParts >= 1 && c.maxParts <= STUDIO_MR_MAX_PARTS ? c.maxParts : STUDIO_MR_MAX_PARTS,
+          partMax: Number.isInteger(c.partMaxTokens) && c.partMaxTokens >= STUDIO_CAP_MIN && c.partMaxTokens <= STUDIO_MR_PART_MAX ? c.partMaxTokens : STUDIO_MR_PART_MAX,
+          reduceMax: Number.isInteger(c.reduceMaxTokens) && c.reduceMaxTokens >= STUDIO_CAP_MIN && c.reduceMaxTokens <= STUDIO_MR_REDUCE_MAX ? c.reduceMaxTokens : STUDIO_MR_REDUCE_MAX };
         const before = studioMaxSources(), live = studioV7Live();
         service.server = next;
         if ((studioMaxSources() !== before || studioV7Live() !== live) && studio.wired) studio.syncSelectionViews();
@@ -5530,8 +5554,9 @@
         this.lastHello = Date.now();
         this.noteServer(d, hello);
         if (d.jobsEnabled === false) this.serverOffUntil = Date.now() + JOBS_SERVER_OFF_MS;
-        const m = d.modes;
+        const m = d.modes, big = studioMrOn();
         this.modes = Array.isArray(m) ? m.map(String) : m && typeof m === 'object' ? Object.keys(m) : null;
+        if (studioMrOn() !== big && studio.wired) studio.syncSelectionViews(); // the digest job (big runs) appeared in or left the server's list
       },
       // No job endpoint on the server (404), or the browser could not tell a refused token from a missing path
       looksAbsent(e) { return e.status === 404 || !!e.guessed; },
@@ -5675,8 +5700,8 @@
       },
 
       // ── making a job ──
-      async prepare({ mode, kind, ref, label, maxAttempts = 2, group = null }) {
-        const rec = { v: 1, id: `j_${jobsRandom(16)}`, key: jobsRandom(32), mode, kind, ref, label, attempt: 1, maxAttempts, state: 'preparing', error: null, createdAt: Date.now(), submittedAt: null, lastCreateAt: null, createTries: 0, finishedAt: null, nextPollAt: 0, pollStep: 0, applyCtx: null, seen: false, appliedAt: null, ...(group ? { group } : {}) };
+      async prepare({ mode, kind, ref, label, maxAttempts = 2, group = null, bulk = false }) {
+        const rec = { v: 1, id: `j_${jobsRandom(16)}`, key: jobsRandom(32), mode, kind, ref, label, attempt: 1, maxAttempts, state: 'preparing', error: null, createdAt: Date.now(), submittedAt: null, lastCreateAt: null, createTries: 0, finishedAt: null, nextPollAt: 0, pollStep: 0, applyCtx: null, seen: false, appliedAt: null, ...(group ? { group } : {}), ...(bulk ? { bulk: true } : {}) };
         await this.add(rec);
         return rec;
       },
@@ -5704,7 +5729,7 @@
         const live = this.recs.get(rec.id) || rec;
         live.createTries = (live.createTries || 0) + 1;
         const tries = live.createTries;
-        const head = { v: 1, op: 'create', id: rec.id, key: rec.key, attempt: rec.attempt, mode: rec.mode };
+        const head = { v: 1, op: 'create', id: rec.id, key: rec.key, attempt: rec.attempt, mode: rec.mode, ...(rec.bulk ? { bulk: true } : {}) }; // bulk: map-reduce parts count in the server's bulk cap
         const files = inputs.files && inputs.files.length ? inputs.files : null;
         try {
           await webhookRequest(files ? inputs.payload : { ...inputs.payload, job: head }, { url: CONFIG.jobStartUrl, binaryFiles: files, fields: files ? { job: JSON.stringify(head) } : undefined, timeoutMs: JOBS_CREATE_TIMEOUT_MS, idempotent: true, authPrompt: false, quiet: true });
@@ -5921,7 +5946,7 @@
         if (!old || !JOBS_ACTIVE.has(old.state) || old.state === 'preparing') return;
         const inputs = await this.inputsOf(id);
         if (!inputs) return;
-        const nu = await this.prepare({ mode: old.mode, kind: old.kind, ref: old.ref, label: old.label, maxAttempts: old.maxAttempts, group: old.group });
+        const nu = await this.prepare({ mode: old.mode, kind: old.kind, ref: old.ref, label: old.label, maxAttempts: old.maxAttempts, group: old.group, bulk: old.bulk });
         await this.store.setItem(`in:${nu.id}`, inputs);
         const now = Date.now();
         await this.update(nu.id, x => { x.state = 'submitting'; x.submittedAt = now; x.applyCtx = old.applyCtx; x.nextPollAt = now; });
@@ -5978,14 +6003,16 @@
       groupShown(r) { const g = r.group && this.groups.get(r.group.id); return g && this.groupHandler(g).describeGroup ? g : null; },
 
       // members: [{ payload, files }] in order. Resolves to the group, or null when the inputs could not be kept on this device (run them directly).
-      async createGroup({ kind, mode, ref, label, members, maxParallel = JOBS_BULK_MAX, maxAttempts = 2 }) {
+      // bulk: the members count in the server's bulk cap. gate: from this index on, a member is sent only once every earlier member is done and its
+      // payload comes from the kind's `inputs` handler (a reduce step). A member with `out` is done already (its answer is known): nothing is sent for it.
+      async createGroup({ kind, mode, ref, label, members, maxParallel = JOBS_BULK_MAX, maxAttempts = 2, bulk = false, gate = null }) {
         if (!this.available || !members.length) return null;
         const id = `g_${jobsRandom(16)}`;
         // the group record goes first (state `creating`, ignored until the inputs are in) so a tab cleaning up leftovers never mistakes these inputs for orphans
-        const g = { v: 1, id, kind, mode, ref, label, n: members.length, maxParallel: Math.max(1, Math.min(maxParallel, JOBS_BULK_MAX)), maxAttempts, state: 'creating', createdAt: Date.now(), finishedAt: null, members: members.map((_, i) => ({ i, state: 'todo', jobId: null, error: null })) };
+        const g = { v: 1, id, kind, mode, ref, label, n: members.length, maxParallel: Math.max(1, Math.min(maxParallel, JOBS_BULK_MAX)), maxAttempts, ...(bulk ? { bulk: true } : {}), ...(gate === null ? {} : { gate }), state: 'creating', createdAt: Date.now(), finishedAt: null, members: members.map((m, i) => ({ i, state: m.out ? 'done' : 'todo', jobId: null, error: null })) };
         this.groups.set(id, g);
         try { await withStoreLock('jobs', () => this.store.setItem(`group:${id}`, g)); } catch { /* kept in memory for this visit */ }
-        try { for (let i = 0; i < members.length; i++) await this.store.setItem(`gin:${id}:${i}`, { payload: members[i].payload, files: members[i].files || [] }); }
+        try { for (let i = 0; i < members.length; i++) await (members[i].out ? this.store.setItem(`out:${id}:${i}`, members[i].out) : this.store.setItem(`gin:${id}:${i}`, { payload: members[i].payload, files: members[i].files || [] })); }
         catch { await this.groupDropInputs(id, members.length); this.groups.delete(id); await this.store.removeItem(`group:${id}`).catch(() => {}); return null; }
         const run = await this.groupUpdate(id, x => { x.state = 'running'; });
         this.advanceGroups();
@@ -6011,6 +6038,7 @@
             if (!cur || (cur.state !== 'running' && cur.state !== 'failed')) break;
             const m = cur.members[i];
             if (m.state !== 'todo' || (cur.state === 'failed' && !m.retry)) continue;
+            if (cur.gate !== undefined && i >= cur.gate && cur.members.slice(0, cur.gate).some(x => x.state !== 'done')) break;
             if (running() >= JOBS_BULK_MAX || cur.members.filter(x => x.state === 'running').length >= cur.maxParallel) break;
             await this.groupStart(cur, i);
           }
@@ -6032,11 +6060,12 @@
       },
 
       async groupStart(g, i) {
-        const gin = await this.store.getItem(`gin:${g.id}:${i}`).catch(() => null);
+        const h = this.groupHandler(g), gated = g.gate !== undefined && i >= g.gate;
+        const gin = gated ? await Promise.resolve(h.inputs ? h.inputs(g, i) : null).catch(() => null) : await this.store.getItem(`gin:${g.id}:${i}`).catch(() => null);
         // inputs gone (noInputs: cannot be sent again), or not sent within a day of the run: a person confirms with Retry
-        const stale = !g.members[i].retry && Date.now() - Math.max(g.createdAt, g.revivedAt || 0) > JOBS_UNSENT_MS;
+        const stale = !gated && !g.members[i].retry && Date.now() - Math.max(g.createdAt, g.revivedAt || 0) > JOBS_UNSENT_MS;
         if (!gin || stale) { await this.groupUpdate(g.id, x => { const m = x.members[i]; if (m.state !== 'todo') return false; m.state = 'failed'; m.error = { code: 'STH-JOB-502', message: ERRORS['JOB-502'].message }; if (!gin) m.noInputs = true; else m.stale = true; x.state = 'failed'; }); this.groupHandler(g).failed?.(this.groups.get(g.id), i, new AppError('JOB-502')); return; }
-        const job = await this.prepare({ mode: g.mode, kind: 'group', ref: g.ref, label: g.label, maxAttempts: g.maxAttempts, group: { id: g.id, i, n: g.n } });
+        const job = await this.prepare({ mode: (h.modeOf && h.modeOf(g, i)) || g.mode, kind: 'group', ref: g.ref, label: g.label, maxAttempts: g.maxAttempts, group: { id: g.id, i, n: g.n }, bulk: g.bulk });
         const claimed = await this.groupUpdate(g.id, x => { const m = x.members[i]; if (m.state !== 'todo') return false; m.state = 'running'; m.jobId = job.id; m.retry = false; });
         if (!claimed) { await this.drop(job.id); return; }
         try { await this.store.setItem(`in:${job.id}`, gin); } catch { await this.drop(job.id); await this.groupMemberFailed(g.id, i, job.id, new AppError('STORE-507')); return; }
@@ -6086,13 +6115,34 @@
         return !!g;
       },
 
+      // A failed member the run goes on without: done, but flagged `skipped` (the kind's handler leaves its answer out)
+      async skipMember(gid, i) {
+        const g = await this.groupUpdate(gid, x => {
+          const m = x.members[i];
+          if (!m || m.state !== 'failed' || x.state === 'cancelled') return false;
+          m.state = 'done'; m.skipped = true; m.error = null; m.jobId = null; m.retry = false;
+          if (!x.members.some(y => y.state === 'failed')) { x.state = 'running'; x.finishedAt = null; }
+        });
+        if (!g) return false;
+        await this.store.removeItem(`gin:${gid}:${i}`).catch(() => {});
+        if (g.state === 'running' && g.members.every(m => m.state === 'done')) await this.groupFinish(gid); else this.advanceGroups();
+        return true;
+      },
+
       // Stops the group: nothing new is sent, running members are cancelled on the server, completed members are kept
       async cancelGroup(gid, silent) {
         const running = [];
         const g = await this.groupUpdate(gid, x => {
           if (x.state === 'cancelled' || x.state === 'done') return false;
           x.state = 'cancelled'; x.finishedAt = Date.now();
-          for (const m of x.members) { if (m.state === 'running') running.push(m.jobId); if (m.state !== 'done') { m.state = 'cancelled'; m.retry = false; } }
+          for (const m of x.members) {
+            if (m.state === 'running') {
+              const rec = this.recs.get(m.jobId);
+              if (this.groupHandler(x).salvage && rec && rec.state === 'succeeded') continue; // its answer is in and paid for: the kind still keeps it (apply guard below)
+              running.push(m.jobId);
+            }
+            if (m.state !== 'done') { m.state = 'cancelled'; m.retry = false; }
+          }
         });
         if (!g) return false;
         for (const id of running) await this.cancel(id, true);
@@ -6105,6 +6155,7 @@
       async dropGroup(gid) {
         const g = this.groups.get(gid);
         if (!g || g.state === 'running') return;
+        try { await this.groupHandler(g).dropped?.(g); } catch (err) { console.warn('[STH] Background group handler failed:', errorFromException(err).code); }
         for (const r of [...this.recs.values()]) if (r.group && r.group.id === gid && !JOBS_ACTIVE.has(r.state)) await this.drop(r.id);
         this.groups.delete(gid);
         try { await withStoreLock('jobs', () => this.store.removeItem(`group:${gid}`)); } catch { /* nothing to remove */ }
@@ -6119,6 +6170,7 @@
         for (const g of [...this.groups.values()]) {
           const dead = g.state === 'creating' ? now - g.createdAt > JOBS_CREATING_MS : g.state === 'running' ? now - g.createdAt > JOBS_RUNNING_MAX_MS : now - (g.finishedAt || g.createdAt) > JOBS_KEEP_MS;
           if (!dead) continue;
+          try { await this.groupHandler(g).dropped?.(g); } catch { /* the kind has nothing more to clean */ }
           for (const r of [...this.recs.values()]) if (r.group && r.group.id === g.id) { if (JOBS_ACTIVE.has(r.state)) await this.cancel(r.id, true); await this.drop(r.id); }
           this.groups.delete(g.id);
           try { await withStoreLock('jobs', () => this.store.removeItem(`group:${g.id}`)); } catch { /* nothing to remove */ }
@@ -6131,6 +6183,7 @@
           try { seen = JSON.parse(storageGet(JOBS_ORPHAN_KEY) || '{}') || {}; } catch { seen = {}; }
           const next = {};
           for (const k of keys) {
+            if (k.startsWith('mrc:')) { const kept = await this.store.getItem(k).catch(() => null); if (!kept || !(now - kept.at < STUDIO_MR_KEEP_MS)) await this.store.removeItem(k).catch(() => {}); continue; } // a finished part of a big run, kept for a week
             const m = /^(?:gin|out):(g_[^:]+):\d+$/.exec(k);
             if (!m || this.groups.has(m[1]) || have.has(m[1])) continue;
             const first = Number(seen[k]) || now;
@@ -6186,9 +6239,12 @@
         const g = this.groups.get(gid);
         if (!g) return;
         const done = g.members.filter(m => m.state === 'done').length;
-        if (done && (act === 'cancel' || (act === 'dismiss' && g.state === 'failed')) && !(await showConfirm(`Cancel and discard ${done} finished part${done === 1 ? '' : 's'}?`, 'Discard'))) return;
+        const ask = this.groupHandler(g).confirmText;
+        const q = ask ? ask(act, done, g) : done && (act === 'cancel' || (act === 'dismiss' && g.state === 'failed')) ? [`Cancel and discard ${done} finished part${done === 1 ? '' : 's'}?`, 'Discard'] : null;
+        if (q && !(await showConfirm(q[0], q[1]))) return;
         if (act === 'cancel') await this.cancelGroup(gid);
         else if (act === 'retry') await this.retryMember(gid, i);
+        else if (act === 'skip') await this.skipMember(gid, i);
         else if (act === 'dismiss') { if (g.state === 'failed') await this.cancelGroup(gid, true); await this.dropGroup(gid); }
         else if (act === 'open') { this.openTray(false); await this.groupHandler(g).open?.(g); }
       },
@@ -6289,7 +6345,7 @@
           apply: async (j, data) => {
             const g = jobs.groupOf(j.id);
             if (!g) return false;
-            if (g.members[j.group.i].state === 'running' && (g.state === 'running' || g.state === 'failed')) await jobs.groupHandler(g).applyMember?.(g, j.group.i, data);
+            if (g.members[j.group.i].state === 'running' && (g.state === 'running' || g.state === 'failed' || (g.state === 'cancelled' && jobs.groupHandler(g).salvage))) await jobs.groupHandler(g).applyMember?.(g, j.group.i, data);
             await jobs.groupMemberDone(g.id, j.group.i, j.id);
             return false;
           },
@@ -10206,7 +10262,8 @@
         };
 
         const scanned = scannedPdfDocs.map(doc => ({ serverKey: doc.contentHash, raw: rawHashByServerKey.get(doc.contentHash), sent: !!doc.fieldName }));
-        return { payload, binaryFiles, applyCtx: { knowledgeIds, scanned, cacheValid } };
+        const wholeBook = studioV7Live() && STUDIO_TUTOR_WHOLE_RE.test(text) && cachableContext.reduce((n, c) => n + Math.ceil(c.content.length / 4), 0) > STUDIO_TUTOR_WHOLE_TOKENS;
+        return { payload, binaryFiles, applyCtx: { knowledgeIds, scanned, cacheValid, ...(wholeBook ? { wholeBook } : {}) } };
       },
 
       // Puts the server's answer into the chat. A job's reply has a fixed id, so applying it twice adds it once.
@@ -10215,7 +10272,8 @@
         if (c.messages.some(m => m.id === id)) return false;
         const { knowledgeIds, scanned, cacheValid } = applyCtx;
         const reply = (data && (data.text || data.result)) || '';
-        c.messages.push({ id, ts: Date.now(), role: 'model', text: reply || '_(No response text returned.)_' });
+        const pointer = applyCtx.wholeBook && reply && !/study studio/i.test(reply) ? STUDIO_TUTOR_WHOLE_NOTE : ''; // the server's guard answered from excerpts
+        c.messages.push({ id, ts: Date.now(), role: 'model', text: reply ? reply + pointer : '_(No response text returned.)_' });
         this._revealIdx = c.messages.length - 1;
         this._revealChatId = c.id;
         if (data && data.cacheName) {
@@ -11363,6 +11421,22 @@
     const STUDIO_V7_RELEASE_MS = Date.UTC(2026, 11, 8); // 8 December 2026, the end of the 14-day notice
     const studioV7Released = () => Date.now() >= STUDIO_V7_RELEASE_MS;
     const studioV7Live = () => serverHas(7) && studioV7Released();
+    // Map-reduce (runs bigger than one call, see studioMr below). The part and reduce limits are the server's (the hello caps can only lower them).
+    const STUDIO_MR_PART_TOKENS = 150000; // the size parts are cut to
+    const STUDIO_MR_PART_MAX = 200000; // the server refuses a part above this
+    const STUDIO_MR_REDUCE_MAX = 300000; // and a reduce run over more digest than this
+    const STUDIO_MR_MAX_PARTS = 16;
+    const STUDIO_MR_PARALLEL = 2; // parts in flight at once (the server's bulk cap; flashcards and quiz parts run one at a time, one slot per mode)
+    const STUDIO_MR_KEEP_MS = 7 * 24 * 60 * 60 * 1000; // finished parts stay on this device this long, for Retry and Resume
+    const STUDIO_MR_CONSENT_MS = 30 * 60 * 1000; // an estimate this old is shown again before anything is sent
+    const STUDIO_MR_PROBE_TOKENS = 400000; // the server's default cap: above it the server is asked for its real cap before a run is sent
+    const STUDIO_MR_UNITS_DEFAULT = 2000000; // cfg:mr_max_units when the server cannot be asked
+    const STUDIO_MR_BUDGET_MS = 60000; // an answer about today's capacity is reused this long
+    // Tutor: above this the server answers a whole-book question from excerpts and says so (see "Prep - Tutor"); the app adds the same pointer to its answer
+    const STUDIO_TUTOR_WHOLE_TOKENS = 400000;
+    const STUDIO_TUTOR_WHOLE_RE = /\b(summar(y|ise|ize)|overview|whole (book|document|text)|entire (book|document)|all (the )?chapters|outline of the|main (themes|ideas|points|arguments))\b/i;
+    const STUDIO_TUTOR_WHOLE_NOTE = '\n\nFor a summary or outline of a whole book, Study Studio can make it.';
+    const STUDIO_MR_BUSY = 'A big run is already going. Wait for it to finish, or cancel it, before you start another.';
     const STUDIO_MAX_IMAGES = 5;
     const STUDIO_IMAGE_TOKENS = 1600;
     const STUDIO_TOKENS_PER_PAGE = 600;
@@ -11503,10 +11577,10 @@
     }
 
     // The request for one study aid. Sources are numbered S1..Sn in the order given; nothing else about them leaves the device.
-    async function studioBuildRequest(item) {
+    async function studioLoadSources(ids) {
       const sources = [];
       try {
-        for (const id of item.sourceIds) {
+        for (const id of ids) {
           const kbItem = await kb.get(id);
           if (!kbItem) throw studioError('One of the sources is no longer in your Knowledge Bay. Choose your sources again.', 'Studio source missing');
           sources.push(await studioSourcePayload(kbItem, sources.length + 1));
@@ -11514,6 +11588,10 @@
       } finally {
         driveBlobs.clear();
       }
+      return sources;
+    }
+    async function studioBuildRequest(item) {
+      const sources = await studioLoadSources(item.sourceIds);
       const lang = STUDIO_LANGUAGES.find(l => l.code === item.language) || STUDIO_LANGUAGES[0];
       return {
         mode: STUDIO_TOOLS[item.tool].mode,
@@ -11548,6 +11626,488 @@
       item.error = null;
       item.seen = false;
     }
+
+    // ═══════════════════════════════════════════════════════════
+    // ─── Map-reduce: runs bigger than one call ─────────────────
+    // ═══════════════════════════════════════════════════════════
+    // Only with studioMrOn(): a run over the cap is cut on source and page boundaries into parts of at most 150k tokens. Every part is an ordinary
+    // bulk job: a digest (mind map, infographic, slides) or its share of the cards / questions (flashcards, quiz). The browser joins the answers: one
+    // reduce job over the digests, or a merge. The server keeps no text of a run, so the browser sends every part. The jobs registry (one group per run)
+    // is the only run state; the plan below is rebuilt from the sources whenever it is needed (Retry, Resume) and finished parts are found again by hash.
+    const STUDIO_MR_MODE = { digest: 'studio_digest', flashcards: 'studio_flashcards', quiz: 'studio_quiz' };
+    const STUDIO_MR_DIGEST = 'sth.digest/1';
+    const STUDIO_MR_DIGEST_LIMITS = { topics: 60, heading: 100, points: 15, point: 200, figures: 20, value: 16, label: 60, quote: 160, maxPage: 20000, bytes: 64000 };
+    // the numbers of the cost estimate (design C3): units = prompt tokens + 8.33 x (answer + thinking tokens), the server's meter
+    const STUDIO_MR_EST = {
+      mult: 8.33, think: 1024, digestPrompt: 1500, toolPrompt: 2500, digestOut: [5000, 8192],
+      reduceOut: { mindmap: [12000, 32768], infographic: [3000, 8192], slides: [10000, 16384] },
+      perItem: { flashcards: 120, quiz: 550 }, maxOut: { flashcards: 32768, quiz: 24576 }, itemHigh: 1.3,
+    };
+    const studioMrIsList = (tool) => tool === 'flashcards' || tool === 'quiz'; // these join their parts in the browser, the others reduce over digests
+
+    // Not a security hash: a short fingerprint (two 64-bit passes) that names a part on this device. Pure, so a plan can carry it.
+    function studioMrHash(text) {
+      const pass = (seed) => {
+        let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+        for (let i = 0; i < text.length; i++) { const ch = text.charCodeAt(i); h1 = Math.imul(h1 ^ ch, 2654435761); h2 = Math.imul(h2 ^ ch, 1597334677); }
+        h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+        h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+        return (h2 >>> 0).toString(16).padStart(8, '0') + (h1 >>> 0).toString(16).padStart(8, '0');
+      };
+      return pass(0) + pass(0x9e3779b9) + text.length.toString(16);
+    }
+
+    // The pages of one text as [{ page, text }]; the texts joined give the original again. A text without markers is one unit (page 0).
+    function studioMrPages(text, markers) {
+      const re = markers === 'page' || markers === 'scan' ? /^\[(?:Scan )?[Pp]age (\d{1,5})\]/gm : markers === 'slide' ? /^##\s+Slide (\d{1,5})\b/gm : null;
+      const cuts = re ? [...text.matchAll(re)].map(m => ({ at: m.index, page: Number(m[1]) })) : [];
+      if (!cuts.length) return [{ page: 0, text }];
+      cuts[0].at = 0; // what comes before the first marker belongs to the first page
+      return cuts.map((c, k) => ({ page: c.page, text: text.slice(c.at, k + 1 < cuts.length ? cuts[k + 1].at : text.length) }));
+    }
+    // Only for a unit too big for any part: pieces of at most maxChars, cut at a blank line, a line end or a space (nothing is dropped)
+    function studioMrSplit(text, maxChars) {
+      const out = [];
+      let rest = text;
+      while (rest.length > maxChars) {
+        let cut = rest.lastIndexOf('\n\n', maxChars);
+        if (cut < maxChars * 0.5) cut = rest.lastIndexOf('\n', maxChars);
+        if (cut < maxChars * 0.5) cut = rest.lastIndexOf(' ', maxChars);
+        if (cut < maxChars * 0.5) cut = maxChars;
+        if (/[\ud800-\udbff]/.test(rest[cut - 1])) cut--;
+        out.push(rest.slice(0, cut));
+        rest = rest.slice(cut);
+      }
+      if (rest) out.push(rest);
+      return out;
+    }
+
+    // The cards / questions each part is asked for: proportional to its size, 2 at least, adding up to the request (largest remainder first)
+    function studioMrCounts(tool, options, tokens) {
+      if (!studioMrIsList(tool)) return tokens.map(() => 0);
+      const want = options && Number.isInteger(options.count) ? options.count : tool === 'quiz' ? 20 : 30;
+      const total = tokens.reduce((a, b) => a + b, 0) || 1;
+      const raw = tokens.map(t => want * t / total), out = raw.map(Math.floor);
+      let left = want - out.reduce((a, b) => a + b, 0);
+      raw.map((r, i) => [r - Math.floor(r), i]).sort((a, b) => b[0] - a[0] || a[1] - b[1]).slice(0, Math.max(0, left)).forEach(([, i]) => { out[i]++; });
+      return out.map(k => Math.min(50, Math.max(2, k)));
+    }
+
+    // Pure and deterministic. sources: studioSourcePayload results (S1..Sn, text or one image). Never cuts inside a page (a text without page markers, or one page
+    // too big for a part, is cut at paragraph ends). ctx: { language, topic } (part of what a finished part is worth), { maxParts, partMax } (the hello caps).
+    // -> { ok: true, fits: true } when one call takes it all, { ok: true, parts, ... }, or { ok: false, reason: 'empty' | 'sources' | 'parts' }
+    function studioMrPlan(sources, cap, tool, options, ctx = {}) {
+      const list = Array.isArray(sources) ? sources : [];
+      if (!list.length) return { ok: false, reason: 'empty' };
+      if (list.length > STUDIO_MAX_SOURCES_V7) return { ok: false, reason: 'sources' };
+      const total = list.reduce((n, s) => n + s.tokens, 0);
+      if (total <= cap) return { ok: true, fits: true, n: 1, total, parts: [] };
+      const hard = Math.min(STUDIO_MR_PART_MAX, cap, ctx.partMax || Infinity);
+      const target = Math.max(1000, Math.min(STUDIO_MR_PART_TOKENS, hard));
+      const maxParts = Math.min(STUDIO_MR_MAX_PARTS, ctx.maxParts || Infinity);
+      const units = [];
+      list.forEach((s, k) => {
+        if (s.image) { units.push({ k, image: true, page: 0, tokens: s.tokens, text: '' }); return; }
+        for (const pg of studioMrPages(s.text, s.markers)) {
+          const t = studioTokens(pg.text.length);
+          if (t <= hard) { units.push({ k, page: pg.page, text: pg.text, tokens: t }); continue; }
+          for (const piece of studioMrSplit(pg.text, target * 4)) units.push({ k, page: pg.page, text: piece, tokens: studioTokens(piece.length) });
+        }
+      });
+      const groups = [];
+      let cur = null;
+      for (const u of units) {
+        if (!cur || (cur.tokens + u.tokens > target && cur.units.length)) { cur = { units: [], tokens: 0 }; groups.push(cur); }
+        cur.units.push(u); cur.tokens += u.tokens;
+      }
+      if (groups.length > maxParts) return { ok: false, reason: 'parts', n: groups.length, total };
+      const n = groups.length, partTool = studioMrIsList(tool) ? tool : 'digest', reduce = !studioMrIsList(tool);
+      const counts = studioMrCounts(tool, options, groups.map(g => g.tokens));
+      const o = options && typeof options === 'object' ? options : {};
+      const optKey = reduce ? '' : JSON.stringify(Object.keys(o).sort().map(key => [key, o[key]]));
+      const parts = groups.map((g, i) => {
+        const pieces = [];
+        for (const u of g.units) {
+          const last = pieces[pieces.length - 1];
+          if (last && last.k === u.k && !u.image && !last.image) { last.text += u.text; last.tokens += u.tokens; last.from = last.from || u.page; if (u.page) last.to = u.page; }
+          else pieces.push({ k: u.k, image: !!u.image, text: u.text, tokens: u.tokens, from: u.page, to: u.page });
+        }
+        const srcs = pieces.map(p => {
+          const s = list[p.k];
+          return p.image ? { id: s.id, name: s.name, kind: s.kind, tokens: p.tokens, image: s.image } : { id: s.id, name: s.name, kind: s.kind, markers: s.markers, pages: s.pages, tokens: p.tokens, text: p.text };
+        });
+        const label = studioClean(pieces.map(p => `${list[p.k].name}${p.from ? `, ${p.to && p.to !== p.from ? `pages ${p.from}–${p.to}` : `page ${p.from}`}` : ''}`).join('; '), 120);
+        // what makes two parts the same job: the tool, the prompt version, the options, the place in the run, the language and topic, and the text itself
+        const hash = studioMrHash(JSON.stringify([STUDIO_PROMPT_VERSION_V7, partTool, optKey, i + 1, n, counts[i], ctx.language || '', ctx.topic || '',
+          pieces.map(p => { const s = list[p.k]; return [s.id, s.name, s.kind, s.markers || '', studioMrHash(p.image ? s.image.data : p.text)]; })]));
+        return { i: i + 1, n, tokens: g.tokens, label, hash, count: counts[i], sources: srcs };
+      });
+      return { ok: true, fits: false, n, total, tool, partTool, reduce, parts, sourceMeta: list.map(s => ({ id: s.id, name: s.name, kind: s.kind })) };
+    }
+
+    const studioMrRand = (units) => Math.round(units / 1e6 * 0.30 * 18 * 2) / 2;
+    const studioMrRandText = (r) => (Number.isInteger(r) ? String(r) : r.toFixed(1));
+    // budget: the `budget` answer (see studioMr.budget) or null (the server could not be asked). Parts already on this device (part.cached) are not counted.
+    // The limit of a run is checked on the high figure.
+    function studioMrEstimate(plan, tool, budget) {
+      const E = STUDIO_MR_EST, todo = plan.parts.filter(p => !p.cached), n = plan.parts.length;
+      let low = 0, high = 0;
+      if (plan.reduce) {
+        const [dl, dh] = E.digestOut, [tl, th] = E.reduceOut[tool];
+        for (const p of todo) { low += p.tokens + E.digestPrompt + E.mult * (dl + E.think); high += p.tokens + E.digestPrompt + E.mult * (dh + E.think); }
+        low += n * dl + E.toolPrompt + E.mult * (tl + E.think); high += n * dh + E.toolPrompt + E.mult * (th + E.think);
+      } else {
+        const per = E.perItem[tool], max = E.maxOut[tool];
+        for (const p of todo) {
+          const k = p.count || 0;
+          low += p.tokens + E.toolPrompt + E.mult * (Math.min(max, k * per) + E.think);
+          high += p.tokens + E.toolPrompt + E.mult * (Math.min(max, k * per * E.itemHigh) + E.think);
+        }
+      }
+      low = Math.round(low); high = Math.round(high);
+      const h = Math.ceil(Math.max(1, todo.length) / 2);
+      const mrMax = budget && budget.mrMaxUnits ? budget.mrMaxUnits : STUDIO_MR_UNITS_DEFAULT;
+      const pool = budget ? (budget.bulkRemaining !== null && budget.bulkRemaining !== undefined ? budget.bulkRemaining : budget.remaining) : null;
+      const ceiling = budget ? (budget.bulkCeiling !== null && budget.bulkCeiling !== undefined ? budget.bulkCeiling : budget.ceiling) : null;
+      return {
+        n, todo: todo.length, cached: n - todo.length, units: { low, high }, rand: { low: studioMrRand(low), high: studioMrRand(high) },
+        minutes: { low: 2 * h, high: 4 * h + 2 },
+        mrMax, exceeds: high > mrMax,
+        pool, share: pool > 0 ? Math.round(high / pool * 100) : null,
+        tooLittle: pool !== null && pool !== undefined && high > pool,
+        canForce: ceiling === null || ceiling === undefined || high <= ceiling, // a run that can never fit today is not offered
+      };
+    }
+
+    // ── what a part and a reduce answer may be (the model's output is untrusted) ──
+    // A digest of one part: only the known fields, clamped; points and figures cite only sources of this part
+    function studioMrNormalizeDigest(data, ids) {
+      const L = STUDIO_MR_DIGEST_LIMITS;
+      if (!data || typeof data !== 'object' || Array.isArray(data) || data.schema !== STUDIO_MR_DIGEST || !Array.isArray(data.topics)) return { ok: false, reason: 'shape' };
+      const known = (id) => typeof id === 'string' && /^S([1-9]|1[0-5])$/.test(id) && (!ids || ids.includes(id));
+      const page = (v) => { const p = typeof v === 'string' && /^\d{1,5}$/.test(v.trim()) ? Number(v) : v; return Number.isInteger(p) && p >= 0 && p <= L.maxPage ? p : 0; };
+      const topics = [];
+      for (const t of data.topics.slice(0, 500)) {
+        if (topics.length >= L.topics) break;
+        if (!t || typeof t !== 'object' || Array.isArray(t)) continue;
+        const heading = studioClean(t.heading, L.heading);
+        const points = [];
+        for (const p of Array.isArray(t.points) ? t.points.slice(0, 100) : []) {
+          if (points.length >= L.points) break;
+          if (!p || typeof p !== 'object' || !known(p.source)) continue;
+          const text = studioClean(p.text, L.point);
+          if (text) points.push({ text, source: p.source, page: page(p.page) });
+        }
+        if (heading && points.length) topics.push({ heading, level: t.level === 2 || t.level === 3 ? t.level : 1, points });
+      }
+      const figures = [];
+      for (const f of Array.isArray(data.figures) ? data.figures.slice(0, 200) : []) {
+        if (figures.length >= L.figures) break;
+        if (!f || typeof f !== 'object' || !known(f.source)) continue;
+        const value = studioClean(f.value, L.value), quote = studioClean(f.quote, L.quote);
+        if (value && quote) figures.push({ value, label: studioClean(f.label, L.label), quote, source: f.source, page: page(f.page) });
+      }
+      if (!topics.length) return { ok: false, reason: 'empty' };
+      const clean = { schema: STUDIO_MR_DIGEST, topics, figures };
+      return JSON.stringify(clean).length > L.bytes ? { ok: false, reason: 'too_big' } : { ok: true, data: clean };
+    }
+    const studioMrNum = (v) => (typeof v === 'number' && isFinite(v) && v >= 0 ? Math.round(v) : 0);
+    const studioMrUsage = (u) => { const x = u && typeof u === 'object' ? u : {}; return { inputTokens: studioMrNum(x.inputTokens), outputTokens: studioMrNum(x.outputTokens), thinkingTokens: studioMrNum(x.thinkingTokens), calls: Math.max(1, studioMrNum(x.calls)) }; };
+    // The answer of one part -> what is kept for it ({ data, usage, repairs }), or null when it is not usable
+    function studioMrCheckPart(partTool, artifact, ids) {
+      if (!artifact || typeof artifact !== 'object' || artifact.envelope !== STUDIO_ENVELOPE || artifact.tool !== partTool || !artifact.data || typeof artifact.data !== 'object') return null;
+      let data;
+      if (partTool === 'digest') { const d = studioMrNormalizeDigest(artifact.data, ids); if (!d.ok) return null; data = d.data; }
+      else {
+        let ok = false;
+        try { ok = (partTool === 'flashcards' ? studioNormalizeFlashcards(artifact.data) : studioNormalizeQuiz(artifact.data)).ok; } catch { ok = false; }
+        if (!ok) return null;
+        data = artifact.data;
+      }
+      return { data, usage: studioMrUsage(artifact.usage), repairs: Array.isArray(artifact.repairs) ? artifact.repairs.slice(0, 20).map(r => studioClean(r, 160)).filter(Boolean) : [] };
+    }
+
+    // ── flashcards and quiz: the browser joins the parts ──
+    // The key two fronts (or stems) are compared by: the server's rule (see "Studio - Validate" fcNormalize / fcSimilar)
+    const studioMrKey = (s) => String(s).normalize('NFKC').toLowerCase().replace(/[\p{P}\p{S}]+/gu, ' ').replace(/\s+/g, ' ').trim();
+    function studioMrSimilar(a, b) {
+      if (a.key === b.key) return true;
+      if (a.words.length < 5 || b.words.length < 5) return false;
+      let inter = 0;
+      for (const w of a.set) if (b.set.has(w)) inter++;
+      return inter / (a.set.size + b.set.size - inter) >= 0.9;
+    }
+    // datas: the kept data of each part in order (a skipped part is left out); count: the number asked for. Concatenated in part order, a repeat of an earlier
+    // front / stem dropped, cut back to count by taking from each part in turn (so every part stays covered), renumbered, cites kept. -> { ok, data, repairs }
+    function studioMrMerge(tool, datas, { count = 0, title = '', notes = [] } = {}) {
+      const fc = tool === 'flashcards';
+      const models = [];
+      for (const d of datas) { let m = null; try { m = fc ? studioNormalizeFlashcards(d) : studioNormalizeQuiz(d); } catch { m = null; } if (m && m.ok) models.push(m); }
+      if (!models.length) return { ok: false, reason: 'empty' };
+      const seen = [], lists = [];
+      let dupes = 0, total = 0;
+      for (const m of models) {
+        const list = [];
+        for (const it of fc ? m.cards : m.questions) {
+          const key = studioMrKey(fc ? it.front : it.stem), words = key.split(' ').filter(Boolean), cand = { key, words, set: new Set(words) };
+          if (!key || seen.some(x => studioMrSimilar(x, cand))) { dupes++; continue; }
+          seen.push(cand); list.push(it);
+        }
+        lists.push(list); total += list.length;
+      }
+      const max = Math.min(count > 0 ? count : Infinity, fc ? STUDIO_FC_MAX_CARDS : STUDIO_QZ_MAX_QUESTIONS);
+      const take = lists.map(l => l.length);
+      if (total > max) {
+        take.fill(0);
+        for (let left = max, moved = true; left > 0 && moved;) { moved = false; for (let p = 0; p < lists.length && left > 0; p++) if (take[p] < lists[p].length) { take[p]++; left--; moved = true; } }
+      }
+      const cites = (list) => list.map(c => ({ source: `S${c.n}`, page: c.page }));
+      const out = [];
+      lists.forEach((list, p) => list.slice(0, take[p]).forEach(it => {
+        const n = out.length + 1;
+        out.push(fc ? { id: `c${n}`, topic: it.topic, front: it.front, back: it.back, cites: cites(it.cites) }
+          : { id: `q${n}`, type: it.type, topic: it.topic, stem: it.stem, options: it.options.map(o => ({ id: o.id, text: o.text, correct: o.correct, rationale: o.rationale })), answer: it.answer, hint: it.hint, explanation: it.explanation, cites: cites(it.cites) });
+      }));
+      const notices = [...notes];
+      for (const m of models) for (const t of m.notices) if (!notices.includes(t)) notices.push(t);
+      const repairs = [`joined ${models.length} part${models.length === 1 ? '' : 's'}`];
+      if (dupes) repairs.push(`dropped ${dupes} ${fc ? 'cards' : 'questions'} that repeat an earlier one`);
+      if (total > out.length) repairs.push(`kept ${out.length} of ${total}`);
+      return { ok: true, data: { schema: fc ? STUDIO_FC_SCHEMA : STUDIO_QZ_SCHEMA, title: title || models[0].title, notices: notices.slice(0, 3).map(t => studioClean(t, 160)).filter(Boolean), [fc ? 'cards' : 'questions']: out }, repairs };
+    }
+
+    // ── mind map, infographic, slides: a reduce answer may cite only what the digests cite (the server's rule, applied again here) ──
+    function studioMrReduceCites(data, digests) {
+      const set = new Set();
+      for (const d of digests) for (const x of [...d.topics.flatMap(t => t.points), ...d.figures]) set.add(`${x.source}:${x.page}`);
+      const sources = new Set([...set].map(k => k.split(':')[0]));
+      const fix = (list) => {
+        const out = [], seen = new Set();
+        for (const c of Array.isArray(list) ? list : []) {
+          if (!c || typeof c !== 'object' || !sources.has(c.source)) continue;
+          const page = c.page === 0 || set.has(`${c.source}:${c.page}`) ? c.page : 0;
+          const k = `${c.source}:${page}`;
+          if (!seen.has(k)) { seen.add(k); out.push({ source: c.source, page }); }
+        }
+        return out;
+      };
+      if (!data || typeof data !== 'object') return data;
+      for (const list of [data.nodes, data.items, data.slides]) for (const x of Array.isArray(list) ? list : []) if (x && typeof x === 'object') x.cites = fix(x.cites);
+      for (const f of Array.isArray(data.figures) ? data.figures : []) if (f && typeof f === 'object') { const one = fix([{ source: f.source, page: f.page }])[0]; if (one) f.page = one.page; }
+      return data;
+    }
+
+    // The one switch: the v7 gate, a working job registry, and a server that lists the digest job (a v6 server, jobs switched off or an unlisted mode all mean "no")
+    const studioMrOn = () => studioV7Live() && jobs.useFor('studio_digest') && service.server.maxParts >= 1;
+
+    function studioMrFailText(g, i, e) {
+      const r = g.ref, m = g.members[i], last = i >= r.n;
+      const where = last ? 'The last step' : `Part ${i + 1} of ${r.n} (${r.labels[i]})`;
+      if (m && m.stale) return `${where} was not sent within a day, because the app was closed. Retry sends it now.`;
+      if (m && m.noInputs) return last ? 'The last step cannot be sent, because no finished part is left. Cancel and start again.' : `${where} cannot be sent again, because its text is no longer kept on this device. Cancel and start the run again.`;
+      const key = errorKeyFromCode(e.code);
+      if (key === 'QUOTA-430' || key === 'AI-529') return `${where}: ${e.message} The run is paused, and finished parts are kept. Retry when it resets.`;
+      return `${where}: ${last ? `That did not work. ${e.message}` : ERRORS['STU-424'].message} (Code ${e.code})`;
+    }
+    // One row of the tray (and the note on the study aid) for a run
+    function studioMrDescribe(g) {
+      const r = g.ref, parts = g.members.slice(0, r.n), done = parts.filter(m => m.state === 'done').length;
+      const since = `<span data-jobs-since="${g.createdAt}">${jobsElapsed(g.createdAt)}</span>`;
+      const failed = g.members.find(m => m.state === 'failed');
+      if (g.state === 'failed' && failed) {
+        const last = failed.i >= r.n, others = parts.filter(m => m.i !== failed.i && m.state !== 'failed' && !m.skipped).length;
+        const acts = failed.noInputs ? [] : [{ act: 'retry', label: last ? 'Try again' : 'Retry part', i: failed.i }];
+        if (!last && others) acts.push({ act: 'skip', label: 'Skip part', i: failed.i });
+        return { label: g.label, failed: true, text: escapeHtml(studioMrFailText(g, failed.i, failed.error || { code: 'STH-JOB-502', message: ERRORS['JOB-502'].message })), actions: acts.concat([{ act: 'cancel', label: 'Cancel' }, { act: 'dismiss', label: 'Dismiss' }]) };
+      }
+      if (g.state === 'running' || g.state === 'creating') {
+        const text = done >= r.n ? `Putting the ${r.n} parts together (${since})` : `Part ${Math.min(done + 1, r.n)} of ${r.n} · ${done} done (${since}). You can leave; the next part starts while the app is open.`;
+        return { label: g.label, text, actions: [{ act: 'cancel', label: 'Cancel' }] };
+      }
+      if (g.state === 'done') return { label: g.label, text: 'Ready', actions: [{ act: 'open', label: 'Open' }, { act: 'dismiss', label: 'Dismiss' }] };
+      return { label: g.label, text: g.state === 'cancelled' ? `Cancelled. ${done ? `The ${done} finished part${done === 1 ? ' is' : 's are'} kept on this device for 7 days.` : ''}` : 'Stopped', actions: [{ act: 'dismiss', label: 'Dismiss' }] };
+    }
+
+    const studioMr = {
+      budgetCache: null,
+      // a run that is not finished, stopped or removed (one at a time: they share the two bulk slots anyway)
+      active() { return [...jobs.groups.values()].some(g => g.kind === 'mr' && (g.state === 'creating' || g.state === 'running' || g.state === 'failed')); },
+      groupOf(item) { const g = item && item.mrGroup && jobs.groups.get(item.mrGroup); return g && g.kind === 'mr' ? g : null; },
+      live(item) { const g = this.groupOf(item); return !!g && (g.state === 'creating' || g.state === 'running' || g.state === 'failed'); },
+
+      // What is left of today's shared capacity and the owner's limits (the `budget` op), or null when the server cannot say (the run is then shown without that line)
+      async budget(force) {
+        const c = this.budgetCache;
+        if (!force && c && Date.now() - c.at < STUDIO_MR_BUDGET_MS) return c.data;
+        let data = null;
+        try {
+          const d = await jobs.call({ v: 1, op: 'budget', jobs: [] });
+          if (d && d.ok === true) {
+            const num = (v, lo, hi) => (typeof v === 'number' && isFinite(v) && v >= lo && v <= hi ? Math.round(v) : null);
+            data = { used: num(d.used, 0, 1e13), ceiling: num(d.ceiling, 0, 1e13), remaining: num(d.remaining, 0, 1e13), bulkCeiling: num(d.bulkCeiling, 0, 1e13), bulkRemaining: num(d.bulkRemaining, 0, 1e13),
+              studioMaxTokens: num(d.studioMaxTokens, STUDIO_CAP_MIN, STUDIO_MAX_TOKENS), mrMaxUnits: num(d.mrMaxUnits, 100000, 20000000) };
+          }
+        } catch { data = null; }
+        if (data) this.budgetCache = { at: Date.now(), data };
+        return data;
+      },
+
+      // ── finished parts, found again by hash (this device only, 7 days; never synced) ──
+      async cacheGet(hash) {
+        try {
+          const r = await jobs.store.getItem(`mrc:${hash}`);
+          if (r && r.v === 1 && r.out && Date.now() - r.at < STUDIO_MR_KEEP_MS) return r.out;
+          if (r) await jobs.store.removeItem(`mrc:${hash}`);
+        } catch { /* nothing kept */ }
+        return null;
+      },
+      async cachePut(hash, out) { try { await jobs.store.setItem(`mrc:${hash}`, { v: 1, at: Date.now(), out }); } catch { /* storage full: this part is simply not kept */ } },
+      async cacheDrop(hashes) { for (const h of hashes || []) await jobs.store.removeItem(`mrc:${h}`).catch(() => {}); },
+      // marks the parts of a plan that are on this device already (checked again as answers are: a damaged entry is not used)
+      async markCached(plan) {
+        await jobs.ensureLoad();
+        plan.cachedOut = [];
+        for (const p of plan.parts) {
+          const out = await this.cacheGet(p.hash);
+          const ok = out && studioMrCheckPart(plan.partTool, { envelope: STUDIO_ENVELOPE, tool: plan.partTool, data: out.data, usage: out.usage, repairs: out.repairs }, p.sources.map(s => s.id));
+          p.cached = !!ok;
+          plan.cachedOut.push(ok || null);
+        }
+      },
+
+      partRequest(r, part) {
+        return { mode: STUDIO_MR_MODE[r.partTool], v: STUDIO_REQUEST_VERSION, requestId: generateId(), tool: r.partTool, language: r.language, options: r.partTool === 'digest' ? {} : studioCleanOptions(r.tool, r.options),
+          description: r.topic, sources: part.sources, clientEstimate: part.tokens, promptVersion: STUDIO_PROMPT_VERSION_V7, part: { i: part.i, n: part.n, ...(part.count ? { count: part.count } : {}) } };
+      },
+      // The last step (mind map, infographic, slides): the digests of the finished parts, sent only when every part is done or skipped
+      async reduceInputs(g) {
+        const r = g.ref, digests = [];
+        for (let i = 0; i < r.n; i++) { const o = await jobs.store.getItem(`out:${g.id}:${i}`).catch(() => null); if (o && o.data) digests.push(o.data); }
+        if (!digests.length) return null;
+        // the sources of the digests are only names here; a picture is named like a text so the server takes it
+        return { payload: { mode: STUDIO_TOOLS[r.tool].mode, v: STUDIO_REQUEST_VERSION, requestId: generateId(), tool: r.tool, language: r.language, options: r.options, description: r.topic,
+          sources: r.sources.map(s => ({ id: s.id, name: s.name, kind: s.kind === 'image' ? 'txt' : s.kind })), digests, strategy: 'reduce', clientEstimate: Math.ceil(JSON.stringify(digests).length / 4), promptVersion: STUDIO_PROMPT_VERSION_V7 }, files: [] };
+      },
+
+      // The text of the parts is kept on this device until they are sent (twice over, to be safe)
+      async roomFor(plan) {
+        let need = 0;
+        for (const p of plan.parts) if (!p.cached) for (const s of p.sources) need += (s.text || (s.image && s.image.data) || '').length;
+        try {
+          const e = await navigator.storage.estimate();
+          if (e && e.quota && e.quota - (e.usage || 0) < need * 2) return false;
+        } catch { /* unknown: try it */ }
+        return true;
+      },
+
+      // Cuts the run into its jobs: one group, the parts first, then (mind map, infographic, slides) the reduce step, which waits for them. Parts found on this device are done already.
+      async start(item, mr) {
+        const { plan } = mr;
+        await jobs.ensureLoad();
+        if (!(await this.roomFor(plan))) throw new AppError('STORE-507');
+        const old = studioMr.groupOf(item);
+        if (old) { await jobs.groupUpdate(old.id, x => { x.keepParts = true; }); await jobs.dropGroup(old.id); } // the earlier run of this study aid; its finished parts stay for this one
+        const lang = STUDIO_LANGUAGES.find(l => l.code === item.language) || STUDIO_LANGUAGES[0];
+        const options = studioCleanOptions(item.tool, item.options);
+        const ref = { itemId: item.id, tool: item.tool, partTool: plan.partTool, reduce: plan.reduce, n: plan.n, options, count: options.count || 0, language: { code: lang.code, name: lang.name }, topic: item.topic || '',
+          hashes: plan.parts.map(p => p.hash), labels: plan.parts.map(p => p.label), partSources: plan.parts.map(p => p.sources.map(s => s.id)), sources: plan.sourceMeta, total: plan.total };
+        const members = plan.parts.map((p, k) => (p.cached ? { out: plan.cachedOut[k] } : { payload: this.partRequest(ref, p) }));
+        if (plan.reduce) members.push({ payload: {} }); // filled by inputs() when it is time
+        return jobs.createGroup({ kind: 'mr', mode: STUDIO_MR_MODE[plan.partTool], ref, label: item.title, members, maxParallel: plan.partTool === 'digest' ? STUDIO_MR_PARALLEL : 1, maxAttempts: STUDIO_MAX_ATTEMPTS, bulk: true, gate: plan.reduce ? plan.n : null });
+      },
+
+      // An answer of a part or of the reduce step, kept under its own key (written once). A bad one fails that part only.
+      async applyMember(g, i, data) {
+        const r = g.ref, key = `out:${g.id}:${i}`;
+        if (await jobs.store.getItem(key).catch(() => null)) return;
+        const art = data && data.artifact;
+        if (i >= r.n) {
+          if (!art || typeof art !== 'object' || art.envelope !== STUDIO_ENVELOPE || art.tool !== r.tool || !art.data || typeof art.data !== 'object') throw new AppError('STU-422', { safeMessage: 'Studio reduce answer had no usable artifact' });
+          await jobs.store.setItem(key, { artifact: art });
+          return;
+        }
+        const out = studioMrCheckPart(r.partTool, art, r.partSources[i]);
+        if (!out) throw new AppError('STU-422', { safeMessage: 'Studio part answer was not usable' });
+        await jobs.store.setItem(key, out);
+        await this.cachePut(r.hashes[i], out);
+        studio.announce(`${g.label}: part ${i + 1} of ${r.n} is done.`);
+      },
+
+      // All parts (and the reduce step) are in: build the study aid and put it on its item
+      async finish(g) {
+        const r = g.ref, item = studio.items.find(i => i.id === r.itemId) || await studio.findForJob(r.itemId);
+        let artifact = null, err = null;
+        try {
+          const outs = [];
+          for (let i = 0; i < g.n; i++) outs.push(await jobs.store.getItem(`out:${g.id}:${i}`).catch(() => null));
+          const have = outs.slice(0, r.n).filter(o => o && o.data);
+          if (!have.length) throw new AppError('STU-422', { safeMessage: 'Studio run had no usable part' });
+          const notes = g.members.slice(0, r.n).filter(m => m.skipped).map(m => studioClean(`Part ${m.i + 1} of ${r.n} (${r.labels[m.i]}) was left out.`, 160));
+          const sum = (list) => list.reduce((a, o) => { const u = o.usage || {}; return { inputTokens: a.inputTokens + u.inputTokens, outputTokens: a.outputTokens + u.outputTokens, thinkingTokens: a.thinkingTokens + u.thinkingTokens, calls: a.calls + u.calls }; }, { inputTokens: 0, outputTokens: 0, thinkingTokens: 0, calls: 0 });
+          if (r.reduce) {
+            const red = outs[r.n];
+            if (!red || !red.artifact) throw new AppError('STU-422', { safeMessage: 'Studio reduce step had no answer' });
+            const a = JSON.parse(JSON.stringify(red.artifact));
+            studioMrReduceCites(a.data, have.map(o => o.data));
+            const own = (Array.isArray(a.data.notices) ? a.data.notices : []).map(t => studioClean(t, 160)).filter(Boolean);
+            a.data.notices = [...notes, ...own].slice(0, 3);
+            a.usage = sum([...have, { usage: studioMrUsage(a.usage) }]);
+            a.strategy = 'reduce';
+            artifact = a;
+          } else {
+            const m = studioMrMerge(r.tool, have.map(o => o.data), { count: r.count, title: item ? item.title : '', notes });
+            if (!m.ok) throw new AppError('STU-422', { safeMessage: 'Studio parts could not be joined' });
+            artifact = { envelope: STUDIO_ENVELOPE, tool: r.tool, schema: m.data.schema, promptVersion: STUDIO_PROMPT_VERSION_V7, strategy: 'mapreduce', generatedAt: new Date().toISOString(), usage: sum(have), repairs: m.repairs, data: m.data };
+          }
+          if (item && !(await studio.applyJobResult(r.itemId, { artifact }))) artifact = null;
+        } catch (e) { err = e; }
+        if (err) {
+          await jobs.groupUpdate(g.id, x => { x.keepParts = true; }); // the finished parts stay, so trying again does not pay for them twice
+          await studio.failJob(r.itemId, err);
+        } else if (artifact && item) {
+          showToast(`${item.title} is ready.`, 'success', { actionLabel: 'Open', action: () => { location.hash = `#studio/${item.id}`; }, persistent: true });
+        }
+        this.reap(g.id).catch(() => {}); // not awaited: the last part's own job is still being applied (and acknowledged) by the caller of this
+      },
+      // Removes a finished run once its jobs are acknowledged (dropping one earlier would leave the answer on the server for 72 hours). If they never settle the run stays, as "Ready", for the person to dismiss.
+      async reap(gid) {
+        const busy = () => [...jobs.recs.values()].some(r => r.group && r.group.id === gid && (JOBS_ACTIVE.has(r.state) || r.ackDue));
+        for (let k = 0; k < 100 && busy(); k++) await new Promise(r => setTimeout(r, 100));
+        if (!busy()) await jobs.dropGroup(gid);
+      },
+    };
+
+    jobs.groupHandlers.mr = {
+      href: (g) => `#studio/${g.ref.itemId}`,
+      describeGroup: studioMrDescribe,
+      salvage: true, // an answer already in when the run is cancelled is still kept (it was paid for)
+      modeOf: (g, i) => (i >= g.ref.n ? STUDIO_TOOLS[g.ref.tool].mode : STUDIO_MR_MODE[g.ref.partTool]),
+      inputs: (g) => studioMr.reduceInputs(g),
+      applyMember: (g, i, data) => studioMr.applyMember(g, i, data),
+      done: (g) => studioMr.finish(g),
+      confirmText: (act, done, g) => {
+        const parts = g.members.slice(0, g.ref.n).filter(m => m.state === 'done' && !m.skipped).length;
+        if (act === 'skip') return ['Skip this part? The study aid is made without it, and says so.', 'Skip part'];
+        if (act === 'cancel' && parts) return [`Stop this run? The ${parts} finished part${parts === 1 ? '' : 's'} stay on this device for 7 days, so starting it again does not pay for ${parts === 1 ? 'it' : 'them'} twice.`, 'Stop run'];
+        if (act === 'dismiss' && parts && g.state !== 'done') return [`Remove this run? The ${parts} finished part${parts === 1 ? ' is' : 's are'} deleted from this device.`, 'Remove'];
+        return null;
+      },
+      failed: (g, i, err) => {
+        const text = studioMrFailText(g, i, errorFromException(err));
+        jobs.el('jobsAlert').textContent = text;
+        if (!studio.active()) showToast(text, 'error', { actionLabel: 'View', action: () => jobs.openTray(true), persistent: true });
+      },
+      cancelled: async (g) => { await studio.failJob(g.ref.itemId, new AppError('JOB-410')); },
+      // Removing a run (or finishing it) throws its finished parts away, unless it is replaced by a new run of the same study aid or could not be joined
+      dropped: async (g) => {
+        if (!g.keepParts) await studioMr.cacheDrop(g.ref.hashes);
+        const item = studio.items.find(i => i.id === g.ref.itemId);
+        if (item && item.mrGroup === g.id && item.status === 'generating') await studio.failJob(item.id, new AppError('JOB-410'));
+      },
+      // a part cannot run in this browser: it only exists as a background job
+      send: () => { throw new AppError('JOB-502'); },
+      open: async (g) => { location.hash = `#studio/${g.ref.itemId}`; },
+    };
 
     // ── Mind map: what the viewer may trust. The model's output is untrusted; every string passes through here and is shown with textContent only ──
     const STUDIO_MAP_SCHEMA = 'sth.mindmap/1';
@@ -13009,7 +13569,8 @@
       tombList: [],
       syncChain: null,
       pendingPrompt: null,
-      dialog: { tool: null, opener: null, inerted: [], expanded: false },
+      dialog: { tool: null, opener: null, inerted: [], expanded: false, view: null },
+      mr: null, // the big run being asked about (consent step): { params, plan, est, budget, shownAt, retryId }
       hooks: { buildRequest: studioBuildRequest, send: studioSend, applyResult: studioApplyResult },
 
       el: (id) => document.getElementById(id),
@@ -13178,9 +13739,10 @@
           if (est.state === 'needsReading') p.unread.push(it);
           else if (est.state === 'needsDrive') p.needsDrive.push(it);
         }
-        const cap = studioCap();
-        const over = p.tokens > cap || p.count > studioMaxSources() || p.images > STUDIO_MAX_IMAGES;
-        p.level = over ? 'over' : p.tokens >= cap * 0.75 ? 'near' : 'ok';
+        const cap = studioCap(), mr = studioMrOn();
+        // map-reduce: more than one call takes is not "too much" but a big run (up to the parts it may have), asked about before it is sent
+        const over = p.tokens > (mr ? Math.min(STUDIO_MR_PART_TOKENS, cap) * service.server.maxParts : cap) || p.count > studioMaxSources() || p.images > STUDIO_MAX_IMAGES;
+        p.level = over ? 'over' : mr && p.tokens > cap ? 'big' : p.tokens >= cap * 0.75 ? 'near' : 'ok';
         if (!p.count && !p.unusable.length) p.reason = 'Pick at least one source.';
         else if (over) p.reason = 'Choose fewer sources.';
         else if (p.unusable.length) p.reason = 'Untick the sources that cannot be used.';
@@ -13260,19 +13822,19 @@
 
       drawMeter(plan, ids) {
         const box = this.el(ids.box), bar = this.el(ids.bar);
-        const word = plan.level === 'over' ? 'Too much' : plan.level === 'near' ? 'Nearly full' : 'Fits';
+        const word = plan.level === 'over' ? 'Too much' : plan.level === 'big' ? 'Big run' : plan.level === 'near' ? 'Nearly full' : 'Fits';
         const pages = studioPages(plan.tokens);
         const cap = studioCap();
-        box.classList.toggle('is-near', plan.level === 'near');
+        box.classList.toggle('is-near', plan.level === 'near' || plan.level === 'big');
         box.classList.toggle('is-over', plan.level === 'over');
         this.el(ids.text).textContent = plan.count
-          ? `${word}: ${plan.approx ? '≈' : ''}${studioFormatTokens(plan.tokens)} of ${studioFormatTokens(cap)} tokens (about ${pages} page${pages === 1 ? '' : 's'}) · ${plan.count} of ${studioMaxSources()} sources${plan.images ? ` · ${plan.images} of ${STUDIO_MAX_IMAGES} images` : ''}`
+          ? `${word}: ${plan.approx ? '≈' : ''}${studioFormatTokens(plan.tokens)} ${plan.level === 'big' ? `tokens, one call takes ${studioFormatTokens(cap)}` : `of ${studioFormatTokens(cap)} tokens`} (about ${pages} page${pages === 1 ? '' : 's'}) · ${plan.count} of ${studioMaxSources()} sources${plan.images ? ` · ${plan.images} of ${STUDIO_MAX_IMAGES} images` : ''}`
           : 'Tick the sources you want to use.';
         this.el(ids.fill).style.width = `${Math.min(100, Math.round(plan.tokens / cap * 100))}%`;
         bar.setAttribute('aria-valuemax', String(cap));
         bar.setAttribute('aria-valuenow', String(Math.min(plan.tokens, cap)));
         bar.setAttribute('aria-valuetext', `${word}: ${Math.round(plan.tokens / 1000)} thousand of ${Math.round(cap / 1000)} thousand tokens, about ${pages} pages`);
-        if (ids.cost) { const cost = this.el(ids.cost), line = plan.count ? studioCostText(plan.tokens) : ''; cost.textContent = line; cost.hidden = !line; }
+        if (ids.cost) { const cost = this.el(ids.cost), line = plan.count ? (plan.level === 'big' ? 'More than one AI call takes, so it runs in parts. You see the time and cost before anything is sent.' : studioCostText(plan.tokens)) : ''; cost.textContent = line; cost.hidden = !line; }
       },
 
       renderTools() {
@@ -13294,13 +13856,16 @@
       sorted() { return [...this.items].sort((a, b) => b.createdAt - a.createdAt); },
 
       statusHtml(item) {
-        const text = STUDIO_STATUS_TEXT[item.status] || item.status;
+        const paused = item.status === 'generating' && (studioMr.groupOf(item) || {}).state === 'failed'; // a big run waiting for a decision on one part
+        const text = paused ? 'Paused' : STUDIO_STATUS_TEXT[item.status] || item.status;
         const fresh = item.status === 'ready' && !item.seen ? ' · New' : '';
-        return `<span class="studio-status"><span class="studio-dot is-${escapeHtml(item.status)}" aria-hidden="true"></span><span>${escapeHtml(text + fresh)}</span></span>`;
+        return `<span class="studio-status"><span class="studio-dot is-${paused ? 'queued' : escapeHtml(item.status)}" aria-hidden="true"></span><span>${escapeHtml(text + fresh)}</span></span>`;
       },
 
       noteHtml(item) {
         if (item.status === 'queued' || item.status === 'generating') {
+          const run = studioMr.groupOf(item);
+          if (run) { const d = jobs.groupHandler(run).describeGroup(run); return `<span class="studio-item-note${d.failed ? ' is-error' : ''}">${d.text}</span>${d.failed ? '' : '<span class="skeleton studio-item-skeleton" aria-hidden="true"></span>'}`; }
           const job = item.jobId && jobs.recs.get(item.jobId);
           return `<span class="studio-item-note">${job && jobs.isLive(job.id) ? jobs.noteFor(job) : STUDIO_KEEP_OPEN}</span><span class="skeleton studio-item-skeleton" aria-hidden="true"></span>`;
         }
@@ -13331,7 +13896,15 @@
             <details class="studio-menu"><summary aria-label="More actions for ${escapeHtml(item.title)}"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg></summary><div class="studio-menu-list">${actions.join('')}</div></details>
           </div>
           ${item.status === 'failed' ? `<div class="studio-item-retry"><button type="button" class="studio-btn" data-studio-act="retry" data-id="${id}">Retry</button></div>` : ''}
+          ${this.mrActionsHtml(item)}
         </li>`;
+      },
+      // Cancel / Retry part / Skip part of a big run, next to its row (not inside the link)
+      mrActionsHtml(item) {
+        const run = studioMr.groupOf(item);
+        if (!run || (run.state !== 'running' && run.state !== 'failed')) return '';
+        const d = jobs.groupHandler(run).describeGroup(run);
+        return `<div class="studio-item-retry studio-item-mr">${d.actions.filter(a => a.act !== 'dismiss').map(a => `<button type="button" class="studio-btn" data-studio-act="mr-${a.act}" data-gid="${escapeHtml(run.id)}"${a.i === undefined ? '' : ` data-i="${a.i}"`}>${escapeHtml(a.label)}</button>`).join('')}</div>`;
       },
 
       renderItems() {
@@ -13814,6 +14387,7 @@
         const d = this.dialog;
         if (!t || !t.enabled || d.tool) return;
         this.wire();
+        this.mrView(false);
         d.tool = tool;
         d.opener = document.activeElement;
         this.el('studioDialogTitle').textContent = t.label;
@@ -13867,6 +14441,7 @@
       closeDialog(restore = true) {
         const d = this.dialog;
         if (!d.tool) return;
+        this.mr = null; d.view = null;
         this.el('studioDialog').classList.remove('open');
         d.inerted.forEach(el => el.removeAttribute('inert'));
         d.inerted = [];
@@ -13879,6 +14454,7 @@
       },
 
       async requestClose() {
+        if (this.dialog.view === 'mr') { this.mrBack(); return; } // closing the question about a big run goes back to the form, nothing typed is lost
         if (this.el('studioTopic').value.trim()) {
           const confirmBox = document.getElementById('confirmOverlay');
           confirmBox.removeAttribute('inert');
@@ -13898,6 +14474,9 @@
         const groups = studioOptionGroups(tool);
         if (groups.length) params.options = Object.fromEntries(groups.map((g, i) => [g.key, g.values.find(v => String(v.value) === this.el(STUDIO_OPTION_SLOTS[i].box).querySelector('input:checked').value).value]));
         storageSet(STUDIO_LANG_KEY, params.language);
+        // a run that may be more than one call takes (and the gate on) is asked about first; anything smaller goes the same way as before
+        const sized = studioMrOn() ? this.plan(params.sourceIds) : null;
+        if (sized && (sized.level === 'big' || sized.tokens > STUDIO_MR_PROBE_TOKENS) && await this.mrBegin(params)) return;
         this.closeDialog();
         const background = jobs.useFor(STUDIO_TOOLS[tool].mode);
         const item = await this.generate(params);
@@ -13911,7 +14490,7 @@
       },
 
       // ── lifecycle: queued -> generating -> ready | failed ──
-      async generate(params) {
+      async generate(params, mr = null) {
         const plan = this.plan(params.sourceIds);
         if (plan.reason) { showToast(plan.reason, 'error'); return null; }
         await this.ensureInit();
@@ -13937,8 +14516,128 @@
         };
         this.items.unshift(item);
         this.refreshViews();
-        this.run(item);
+        if (mr) this.runMr(item, mr); else this.run(item);
         return item;
+      },
+
+      // ── big runs (map-reduce): the question, then the run ──
+      mrView(on) {
+        this.el('studioFormBody').hidden = on; this.el('studioFormFoot').hidden = on;
+        this.el('studioMrBody').hidden = !on; this.el('studioMrFoot').hidden = !on;
+        this.dialog.view = on ? 'mr' : null;
+        if (!on && this.dialog.tool) { const t = STUDIO_TOOLS[this.dialog.tool]; this.el('studioDialogTitle').textContent = t.label; this.el('studioDialogSub').textContent = t.sub; }
+      },
+      // Works out the parts and the estimate and shows them; nothing is sent. Resolves true when the question is on screen (or the run cannot go on), false when one call takes it all after all.
+      async mrBegin(params, retryId = null, note = '') {
+        if (studioMr.active()) { showToast(STUDIO_MR_BUSY, 'error'); return true; }
+        const btn = this.el('studioGenerateBtn'), label = btn.textContent;
+        btn.textContent = 'Checking the size\u2026'; btn.setAttribute('aria-disabled', 'true');
+        try {
+          const budget = await studioMr.budget(!!note); // also tells the server's real cap (the owner can set it below the default)
+          if (budget) studioNoteServerCap(budget.studioMaxTokens);
+          if (this.plan(params.sourceIds).tokens <= studioCap()) return false;
+          const sources = await studioLoadSources(params.sourceIds);
+          const plan = studioMrPlan(sources, studioCap(), params.tool, studioCleanOptions(params.tool, params.options), { language: params.language, topic: params.topic, maxParts: service.server.maxParts, partMax: service.server.partMax });
+          if (plan.ok && plan.fits) return false;
+          if (plan.ok) await studioMr.markCached(plan);
+          this.mr = { params, plan, est: plan.ok ? studioMrEstimate(plan, params.tool, budget) : null, budget, shownAt: Date.now(), retryId };
+          this.mrRender(note);
+          return true;
+        } catch (err) {
+          showToast(errorFromException(err).message, 'error');
+          return true;
+        } finally {
+          btn.textContent = label;
+          if (this.dialog.view !== 'mr') this.syncSelectionViews();
+        }
+      },
+      mrRender(note) {
+        const { params, plan, est, budget } = this.mr;
+        const t = STUDIO_TOOLS[params.tool];
+        this.mrView(true);
+        this.el('studioDialogTitle').textContent = 'This is a big request';
+        this.el('studioDialogSub').textContent = t.label;
+        const lead = this.el('studioMrLead'), facts = this.el('studioMrFacts'), msg = this.el('studioMrNote'), start = this.el('studioMrStart');
+        facts.textContent = '';
+        const add = (text) => { const li = document.createElement('li'); li.textContent = text; facts.appendChild(li); };
+        const rand = (e) => (e.rand.low === e.rand.high ? `R${studioMrRandText(e.rand.low)}` : `R${studioMrRandText(e.rand.low)}\u2013R${studioMrRandText(e.rand.high)}`);
+        const tooBig = !plan.ok || est.exceeds;
+        const lines = [note];
+        let canStart = !tooBig;
+        if (!plan.ok) {
+          lead.textContent = ERRORS['STU-416'].message;
+          if (plan.reason === 'parts') add(`It would take ${plan.n} parts, and a run has at most ${service.server.maxParts}.`);
+        } else if (est.exceeds) {
+          lead.textContent = ERRORS['STU-416'].message;
+          add(`This run would cost about ${rand(est)}, more than the limit of about R${studioMrRandText(studioMrRand(est.mrMax))} for one run.`);
+        } else {
+          const pages = studioPages(plan.total), sources = params.sourceIds.length;
+          lead.textContent = `About ${studioGroup(pages)} pages from ${sources} source${sources === 1 ? '' : 's'} (about ${studioFormatTokens(plan.total)} tokens) is more than one AI call takes (about ${studioFormatTokens(studioCap())}), so it runs in ${plan.n} parts${plan.reduce ? ' and a last step that joins them' : ' that are joined here'}.`;
+          add(`Time: about ${est.minutes.low}\u2013${est.minutes.high} minutes. You can leave, but the next part only starts while the app is open.`);
+          add(`Cost: about ${rand(est)}.${est.share !== null && !est.tooLittle ? ` That is about ${est.share} % of the shared AI capacity left for big runs today.` : ''}`);
+          if (est.cached) add(`${est.cached} of the ${est.n} parts are done already on this device and are not charged again.`);
+          add('If it stops, the finished parts stay on this device for 7 days.');
+          if (!budget) lines.push('Could not check how much shared AI capacity is left today, so that is not shown.');
+          if (est.tooLittle) {
+            lines.push(ERRORS['QUOTA-431'].message);
+            if (est.canForce) lines.push('You can start anyway: it pauses when today\u2019s capacity runs out, and you can continue it after it resets.');
+            else canStart = false;
+          }
+        }
+        msg.textContent = lines.filter(Boolean).join(' ');
+        start.hidden = !canStart;
+        start.textContent = plan.ok && est.tooLittle ? 'Start anyway' : `Start ${plan.ok ? plan.n : ''}-part run`;
+        start.disabled = false;
+        (canStart ? start : this.el('studioMrBack')).focus();
+      },
+      mrBack() { this.mr = null; this.mrView(false); this.syncSelectionViews(); const first = this.el(STUDIO_OPTION_SLOTS[0].box).querySelector('input:checked'); (first && !first.closest('[hidden]') ? first : this.el('studioLanguage')).focus(); },
+      async mrConfirm() {
+        const mr = this.mr;
+        if (!mr || mr.starting || !mr.plan.ok || mr.est.exceeds || (mr.est.tooLittle && !mr.est.canForce)) return;
+        // an estimate that sat on screen for a while is worked out again first: nothing starts from a stale question
+        if (Date.now() - mr.shownAt > STUDIO_MR_CONSENT_MS) { await this.mrBegin(mr.params, mr.retryId, 'The estimate was a while old, so it was worked out again. Check it, then start.'); return; }
+        if (studioMr.active()) { showToast(STUDIO_MR_BUSY, 'error'); return; }
+        mr.starting = true;
+        this.el('studioMrStart').disabled = true;
+        this.closeDialog();
+        const label = STUDIO_TOOLS[mr.params.tool].label;
+        const item = mr.retryId && this.items.find(i => i.id === mr.retryId && i.status === 'failed');
+        if (item) {
+          item.status = 'queued'; item.error = null; item.artifact = null; delete item.jobId; // (its earlier run is removed when the new one starts)
+          this.viewState.delete(item.id); studioFc.sessions.delete(item.id); studioQz.sessions.delete(item.id);
+          this.refreshViews();
+          this.runMr(item, mr);
+        } else if (!(await this.generate(mr.params, mr))) return;
+        showToast(`${label} started in ${mr.plan.n} parts. You can leave; the next part starts while the app is open.`);
+        this.announce(`${label} started in ${mr.plan.n} parts.`);
+      },
+      runMr(item, mr) {
+        this.running.add(item.id);
+        const work = () => this.executeMr(item, mr);
+        const held = navigator.locks && navigator.locks.request ? navigator.locks.request(this.lockName(item.id), work) : work();
+        return Promise.resolve(held).catch(err => this.fail(item, err)).finally(() => this.running.delete(item.id));
+      },
+      async executeMr(item, mr) {
+        try {
+          item.status = 'generating';
+          await this.save(item);
+          const g = await studioMr.start(item, mr);
+          if (!this.items.includes(item)) { if (g) { await jobs.cancelGroup(g.id, true); await jobs.dropGroup(g.id); } return; }
+          if (!g) throw new AppError('JOB-502');
+          if (item.status === 'generating') { item.mrGroup = g.id; await this.save(item); } // (a run whose parts were all on this device may be finished already)
+        } catch (err) {
+          await this.fail(item, err);
+        }
+      },
+      // Tab stays inside the question while it is open
+      trapTab(e) {
+        if (e.key !== 'Tab' || this.dialog.view !== 'mr') return;
+        const box = this.el('studioDialog').querySelector('.modal-box');
+        const f = [...box.querySelectorAll('button, [href], input, select, textarea')].filter(el => !el.disabled && !el.hidden && !el.closest('[hidden]') && el.getAttribute('aria-disabled') !== 'true');
+        if (!f.length) return;
+        const at = document.activeElement;
+        if (e.shiftKey && (at === f[0] || !box.contains(at))) { e.preventDefault(); f[f.length - 1].focus(); }
+        else if (!e.shiftKey && (at === f[f.length - 1] || !box.contains(at))) { e.preventDefault(); f[0].focus(); }
       },
 
       // The lock is held while the request runs, so a reload (which frees it) can tell the item was cut off
@@ -13993,6 +14692,7 @@
         if (!item) return false;
         if (item.status === 'ready') return true;
         this.hooks.applyResult(item, data);
+        delete item.mrGroup;
         await this.save(item);
         this.announce(`${item.title}: ready.`);
         return true;
@@ -14014,10 +14714,17 @@
         const plan = this.plan(item.sourceIds);
         const reason = plan.missing ? 'One of the sources is no longer in your Knowledge Bay. Use Regenerate to choose again.' : plan.reason;
         if (reason) { showToast(reason, 'error'); return; }
+        // a big run starts again through its question (the parts finished before are found again, not paid for twice)
+        if (plan.level === 'big') {
+          this.openDialog(item.tool, { language: item.language, topic: item.topic, sourceIds: item.sourceIds, options: item.options });
+          if (this.dialog.tool === item.tool && await this.mrBegin({ tool: item.tool, language: item.language, topic: item.topic, sourceIds: item.sourceIds, options: item.options }, item.id)) return;
+          if (this.dialog.tool === item.tool) this.closeDialog(false);
+        }
         item.status = 'queued';
         item.error = null;
         item.artifact = null;
         delete item.jobId;
+        delete item.mrGroup;
         this.viewState.delete(id);
         studioFc.sessions.delete(id);
         studioQz.sessions.delete(id);
@@ -14029,6 +14736,8 @@
         const item = this.items.find(i => i.id === id);
         if (!item || !(await showConfirm(`Delete <strong>${escapeHtml(item.title)}</strong>? This removes it from this device and, if sync is on, from your Google Drive and your other devices.`))) return;
         if (item.jobId) await jobs.cancel(item.jobId, true);
+        const run = studioMr.groupOf(item);
+        if (run) { await jobs.cancelGroup(run.id, true); await jobs.dropGroup(run.id); }
         if (item.status === 'ready') {
           const tombs = await this.loadTombs();
           tombs.set(id, { at: Date.now(), ...(item.driveFileId ? { driveFileId: item.driveFileId } : {}) });
@@ -14060,7 +14769,7 @@
           if ((item.status !== 'generating' && item.status !== 'queued') || this.running.has(item.id)) continue;
           if (await this.lockHeld(item.id)) continue;
           if (item.jobId && !jobs.recs.has(item.jobId)) await jobs.reload();
-          if ((item.jobId && jobs.isLive(item.jobId)) || jobs.hasActive('studio', item.id)) continue;
+          if ((item.jobId && jobs.isLive(item.jobId)) || jobs.hasActive('studio', item.id) || studioMr.live(item)) continue;
           item.status = 'failed';
           item.error = { code: null, message: STUDIO_INTERRUPTED, interrupted: true };
           item.updatedAt = Date.now();
@@ -14088,7 +14797,8 @@
           if (!btn) return;
           btn.closest('.studio-menu')?.removeAttribute('open');
           const id = btn.dataset.id, act = btn.dataset.studioAct;
-          if (act === 'retry') this.retry(id);
+          if (act.startsWith('mr-')) jobs.onGroupAct(act.slice(3), btn.dataset.gid, Number(btn.dataset.i));
+          else if (act === 'retry') this.retry(id);
           else if (act === 'delete') this.remove(id);
           else if (act === 'export-png') studioMap.exportPng();
           else if (act === 'export-md') studioMap.exportMd();
@@ -14114,6 +14824,10 @@
         this.el('studioDialogCancel').addEventListener('click', () => this.requestClose());
         this.el('studioDialog').addEventListener('click', (e) => { if (e.target === this.el('studioDialog')) this.requestClose(); });
         this.el('studioGenerateBtn').addEventListener('click', () => this.submitDialog());
+        this.el('studioMrStart').addEventListener('click', () => this.mrConfirm());
+        this.el('studioMrBack').addEventListener('click', () => this.mrBack());
+        this.el('studioMrCancel').addEventListener('click', () => this.closeDialog());
+        this.el('studioDialog').addEventListener('keydown', (e) => this.trapTab(e));
         this.el('studioDialogSourcesBtn').addEventListener('click', () => { this.dialog.expanded = !this.dialog.expanded; this.syncSelectionViews(); });
         this.el('studioTopic').addEventListener('input', () => this.syncSelectionViews());
         document.addEventListener('keydown', (e) => {
