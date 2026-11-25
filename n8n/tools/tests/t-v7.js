@@ -480,7 +480,7 @@ async function luaTests() {
   const store = (n, { mode = 'tutor', att = 1, state = 'succeeded', result = '{"r":1}', now = NOW + 1000 } = {}) => R('EVAL', lua('job7-store.lua'), '5', 'sth:job:' + ID(n), 'sth:jobr:' + ID(n), 'sth:jobs:run:' + mode, 'sth:jobs:n:' + day, 'sth:jobs:run:bulk', att, state, state === 'failed' ? '{"code":"STH-AI-504"}' : '', state === 'succeeded' ? result : '', now, 259200, ID(n) + ':' + att);
   const adm = async (n, o) => JSON.stringify(await admit(n, o));
   await R('FLUSHALL');
-  t(await adm(1, { mode: 'transcribe' }) === '["admitted"]' && (await R('ZCARD', 'sth:jobs:run:bulk')) === 1 && (await R('ZCARD', 'sth:jobs:run:transcribe')) === 1, 'a bulk job is in its own set and in the bulk set');
+  t(await adm(1, { mode: 'transcribe' }) === '["admitted"]' && (await R('ZCARD', 'sth:jobs:run:bulk')) === 1 && (await R('ZCARD', 'sth:jobs:run:transcribe')) === 0, 'a bulk job is only in the bulk set (never in its mode set, so it cannot hold the mode cap of other users)');
   t((await R('TTL', 'sth:jobs:run:bulk')) > 86000, 'bulk set TTL 1 d');
   await admit(2, { mode: 'tutor' }); t((await R('ZCARD', 'sth:jobs:run:bulk')) === 1, 'an interactive job is not in the bulk set');
   t(await adm(3, { mode: 'template' }) === '["admitted"]' && (await R('ZCARD', 'sth:jobs:run:bulk')) === 2, 'second bulk job admitted (bulk cap 2)');
@@ -488,13 +488,19 @@ async function luaTests() {
   t(await adm(5, { mode: 'studio_digest' }) === '["busy"]' && await adm(6, { mode: 'transcribe' }) === '["busy"]', 'any bulk mode is refused while 2 bulk jobs run (digest, transcribe)');
   t(await adm(7, { mode: 'tutor' }) === '["admitted"]' && await adm(8, { mode: 'tutor' }) === '["busy"]', 'the tutor still gets the free slots: 2 bulk + 2 tutor = 4 = total cap; the 3rd tutor is refused by the total cap');
   t((await R('ZCARD', 'sth:jobs:run:tutor')) === 2, '2 tutor jobs running');
-  await store(1, { mode: 'transcribe' }); t((await R('ZCARD', 'sth:jobs:run:bulk')) === 1 && (await R('ZCARD', 'sth:jobs:run:transcribe')) === 0, 'STORE frees the mode set and the bulk set');
+  await store(1, { mode: 'transcribe' }); t((await R('ZCARD', 'sth:jobs:run:bulk')) === 1, 'STORE frees the bulk slot (and a mode slot of a non-bulk job)');
   await R('FLUSHALL'); await admit(1, { mode: 'tutor' }); await admit(2, { mode: 'tutor' }); await admit(3, { mode: 'tutor' });
   const rb = await adm(4, { mode: 'transcribe' }); t(rb === '["admitted"]', '3 tutor jobs + 1 bulk = 4: admitted (the reserve only limits bulk to 2, it does not hold slots empty)', rb);
   t(await adm(5, { mode: 'template' }) === '["busy"]', 'then the total cap (4) refuses everything');
   // the mode cap of a bulk mode and a Studio mode run as bulk (map-reduce part)
-  await R('FLUSHALL'); t(await adm(1, { mode: 'studio_quiz', bulk: true }) === '["admitted"]' && (await R('ZCARD', 'sth:jobs:run:bulk')) === 1 && await adm(2, { mode: 'studio_quiz', bulk: true }) === '["busy"]', 'a quiz part run as bulk joins the bulk set; its own mode cap (1) still applies');
-  await adm(3, { mode: 'studio_digest' }); t(await adm(4, { mode: 'studio_digest' }) === '["busy"]', '1 quiz part + 1 digest = 2 bulk: a 2nd digest is refused (bulk cap)');
+  await R('FLUSHALL'); t(await adm(1, { mode: 'studio_quiz', bulk: true }) === '["admitted"]' && (await R('ZCARD', 'sth:jobs:run:bulk')) === 1 && (await R('ZCARD', 'sth:jobs:run:studio_quiz')) === 0, 'a quiz part run as bulk joins the bulk set only');
+  t(await adm(2, { mode: 'studio_quiz', key: KEY(2) }) === '["admitted"]', 'a 16-part quiz run in flight does not stop ANOTHER user\'s ordinary quiz job (mode cap 1 counts only non-bulk jobs)');
+  t(await adm(3, { mode: 'studio_quiz', bulk: true }) === '["admitted"]' && await adm(4, { mode: 'studio_quiz', bulk: true }) === '["busy"]', 'two bulk quiz parts fill the bulk cap (2): a third bulk job is busy, though the mode cap is 1');
+  t(await adm(5, { mode: 'studio_quiz' }) === '["busy"]', 'a second ordinary quiz job is still refused: the per-mode cap (1) applies to non-bulk jobs, as in v6');
+  t(await adm(6, { mode: 'studio_digest' }) === '["busy"]' && await adm(7, { mode: 'studio_flashcards' }) === '["admitted"]', 'a digest is refused (bulk cap full); an ordinary flashcards job is admitted (total 4)');
+  await R('FLUSHALL'); await adm(1, { mode: 'template' }); t(await adm(2, { mode: 'template' }) === '["admitted"]' && await adm(3, { mode: 'reviewer' }) === '["busy"]', 'J4 modes are bulk: 2 template jobs fit (their own cap 1 is not used), the 3rd bulk job of any mode is busy');
+  await R('FLUSHALL'); for (let i = 1; i <= 3; i++) await admit(i, { mode: 'tutor' }); t(await adm(4, { mode: 'tutor' }) === '["busy"]' && await adm(5, { mode: 'studio_quiz', bulk: true }) === '["admitted"]' && await adm(6, { mode: 'transcribe' }) === '["busy"]', 'tutor mode cap 3 unchanged for non-bulk; one bulk job fits the 4th slot, the total cap (4) stops the next');
+  await R('FLUSHALL'); await adm(1, { mode: 'studio_digest' }); await adm(2, { mode: 'studio_digest' }); t(await adm(3, { mode: 'tutor' }) === '["admitted"]' && await adm(4, { mode: 'tutor' }) === '["admitted"]', 'with 2 bulk jobs (digest cap 2) the two reserved slots still take 2 tutor jobs');
   // cfg:jobs_max_running override
   await R('FLUSHALL'); await R('SET', 'cfg:jobs_max_running', '1'); t(await adm(1, { mode: 'transcribe' }) === '["admitted"]' && await adm(2, { mode: 'tutor' }) === '["busy"]', 'cfg:jobs_max_running 1: a bulk job still runs (reserve cannot hold the only slot); a 2nd job is refused');
   await R('SET', 'cfg:jobs_max_running', '2'); await R('FLUSHALL'); await R('SET', 'cfg:jobs_max_running', '2'); t(await adm(1, { mode: 'transcribe' }) === '["admitted"]' && await adm(2, { mode: 'template' }) === '["busy"]' && await adm(3, { mode: 'tutor' }) === '["admitted"]', 'cap 2: one bulk (max(1, cap - reserve)), the other slot for the tutor');
@@ -515,5 +521,5 @@ async function luaTests() {
   await R('FLUSHALL'); await R('CONFIG', 'RESETSTAT');
   const cmds = async () => { const info = await R('INFO', 'commandstats'); let n = 0; for (const l of info.split('\n')) { const m = l.match(/^cmdstat_(\w+):calls=(\d+)/); if (m && !['info', 'config', 'flushall'].includes(m[1])) n += Number(m[2]); } return n; };
   let c0 = await cmds(); await admit(1, { mode: 'tutor' }); const a1 = (await cmds()) - c0; c0 = await cmds(); await admit(2, { mode: 'transcribe' }); const a2 = (await cmds()) - c0; c0 = await cmds(); await store(1); const s1 = (await cmds()) - c0;
-  t(a1 === 24 && a2 === 26 && s1 === 9, `ADMIT = ${a1} Redis commands (interactive) / ${a2} (bulk), STORE = ${s1} (v6: 15 / 8; +9 for counting 11 running sets, +1 ZREM of the bulk set in STORE)`, [a1, a2, s1]);
+  t(a1 === 24 && a2 === 24 && s1 === 9, `ADMIT = ${a1} Redis commands (interactive) / ${a2} (bulk), STORE = ${s1} (v6: 15 / 8; +9 for counting 11 running sets, +1 ZREM of the bulk set in STORE)`, [a1, a2, s1]);
 }

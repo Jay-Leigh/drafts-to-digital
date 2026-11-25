@@ -3,6 +3,7 @@
 const L = require('./lib7');
 const { t, post, reset, setKey, redis, gcalls, login, mkJob, hdr, create, op, stOne, waitState, errOf, execs, sleep, state, today } = L;
 (async () => {
+  const E0 = (await execs()).length;
   await reset(); const H = hdr(await login('75.1.1.1'));
   console.log('[J4 jobs: success, same answer as the direct request]');
   for (const mode of ['transcribe', 'template', 'reviewer']) {
@@ -34,7 +35,8 @@ const { t, post, reset, setKey, redis, gcalls, login, mkJob, hdr, create, op, st
   const a = mkJob('transcribe'), b = mkJob('transcribe'), c = mkJob('transcribe'); await create(a, slow('transcribe'), H); await create(b, slow('transcribe'), H); await sleep(1000); await create(c, slow('transcribe'), H);
   let s = await waitState(c, H, ['rejected', 'running', 'succeeded'], 8000); t(s.state === 'rejected' && errOf(s) === 'STH-JOB-429', 'transcribe: 2 at once (cap 2), the 3rd is busy', s);
   await waitState(a, H, L.DONE, 30000); await waitState(b, H, L.DONE, 30000);
-  const t1 = mkJob('template'), t2 = mkJob('template'); await create(t1, slow('template'), H); await sleep(800); await create(t2, slow('template'), H); s = await waitState(t2, H, ['rejected', 'running', 'succeeded'], 8000); t(s.state === 'rejected', 'template: cap 1', s); await waitState(t1, H, L.DONE, 30000);
+  const t1 = mkJob('template'), t2 = mkJob('template'); await create(t1, slow('template'), H); await sleep(800); await create(t2, slow('template'), H); s = await waitState(t2, H, ['rejected', 'running', 'succeeded'], 8000); t(s.state !== 'rejected', 'template: a bulk job is governed by the bulk cap only (2): a second template job runs', s);
+  const t3 = mkJob('reviewer'); await create(t3, slow('reviewer'), H); s = await waitState(t3, H, ['rejected', 'running', 'succeeded'], 8000); t(s.state === 'rejected' && errOf(s) === 'STH-JOB-429', 'the third bulk job (reviewer) is busy', s); await waitState(t1, H, L.DONE, 30000); await waitState(t2, H, L.DONE, 30000);
   const k = mkJob('reviewer'); await create(k, slow('reviewer'), H); await sleep(600); let r = await op('cancel', [k], H); t(r.json.ok === true && (await stOne(k, H)).state === 'cancelled', 'cancel a running reviewer job'); await sleep(6000);
   t((await stOne(k, H)).state === 'cancelled' && redis('EXISTS', 'sth:jobr:' + k.id) === '0', 'the late answer is discarded');
   await setKey('cfg:jobs_max_running', '0'); const kj = mkJob('transcribe'); await create(kj, L.j4Body('transcribe'), H); s = await waitState(kj, H); t(s.state === 'rejected' && errOf(s) === 'STH-JOB-503', 'kill switch (cfg:jobs_max_running 0): STH-JOB-503 (the app falls back to the direct request)', s); redis('DEL', 'cfg:jobs_max_running');
@@ -45,6 +47,6 @@ const { t, post, reset, setKey, redis, gcalls, login, mkJob, hdr, create, op, st
   const keys = redis('KEYS', 'sth:*').split('\n').filter(Boolean); let bad = [];
   for (const kk of keys) if (Number(redis('TTL', kk)) < 0) bad.push(kk);
   t(keys.length > 0 && bad.length === 0, 'every sth: key has a TTL', bad);
-  t((await execs()).filter((e) => e.status === 'crashed').length === 0, 'no crashed execution');
+  t((await execs()).slice(E0).filter((e) => e.status === 'crashed').length === 0, 'no crashed execution');
   L.done('E2E J4 jobs');
 })().catch((e) => { console.log('CRASH', e); process.exit(1); });

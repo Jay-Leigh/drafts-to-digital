@@ -4,6 +4,7 @@
 const L = require('./lib7');
 const { t, post, reset, setKey, queue, redis, gcalls, login, mkJob, hdr, create, op, waitState, errOf, execs } = L;
 (async () => {
+  const E0 = (await execs()).length;
   await reset(); const H = hdr(await login('74.1.1.1')); await queue('valid');
   const run = async (job, body) => { await create(job, body, H); const s = await waitState(job, H); const r = s.state === 'succeeded' ? await op('result', [job], H) : null; return { s, res: r && r.json.result }; };
   const part = (n, text, extra = {}) => L.dgBody({ part: { i: n, n: 3 }, sources: [{ id: 'S1', name: 'Book.pdf', kind: 'pdf', markers: 'page', text }], ...extra });
@@ -46,6 +47,6 @@ const { t, post, reset, setKey, queue, redis, gcalls, login, mkJob, hdr, create,
   ({ s } = await run(mkJob('studio_mindmap', 1, { bulk: true }), L.redBody('mindmap', 'studio_mindmap', { digests: [big(1), big(2), big(3)] }))); t(s.state === 'failed' && s.error.reason === 'reduce_too_big' && s.error.maxTokens === 100000, 'reduce input is limited to min(300000, owner cap)', s);
   redis('DEL', 'cfg:studio_max_tokens');
   ({ s } = await run(mkJob('studio_mindmap', 1, { bulk: true }), L.redBody('mindmap', 'studio_mindmap', { digests: Array.from({ length: 16 }, (_, k) => big(k)) }))); t(s.state === 'failed' && s.error.reason === 'reduce_too_big' && s.error.maxTokens === 300000, 'above 300000 tokens of digests: reduce_too_big (maxTokens 300000)', s);
-  t((await execs()).filter((e) => e.status === 'crashed').length === 0, 'no crashed execution');
+  t((await execs()).slice(E0).filter((e) => e.status === 'crashed').length === 0, 'no crashed execution');
   L.done('E2E digest / map-reduce');
 })().catch((e) => { console.log('CRASH', e); process.exit(1); });

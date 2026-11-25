@@ -8,8 +8,10 @@
 const JOBS_ENABLED = true;
 const SERVER_V = 7; // the app turns the v7 features on only when the hello answer says v >= 7
 // Every mode: deadlineS must stay <= 600 until runs longer than 10 minutes are proven on the real stack.
-// bulk: true = bulk work (counted in the bulk cap). A Studio mode may also run as bulk when the job envelope says bulk: true
-// (map-reduce parts and the reduce run); the tutor never does.
+// bulk: true = bulk work. A bulk job is governed ONLY by the bulk cap (2 together) and the total cap, never by its mode's own cap, so a
+// long map-reduce run or a J4 batch cannot hold another user's single study aid. The `cap` of a mode applies to non-bulk jobs only
+// (the J4 modes and studio_digest are always bulk, so their `cap` is not used). A Studio mode runs as bulk when the job envelope says
+// bulk: true (map-reduce parts and the reduce run); the tutor never does.
 const JOB_MODES = {
   tutor: { deadlineS: 420, cap: 3 },
   studio_mindmap: { deadlineS: 600, cap: 1 },

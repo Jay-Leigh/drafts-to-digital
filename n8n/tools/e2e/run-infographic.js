@@ -7,6 +7,7 @@ const strip = (j) => { const c = JSON.parse(JSON.stringify(j)); if (c.artifact) 
 const txt = (id, n, extra = {}) => ({ id, name: id + '.txt', kind: 'txt', markers: 'none', tokens: 1, text: 'lorem ipsum '.repeat(Math.ceil(n / 12)).slice(0, n), ...extra });
 
 (async () => {
+  const E0 = (await execs()).length;
   await reset(); const H = hdr(await login('72.1.1.1'));
   console.log('[infographic: auth and success path]');
   let r = await post('student-tools-v2', L.igBody()); t(r.status === 401, 'no token -> 401');
@@ -56,6 +57,6 @@ const txt = (id, n, extra = {}) => ({ id, name: id + '.txt', kind: 'txt', marker
   await queue('valid'); const jr = mkJob('studio_infographic'); await create(jr, { ...L.igBody(), mode: 'studio_slides', tool: 'slides' }, H); s = await waitState(jr, H); t(s.state === 'failed' && errOf(s) === 'STH-INPUT-400', 'mode in the body must equal the job mode', s);
   const jq = mkJob('studio_infographic'), jq2 = mkJob('studio_infographic'); await queue('', 'slow:3000'); await create(jq, L.igBody(), H); await create(jq2, L.igBody(), H); await sleep(800);
   s = await waitState(jq2, H, ['rejected', 'running', 'succeeded'], 8000); t(s.state === 'rejected' && errOf(s) === 'STH-JOB-429', 'cap 1 per mode: a 2nd infographic job is busy (STH-JOB-429)', s); await waitState(jq, H); await queue('', 'valid');
-  const bad = (await execs()).filter((e) => e.status === 'crashed'); t(bad.length === 0, 'no crashed execution');
+  const bad = (await execs()).slice(E0).filter((e) => e.status === 'crashed'); t(bad.length === 0, 'no crashed execution');
   L.done('E2E infographic');
 })().catch((e) => { console.log('CRASH', e); process.exit(1); });
