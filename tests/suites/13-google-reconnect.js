@@ -84,7 +84,7 @@ t.test('a second tap while a request is open does not send another (gesture, but
   await app.until(`!!syncTokenInflight`);
   assert.equal((await reqs(app.page)).length, 1);
   await app.ev(`triggerSyncSignIn()`); // the button path joins too
-  await app.ev(`ensureGoogleToken().catch(() => {})`); // and so does export
+  await app.ev(`(ensureGoogleToken().catch(() => {}), true)`); // and so does export
   assert.equal((await reqs(app.page)).length, 1, 'one request for tap, tap, key, button and export');
   await app.page.evaluate(() => window.__gis.complete('ok'));
   await app.until(SYNCED, { what: 'synced', timeout: 20000 });
@@ -94,9 +94,10 @@ t.test('a second tap while a request is open does not send another (gesture, but
 t.test('typing in a text field is no trigger; the next tap is', async (h) => {
   const app = await h.newApp({ now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`);
-  await app.goto('#tutor');
-  await app.until(`!!document.getElementById('tutorInput')`);
+  await app.newChat('Typing');
+  await app.until(`document.getElementById('tutorInput').offsetParent !== null`);
   await app.page.evaluate(() => document.getElementById('tutorInput').focus());
+  assert.equal(await app.page.evaluate(() => document.activeElement.id), 'tutorInput');
   await app.page.keyboard.type('hello there');
   await sleep(200);
   assert.equal((await reqs(app.page)).length, 0, 'no request while typing');
@@ -267,7 +268,7 @@ t.test('export reuses the sync token: no second window, and one request when bot
   const tok = await app.ev('state.driveSyncToken');
   assert.equal(await app.ev('ensureGoogleToken()'), tok, 'export gets the sync token');
   // the real export button
-  await app.ev(`(() => { state.resultMode = 'summarise'; state.resultText = '# Title\\n\\nSome text.'; return true; })()`);
+  await app.ev(`(() => { state.resultMode = 'template'; state.resultText = '# Title\\n\\nSome text.'; return true; })()`);
   const popup = app.page.waitForEvent('popup', { timeout: 10000 }).catch(() => null);
   await app.ev(`triggerGoogleExport()`);
   await app.waitNode(() => app.drive.log.some(l => l.method === 'POST' && /docs\.googleapis\.com\/v1\/documents$/.test(l.url)), { what: 'Doc created' });
@@ -339,9 +340,9 @@ t.test('sign-out in one tab reaches the others: token dropped, stored e-mail cle
   await until(p2, `state.driveSyncToken === null && state.syncAuto === false`, { what: 'tab 2 signed out' });
   assert.equal(await stored(app.page, 'sth_sync_user'), null, 'stored e-mail cleared');
   assert.equal(await stored(p2, 'sth_sync_user'), null);
-  assert.equal(await signedOutShown(p2), true);
+  assert.equal(await signedOutShown(p2), true, 'tab 2 shows signed-out');
   assert.equal(await btnText(p2), 'Sync across devices');
-  assert.equal(await linkShown(p2), false);
+  assert.equal(await linkShown(p2), false, 'link hidden on tab 2');
   assert.equal(await app.ev('state.driveSyncToken'), null);
   assert.equal((await app.page.evaluate(() => window.__gis.revoked)).length >= 1, true, 'the signing-out tab revoked the token');
   await p2.locator('.main-area').click({ position: { x: 3, y: 3 }, force: true });
@@ -349,10 +350,9 @@ t.test('sign-out in one tab reaches the others: token dropped, stored e-mail cle
   await sleep(300);
   assert.equal((await reqs(p2)).length, 0, 'tab 2 asks nothing after sign-out');
   assert.equal((await reqs(app.page)).length, 1);
-  // a tab opened afterwards does not auto-connect either
-  const p3 = await openTab(app);
-  await sleep(200);
-  assert.equal(await ev(p3, 'state.syncAuto'), false);
+  // a reload does not reconnect either
+  await app.reload();
+  assert.equal(await app.ev('state.syncAuto'), false);
 });
 
 t.test('"Sign out" in the Re-connect view clears the account and the link goes away', async (h) => {

@@ -8858,7 +8858,7 @@
     }
 
     // snap is the result captured when Export was tapped, so a later job or Start Over cannot change what is exported
-    async function createGoogleDoc(snap) {
+    async function createGoogleDoc(snap, token) {
       try {
         const { mode, text } = snap;
         const meta = MODE_META[mode];
@@ -8866,7 +8866,7 @@
 
         const createRes = await fetch('https://docs.googleapis.com/v1/documents', {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${state.googleAccessToken}`, 'Content-Type': 'application/json' },
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ title }),
         });
         if (!createRes.ok) throw driveHttpError('Docs create failed', createRes.status);
@@ -8875,7 +8875,7 @@
 
         const updateRes = await fetch(`https://docs.googleapis.com/v1/documents/${doc.documentId}:batchUpdate`, {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${state.googleAccessToken}`, 'Content-Type': 'application/json' },
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ requests: ['template', 'reviewer'].includes(mode) ? markdownToDocsRequests(text) : [{ insertText: { location: { index: 1 }, text } }] }),
         });
         if (!updateRes.ok) throw driveHttpError('Docs update failed', updateRes.status);
@@ -8911,7 +8911,7 @@
       if (googleTokenInflight) showToast('Finish signing in to Google and your export will continue.');
       mainExportPending = true;
       setBusy(dom.btnExportDocs, true);
-      ensureGoogleToken().then(() => createGoogleDoc(snap), err => {
+      ensureGoogleToken().then((token) => createGoogleDoc(snap, token), err => {
         if (!err.googleAuthHandled) handleAppError('Google sign-in was cancelled or failed.', err);
       }).finally(() => { mainExportPending = false; setBusy(dom.btnExportDocs, false); });
     }
@@ -9838,6 +9838,7 @@
       const { syncSignedOut, syncSignedIn, syncName, syncAvatar, syncStatus, btnSyncSignIn } = dom;
       if (!syncSignedOut) return;
       document.getElementById('syncSection').setAttribute('aria-busy', String(status === 'syncing'));
+      if (dom.btnSyncSignOutLink) dom.btnSyncSignOutLink.classList.toggle('hidden', status !== 'expired'); // "Sign out" only next to Re-connect
 
       const resolvedUser = user || (() => {
         try { return state.driveSyncUser || JSON.parse(storageGet(SYNC_USER_KEY)); } catch { return null; }
@@ -9853,7 +9854,6 @@
           </svg>
           <span class="nav-label">${status === 'expired' ? 'Re-connect Google' : 'Sync across devices'}</span>`;
         btnSyncSignIn.dataset.tip = status === 'expired' ? 'Re-connect Google' : 'Sync across devices';
-        if (dom.btnSyncSignOutLink) dom.btnSyncSignOutLink.classList.toggle('hidden', status !== 'expired');
         return;
       }
 
