@@ -41,6 +41,8 @@ async function openTab(app) {
   return page;
 }
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+// token sharing between tabs is off in the page until the custom domain; these tests switch it on in the page's own scope
+const share = (page) => ev(page, 'SHARE_SYNC_TOKEN = true; gtokenOpen(); true');
 
 t.test('a stored account shows a quiet status, not the button, and nothing is requested without a tap', async (h) => {
   const app = await h.newApp({ now: AFTER, seed: SEED });
@@ -111,11 +113,11 @@ t.test('typing in a text field is no trigger; the next tap is', async (h) => {
   assert.equal((await reqs(app.page)).length, 1);
 });
 
-t.test('a key press outside text fields triggers the request', async (h) => {
+t.test('Enter or Space outside text fields triggers the request', async (h) => {
   const app = await h.newApp({ now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`);
   await app.page.evaluate(() => document.activeElement && document.activeElement.blur());
-  await app.page.keyboard.press('ArrowDown');
+  await app.page.keyboard.press('Enter');
   await app.until(`state.driveSyncToken`, { what: 'token after a key' });
   assert.equal((await reqs(app.page)).length, 1);
 });
@@ -169,7 +171,7 @@ for (const [mode, text] of [['blocked', /blocked/i], ['closed', /closed/i], ['ca
     assert.equal(await btnText(app.page), 'Re-connect Google');
     assert.equal(await linkShown(app.page), true);
     for (let i = 0; i < 3; i++) await tap(app.page);
-    await app.page.keyboard.press('ArrowDown');
+    await app.page.keyboard.press('Enter');
     await sleep(300);
     assert.equal((await reqs(app.page)).length, 1, 'no retry loop');
     // the button is the explicit way back
@@ -198,6 +200,7 @@ t.test('a second tab gets the token without a popup (open before and after the f
   const app = await h.newApp({ now: AFTER, seed: SEED });
   const p2 = await openTab(app);
   await until(p2, `!!state.driveSyncClient`);
+  await share(app.page); await share(p2);
   await tap(app.page);
   await app.until(SYNCED, { timeout: 20000 });
   await until(p2, `hasFreshSyncToken()`, { what: 'tab 2 got the token' });
@@ -208,6 +211,8 @@ t.test('a second tab gets the token without a popup (open before and after the f
   assert.equal(await ev(p2, 'state.driveSyncTokenExpiresAt'), await app.ev('state.driveSyncTokenExpiresAt'));
   // a tab opened later asks the others when it starts
   const p3 = await openTab(app);
+  await share(p3);
+  await ev(p3, 'askOtherTabsForToken(); true');
   await until(p3, `hasFreshSyncToken()`, { what: 'tab 3 got the token' });
   assert.equal((await reqs(p3)).length, 0);
   await p3.locator('.main-area').click({ position: { x: 3, y: 3 }, force: true });
@@ -218,6 +223,7 @@ t.test('a second tab gets the token without a popup (open before and after the f
 t.test('a token shared by a tab of another account is not taken', async (h) => {
   const app = await h.newApp({ now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`);
+  await share(app.page);
   const before = await app.ev('state.driveSyncToken');
   await app.page.evaluate(() => {
     const ch = new BroadcastChannel('sth-gtoken');
@@ -333,6 +339,7 @@ t.test('sign-out in one tab reaches the others: token dropped, stored e-mail cle
   const app = await h.newApp({ now: AFTER, seed: SEED });
   const p2 = await openTab(app);
   await until(p2, `!!state.driveSyncClient`);
+  await share(app.page); await share(p2);
   await tap(app.page);
   await app.until(SYNCED, { timeout: 20000 });
   await until(p2, SYNCED, { timeout: 20000 });
@@ -345,6 +352,7 @@ t.test('sign-out in one tab reaches the others: token dropped, stored e-mail cle
   assert.equal(await linkShown(p2), false, 'link hidden on tab 2');
   assert.equal(await app.ev('state.driveSyncToken'), null);
   assert.equal((await app.page.evaluate(() => window.__gis.revoked)).length >= 1, true, 'the signing-out tab revoked the token');
+  assert.deepEqual(await p2.evaluate(() => window.__gis.revoked), ['fake-drive-token'], 'the other tab revoked the token it held too');
   await p2.locator('.main-area').click({ position: { x: 3, y: 3 }, force: true });
   await app.page.mouse.click(400, 400);
   await sleep(300);
@@ -379,6 +387,7 @@ t.test('no Google token is ever written to localStorage, sessionStorage or Index
   const app = await h.newApp({ now: AFTER, seed: SEED });
   const p2 = await openTab(app);
   await until(p2, `!!state.driveSyncClient`);
+  await share(app.page); await share(p2);
   await tap(app.page);
   await app.until(SYNCED, { timeout: 20000 });
   await until(p2, SYNCED, { timeout: 20000 });
@@ -419,6 +428,115 @@ t.test('the Re-connect button and a second press share one request', async (h) =
   assert.equal((await reqs(app.page)).length, 2, 'blocked try + one button request (a second press joins)');
   await app.page.evaluate(() => { window.__gis.mode = 'ok'; window.__gis.complete('ok'); });
   await app.until(SYNCED, { timeout: 20000 });
+});
+
+t.test('default: tabs never post a token on the channel and nobody answers an ask; each tab renews on its own tap', async (h) => {
+  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const p2 = await openTab(app);
+  await until(p2, `!!state.driveSyncClient`);
+  assert.equal(await app.ev('SHARE_SYNC_TOKEN'), false);
+  const listen = (page) => page.evaluate(() => { window.__seen = []; const ch = new BroadcastChannel('sth-gtoken'); ch.onmessage = (e) => window.__seen.push(e.data); window.__probe = ch; });
+  await listen(app.page); await listen(p2);
+  await tap(app.page);
+  await app.until(SYNCED, { timeout: 20000 });
+  await ev(app.page, 'askOtherTabsForToken(); shareSyncToken(); true');
+  // a stranger asks and offers; the tabs must neither answer nor take
+  await p2.evaluate(() => window.__probe.postMessage({ type: 'ask', tab: 'zzzz', email: 'tester@example.test' }));
+  await app.page.evaluate(() => window.__probe.postMessage({ type: 'token', tab: 'zzzz', token: 'foreign', exp: Date.now() + 3e6, email: 'tester@example.test' }));
+  await sleep(500);
+  const seenA = await app.page.evaluate(() => window.__seen), seenB = await p2.evaluate(() => window.__seen);
+  assert.equal([...seenA, ...seenB].filter(m => m.token && m.token !== 'foreign').length, 0, 'no token was ever posted by a tab');
+  assert.equal([...seenA, ...seenB].filter(m => m.type === 'ask' && m.tab !== 'zzzz').length, 0, 'no tab asked');
+  assert.equal(await ev(p2, 'state.driveSyncToken'), null, 'tab 2 took nothing');
+  assert.equal((await reqs(p2)).length, 0);
+  await tap(p2);
+  await until(p2, SYNCED, { what: 'tab 2 renews by its own tap', timeout: 20000 });
+  assert.equal((await reqs(p2)).length, 1);
+});
+
+t.test('sign-out news travels even with token sharing off', async (h) => {
+  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const p2 = await openTab(app);
+  await tap(app.page); await app.until(SYNCED, { timeout: 20000 });
+  await tap(p2); await until(p2, SYNCED, { timeout: 20000 });
+  await app.page.click('#btnSyncSignOut');
+  await until(p2, `state.driveSyncToken === null && state.syncAuto === false`, { what: 'tab 2 signed out' });
+  assert.deepEqual(await p2.evaluate(() => window.__gis.revoked), ['fake-drive-token'], 'its own token was revoked');
+});
+
+t.test('a synthetic click does not trigger; a real one does', async (h) => {
+  const app = await h.newApp({ now: AFTER, seed: SEED });
+  await app.until(`!!state.driveSyncClient`);
+  await app.page.evaluate(() => { document.body.click(); document.body.dispatchEvent(new MouseEvent('click', { bubbles: true })); document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
+  await sleep(200);
+  assert.equal((await reqs(app.page)).length, 0);
+  await tap(app.page);
+  await app.until(`state.driveSyncToken`);
+  assert.equal((await reqs(app.page)).length, 1);
+});
+
+t.test('a tap whose activation is already spent does not trigger', async (h) => {
+  const app = await h.newApp({ now: AFTER, seed: SEED });
+  await app.until(`!!state.driveSyncClient`);
+  await app.page.evaluate(() => Object.defineProperty(navigator, 'userActivation', { value: { isActive: false, hasBeenActive: true }, configurable: true }));
+  await tap(app.page);
+  await sleep(200);
+  assert.equal((await reqs(app.page)).length, 0, 'spent activation: the tapped control keeps it');
+  await app.page.evaluate(() => { delete navigator.userActivation; });
+  await tap(app.page);
+  await app.until(`state.driveSyncToken`);
+  assert.equal((await reqs(app.page)).length, 1);
+});
+
+t.test('file pickers, labels, links and fullscreen keep their own tap: no request', async (h) => {
+  const app = await h.newApp({ now: AFTER, seed: SEED });
+  await app.until(`!!state.driveSyncClient`);
+  await app.page.evaluate(() => {
+    document.body.insertAdjacentHTML('beforeend', `<div style="position:fixed;left:10px;top:10px;z-index:99999;background:#fff;padding:8px">
+      <label id="t_label" style="display:block">Pick<input type="file" id="t_file" style="display:none"></label>
+      <a id="t_link" href="#home">link</a><div class="dropzone" id="t_drop">drop</div>
+      <button id="studioMmFull" type="button">Full</button><button id="t_plain" type="button">plain</button></div>`);
+  });
+  const chooser = app.page.waitForEvent('filechooser', { timeout: 5000 });
+  await app.page.click('#t_label');
+  await chooser; // the picker did open: the tap's activation was left alone
+  await app.page.click('#t_link');
+  await app.page.click('#t_drop');
+  await app.page.click('#studioMmFull');
+  await app.page.click('#btnTutorAttach', { force: true, trial: true }).catch(() => {});
+  await sleep(250);
+  assert.equal((await reqs(app.page)).length, 0, 'none of them asked Google');
+  // a plain button next to them does
+  await app.page.click('#t_plain');
+  await app.until(`state.driveSyncToken`);
+  assert.equal((await reqs(app.page)).length, 1);
+});
+
+t.test('keys: Enter and Space fire; Tab, arrows and shortcuts do not', async (h) => {
+  const app = await h.newApp({ now: AFTER, seed: SEED });
+  await app.until(`!!state.driveSyncClient`);
+  await app.page.evaluate(() => document.activeElement && document.activeElement.blur());
+  for (const k of ['Tab', 'ArrowDown', 'ArrowLeft', 'a', 'Control+k', 'Meta+k', 'Alt+x']) await app.page.keyboard.press(k);
+  await sleep(250);
+  assert.equal((await reqs(app.page)).length, 0, 'not a trigger');
+  await app.page.evaluate(() => document.activeElement && document.activeElement.blur());
+  await app.page.keyboard.press('Space');
+  await app.until(`state.driveSyncToken`, { what: 'token after Space' });
+  assert.equal((await reqs(app.page)).length, 1);
+});
+
+t.test('nothing is requested while a fullscreen view is open', async (h) => {
+  const app = await h.newApp({ now: AFTER, seed: SEED });
+  await app.until(`!!state.driveSyncClient`);
+  await app.page.evaluate(() => { const d = document.createElement('div'); d.id = 't_fs'; d.className = 'studio-pseudo-fullscreen'; document.body.appendChild(d); });
+  await tap(app.page);
+  await app.page.keyboard.press('Enter');
+  await sleep(250);
+  assert.equal((await reqs(app.page)).length, 0);
+  await app.page.evaluate(() => document.getElementById('t_fs').remove());
+  await tap(app.page);
+  await app.until(`state.driveSyncToken`);
+  assert.equal((await reqs(app.page)).length, 1);
 });
 
 t.run();

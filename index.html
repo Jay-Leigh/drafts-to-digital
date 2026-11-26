@@ -9235,17 +9235,21 @@
     }
 
     // ── Tap or key press renews the token ───────────
-    const SYNC_GESTURE_SKIP = '#btnSyncSignIn, #btnSyncSignOut, #btnSyncSignOutLink';
-    const SYNC_EDITABLE = 'input, textarea, select, [contenteditable=""], [contenteditable="true"]';
+    // Controls that need their own tap to open something (file pickers, links, fullscreen): Google's window must never take that tap's activation
+    const SYNC_GESTURE_SKIP = '#btnSyncSignIn, #btnSyncSignOut, #btnSyncSignOutLink, input[type="file"], label, a[href], .dropzone, #kbDropzone, #btnTutorAttach, #tutorMenuAttach, [data-add="upload"], #studioMmFull, .studio-mm-fullbtn';
+    const SYNC_EDITABLE = 'input, textarea, select, [role="textbox"]';
     function onSyncGesture(e) {
+      if (!e.isTrusted) return; // only a real tap or key press
       if (!state.syncAuto || hasFreshSyncToken() || syncTokenInflight || document.visibilityState !== 'visible') return;
       if (!document.getElementById('loginOverlay').classList.contains('dismissed')) return; // never on the sign-in gate
+      if (navigator.userActivation && !navigator.userActivation.isActive) return; // the tap's own action already used it
+      if (document.fullscreenElement || document.webkitFullscreenElement || document.querySelector('.studio-pseudo-fullscreen')) return;
       const el = e.target instanceof Element ? e.target : null;
-      if (el && el.closest(SYNC_GESTURE_SKIP)) return; // those ask by themselves
+      if (el && el.closest(SYNC_GESTURE_SKIP)) return; // those ask by themselves or need their own tap
       if (e.type === 'keydown') {
-        // A window would dismiss the keyboard in the middle of typing; bare modifier keys and Escape are no gesture
-        if (e.isComposing || ['Escape', 'Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(e.key)) return;
-        if (el && el.closest(SYNC_EDITABLE)) return;
+        // Only Enter and Space count (not Tab, arrows, shortcuts); a window would also dismiss the keyboard in the middle of typing
+        if (e.isComposing || e.ctrlKey || e.metaKey || e.altKey || !(e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar')) return;
+        if (el && (el.isContentEditable || el.closest(SYNC_EDITABLE))) return;
       }
       if (!state.driveSyncClient) initDriveSyncClient();
       if (!state.driveSyncClient) return; // Google's script has not loaded (yet)
@@ -9253,10 +9257,11 @@
     }
 
     function installSyncGestureHook() {
-      document.addEventListener('click', onSyncGesture, true);
-      document.addEventListener('keydown', onSyncGesture, true);
+      // Bubble phase: the tapped control runs first and keeps its own activation
+      document.addEventListener('click', onSyncGesture);
+      document.addEventListener('keydown', onSyncGesture);
       document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') askOtherTabsForToken(); });
-      gtokenOpen();
+      if (SHARE_SYNC_TOKEN) gtokenOpen();
     }
 
     // ── Other tabs ──────────────────────────────────
@@ -9270,20 +9275,23 @@
       } catch { gtokenChannel = null; }
       return gtokenChannel;
     }
+    // Off until the app has its own origin: jay-leigh.github.io is shared with other project pages, which could listen on this channel.
+    // Flip to true on the custom domain. Each tab then does its own silent request on its first tap. Sign-out news (no token) always travels.
+    let SHARE_SYNC_TOKEN = false;
     function gtokenPost(msg) {
       const ch = gtokenOpen();
       if (ch) { try { ch.postMessage({ ...msg, tab: TAB_ID }); } catch { /* channel closed */ } }
     }
     function shareSyncToken() {
-      if (!hasFreshSyncToken()) return;
+      if (!SHARE_SYNC_TOKEN || !hasFreshSyncToken()) return;
       gtokenPost({ type: 'token', token: state.driveSyncToken, exp: state.driveSyncTokenExpiresAt, email: storedSyncEmail() });
     }
     function askOtherTabsForToken() {
-      if (!syncKnownUser || hasFreshSyncToken() || syncTokenInflight) return;
+      if (!SHARE_SYNC_TOKEN || !syncKnownUser || hasFreshSyncToken() || syncTokenInflight) return;
       gtokenPost({ type: 'ask', email: storedSyncEmail() });
     }
     function onGtokenMessage(msg) {
-      if (!msg || msg.tab === TAB_ID) return;
+      if (!SHARE_SYNC_TOKEN || !msg || msg.tab === TAB_ID) return;
       if (msg.type === 'ask') {
         if (hasFreshSyncToken() && msg.email && normEmail(msg.email) === normEmail(storedSyncEmail())) shareSyncToken();
         return;
@@ -9320,10 +9328,10 @@
       });
     }
 
-    // remote: true = another tab signed out (it revoked the sync token already; this tab only drops what it holds)
+    // remote: true = another tab signed out (this tab revokes what it holds too, without a toast about it)
     function signOutSync(opts) {
       const remote = !!(opts && opts.remote === true);
-      const tokens = (remote ? [state.googleAccessToken] : [state.driveSyncToken, state.googleAccessToken]).filter(Boolean);
+      const tokens = [state.driveSyncToken, state.googleAccessToken].filter(Boolean); // revoking twice is harmless
       state.driveSyncToken = null;
       state.driveSyncTokenExpiresAt = 0;
       state.syncAuto = false;
