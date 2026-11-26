@@ -16,7 +16,8 @@ const LIBS = [
   { re: /jszip/, file: 'jszip.min.js', url: 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js', stub: 'window.JSZip = undefined;' },
   { re: /pdf-lib/, file: 'pdf-lib.min.js', url: 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js', stub: 'window.PDFLib = undefined;' },
   { re: /browser-image-compression/, stub: 'window.imageCompression = async (f) => f;' },
-  { re: /mammoth|xlsx|pdf\.min\.js|pdf\.worker|pptxgen/, stub: '/* stubbed in tests */' },
+  { re: /pptxgen/, file: 'pptxgen.min.js', url: 'https://cdn.jsdelivr.net/npm/pptxgenjs@4.0.1/dist/pptxgen.min.js', stub: '/* stubbed in tests */' },
+  { re: /mammoth|xlsx|pdf\.min\.js|pdf\.worker/, stub: '/* stubbed in tests */' },
 ];
 
 function ensure() {

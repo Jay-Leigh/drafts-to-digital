@@ -797,6 +797,11 @@
     .studio-link { display: inline-flex; align-items: center; min-height: 32px; padding: 0 4px; font-size: 13px; font-weight: 500; color: #2c5f2d; text-decoration: underline; }
     .studio-selectall { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 4px; margin-bottom: 6px; font-size: 13px; color: rgba(26,46,28,0.75); cursor: pointer; }
     .studio-selectall input { width: 18px; height: 18px; accent-color: #2c5f2d; flex-shrink: 0; }
+    .studio-check, .studio-field > label.studio-check { display: flex; align-items: center; gap: 10px; min-height: 44px; margin: 0; font-size: 14px; font-weight: 600; color: rgba(26,46,28,0.8); cursor: pointer; }
+    .studio-ig-opts { display: flex; flex-wrap: wrap; align-items: center; min-height: 44px; padding: 0 4px; }
+    .studio-check input { width: 20px; height: 20px; accent-color: #2c5f2d; flex-shrink: 0; }
+    .studio-check input:focus-visible { outline: 2px solid #2c5f2d; outline-offset: 2px; }
+    .studio-field[hidden] { display: none; }
     .studio-source-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
     .studio-source-row { gap: 8px; padding: 0 8px 0 0; margin-bottom: 6px; min-width: 0; cursor: default; }
     .studio-source-main { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; min-width: 0; min-height: 52px; padding: 8px 0 8px 12px; cursor: pointer; }
@@ -3805,6 +3810,9 @@
           <legend>Level of difficulty</legend>
           <div class="studio-seg" id="studioOptLevel"></div>
         </fieldset>
+        <div class="studio-field" id="studioShowSourcesField" hidden>
+          <label class="studio-check" for="studioShowSources"><input type="checkbox" id="studioShowSources" checked /><span>Show sources on the picture</span></label>
+        </div>
         <div class="studio-field">
           <label for="studioLanguage">Language</label>
           <select id="studioLanguage"></select>
@@ -12366,6 +12374,24 @@
 
     const studioXml = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 
+    // The app icon (a graduation cap with a sparkle) on a 120 x 120 grid, for the footer of the pictures and slides we make. Green on a light background, white on a dark one.
+    const STUDIO_APP_ICON = {
+      green: '#4DBB79', white: '#FFFFFF', label: 'Graduation cap with a sparkle',
+      lines: ['M69 40 60 35 26 53 60 71 94 53 86 49', 'M40 61v13c0 6 9 11 20 11s20-5 20-11V61', 'M32 57v15l-3 13h6l-3-13'],
+      spark: 'M78 34c.8 5.5 2.5 7.2 8 8-5.5.8-7.2 2.5-8 8-.8-5.5-2.5-7.2-8-8 5.5-.8 7.2-2.5 8-8Z',
+    };
+    // The icon as a group at (x, y), size x size; the icon is decoration (the footer text beside it says what the picture is)
+    function studioAppIcon(x, y, size, color = STUDIO_APP_ICON.green) {
+      const I = STUDIO_APP_ICON;
+      return `<g class="sth-icon" transform="translate(${x} ${y}) scale(${size / 120})" aria-hidden="true"><g fill="none" stroke="${color}" stroke-width="${Math.max(2.5, 144 / size)}" stroke-linecap="round" stroke-linejoin="round">${I.lines.map(d => `<path d="${d}"/>`).join('')}</g><path fill="${color}" d="${I.spark}"/></g>`;
+    }
+    // The icon alone as a PNG data URL (for the .pptx, which cannot take SVG); 128 px drawn at up to twice that
+    async function studioAppIconPng(color = STUDIO_APP_ICON.green) {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">${studioAppIcon(0, 0, 128, color)}</svg>`;
+      const png = await studioSvgPng(svg, 128, 128);
+      return `image/png;base64,${await fileToBase64(png.blob)}`;
+    }
+
     function studioWrap(ctx, text, maxW, maxLines) {
       const lines = [];
       let cur = '';
@@ -12407,9 +12433,11 @@
       ctx.font = `700 22px ${FONT}`;
       const titleLines = studioWrap(ctx, model.title, width - M * 2, 2);
       ctx.font = `400 12px ${FONT}`;
-      const foot = studioWrap(ctx, `Made with Student Tools Hub from: ${meta.sourceNames.join(', ') || 'your sources'} · AI-generated, check it against your sources`, width - M * 2, 4);
+      const ICON = 28, footX = M + ICON + 8;
+      const foot = studioWrap(ctx, `Made with Student Tools Hub from: ${meta.sourceNames.join(', ') || 'your sources'}`, width - M - footX, 4);
+      const footH = Math.max(ICON, foot.length * 17);
       const top = M + titleLines.length * 28 + 12;
-      const height = Math.ceil(top + layout.height + 20 + foot.length * 17 + M);
+      const height = Math.ceil(top + layout.height + 20 + footH + M);
       const out = [`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="${FONT}">`, `<rect width="${width}" height="${height}" fill="#f5f0e1"/>`];
       titleLines.forEach((l, i) => out.push(`<text x="${M}" y="${M + 22 + i * 28}" font-size="22" font-weight="700" fill="#1a2e1c">${studioXml(l)}</text>`));
       out.push(`<g transform="translate(${M} ${top})">`);
@@ -12429,7 +12457,9 @@
         if (t.cites) out.push(`<text x="${p.x + 2}" y="${p.y + p.bh + 13}" font-size="11" fill="#4a5d4c">${studioXml(t.cites)}</text>`);
       }
       out.push('</g>');
-      foot.forEach((l, i) => out.push(`<text x="${M}" y="${height - M - (foot.length - 1 - i) * 17}" font-size="12" fill="#5a6b5c">${studioXml(l)}</text>`));
+      const footTop = height - M - footH;
+      out.push(studioAppIcon(M, footTop + (footH - ICON) / 2, ICON));
+      foot.forEach((l, i) => out.push(`<text x="${footX}" y="${footTop + (footH - foot.length * 17) / 2 + 12 + i * 17}" font-size="12" fill="#5a6b5c">${studioXml(l)}</text>`));
       out.push('</svg>');
       return { svg: out.join(''), width, height };
     }
@@ -12682,7 +12712,7 @@
 
     // ── the drawing: pure functions of the model; every string goes through studioXml and icons come from the fixed table, so nothing the model wrote reaches an attribute ──
     // The kit holds the measuring canvas, the wrapped-text writer, icons and the source footnote numbers (in the order they are drawn)
-    function studioIgKit(lw, sourceNames) {
+    function studioIgKit(lw, sourceNames, showSources = true) {
       const ctx = document.createElement('canvas').getContext('2d');
       const C = STUDIO_IG_COLORS, M = lw < 480 ? 16 : 28;
       const F = {
@@ -12691,7 +12721,7 @@
       };
       const lh = (f) => Math.round(f.s * 1.35);
       const k = {
-        lw, M, cw: lw - 2 * M, C, F, lh, parts: [], refs: [], refIx: new Map(), sourceNames,
+        lw, M, cw: lw - 2 * M, C, F, lh, parts: [], refs: [], refIx: new Map(), sourceNames, showSources,
         wrap(str, f, w, max) { ctx.font = `${f.w} ${f.s}px sans-serif`; return studioWrap(ctx, str, Math.max(20, w), max); },
         // wrapped lines with their top at `top`; returns the height used
         text(x, top, lines, f, anchor) {
@@ -12706,6 +12736,7 @@
         card(x, y, w, h, fill, line) { return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="${fill || C.card}" stroke="${line || C.line}"/>`; },
         // the footnote text "[1, 2]" for a list of citations; a source and page get one number for the whole picture
         ref(cites) {
+          if (!k.showSources) return '';
           const ix = [];
           for (const c of cites) {
             const key = `${c.n}:${c.page}`;
@@ -12747,7 +12778,7 @@
         vl = vl || k.wrap(f.value, big, inner, 2);
         const ll = k.wrap(f.label, F.body, inner, 3);
         const rl = k.wrap(k.ref([{ n: f.n, page: f.page }]), F.small, inner, 1);
-        return { vl, big, ll, rl, h: 10 + vl.length * k.lh(big) + 2 + ll.length * k.lh(F.body) + 2 + k.lh(F.small) + 8 };
+        return { vl, big, ll, rl, h: 10 + vl.length * k.lh(big) + 2 + ll.length * k.lh(F.body) + (rl.length ? 2 + k.lh(F.small) : 0) + 8 };
       });
       for (let r = 0; r < tiles.length; r += cols) {
         const row = tiles.slice(r, r + cols), h = Math.max(...row.map(t => t.h));
@@ -12859,10 +12890,11 @@
     const STUDIO_IG_LAYOUT_FN = { steps: studioIgSteps, comparison: studioIgComparison, facts: studioIgFacts, timeline: studioIgTimeline };
 
     // The whole picture as one SVG string. width = the width it is shown or exported at (at least 360); the layout is drawn at most 720 wide and scaled up beyond that.
-    // nameOf(n) = name of source Sn; sourceNames = what the footer says it was made from. Returns { svg, width, height }.
-    function studioIgSvg(model, { width = STUDIO_IG_LAYOUT_MAX, nameOf = (n) => `Source ${n}`, sourceNames = [] } = {}) {
+    // nameOf(n) = name of source Sn; sourceNames = what the footer says it was made from. showSources = false leaves out the footnote numbers, the Sources block and the
+    // names in the footer (the student's choice on the study aid). Returns { svg, width, height }.
+    function studioIgSvg(model, { width = STUDIO_IG_LAYOUT_MAX, nameOf = (n) => `Source ${n}`, sourceNames = [], showSources = true } = {}) {
       const outW = Math.max(STUDIO_IG_MIN_WIDTH, Math.round(width)), lw = Math.min(STUDIO_IG_LAYOUT_MAX, outW);
-      const k = studioIgKit(lw, sourceNames), { F, M, cw, C } = k;
+      const k = studioIgKit(lw, sourceNames, showSources), { F, M, cw, C } = k;
       let y = M;
       y += k.text(M, y, k.wrap(model.title, F.title, cw, 3), F.title) + 4;
       if (model.subtitle) y += k.text(M, y, k.wrap(model.subtitle, F.sub, cw, 3), F.sub) + 4;
@@ -12887,8 +12919,13 @@
         k.refs.forEach((c, i) => { y += k.text(M, y, k.wrap(`[${i + 1}] ${nameOf(c.n)}${c.page ? ` · p. ${c.page}` : ''}`, F.small, cw, 2), F.small); });
         y += 10;
       }
-      const names = sourceNames.filter(Boolean);
-      y += k.text(M, y, k.wrap(`Made with Student Tools Hub${names.length ? ` from: ${names.join(', ')}` : ''}. AI-generated, so check it against your sources.`, F.small, cw, 4), F.small);
+      const names = showSources ? sourceNames.filter(Boolean) : [];
+      const ICON = 28, footX = M + ICON + 8;
+      const foot = k.wrap(`Made with Student Tools Hub${names.length ? ` from: ${names.join(', ')}` : ''}`, F.small, cw - ICON - 8, 4);
+      const footH = Math.max(ICON, foot.length * k.lh(F.small));
+      k.parts.push(studioAppIcon(M, y + (footH - ICON) / 2, ICON));
+      k.text(footX, y + (footH - foot.length * k.lh(F.small)) / 2, foot, F.small);
+      y += footH;
       const height = Math.ceil(y + M);
       const outH = Math.ceil(height * outW / lw);
       const desc = `${STUDIO_IG_LAYOUT_NAMES[model.layout]} infographic with ${model.items.length} items.${model.takeaway ? ` Key takeaway: ${model.takeaway}` : ''}`;
@@ -13020,13 +13057,15 @@
       return lines.join('\n');
     }
 
-    // The .pptx: one slide per slide, speaker notes, the sources of each slide in a footer line and a closing Sources slide. All text is passed as plain strings
+    // The .pptx: one slide per slide, speaker notes, the sources of each slide in a footer line, the app icon and "Made with Student Tools Hub" in the corner, and a closing Sources slide. All text is passed as plain strings
     // (PptxGenJS escapes it). The hash above makes the browser refuse a changed library; a library that cannot be loaded or used is EXP-503.
     // meta = { nameOf(n): the name of source n, count: how many sources the aid has }
     async function studioSlPptx(model, { nameOf = (n) => `Source ${n}`, count = 0 } = {}) {
       try { await loadScriptOnce(STUDIO_PPTX_URL, STUDIO_PPTX_SRI); } catch { throw new AppError('EXP-503'); }
       if (typeof PptxGenJS !== 'function') throw new AppError('EXP-503');
       const C = STUDIO_SL_COLORS;
+      let icon = '';
+      try { icon = await studioAppIconPng(); } catch (err) { console.warn('[STH] App icon not drawn on the slides:', err && err.message); } // the slides are still made, without it
       const pptx = new PptxGenJS();
       pptx.layout = 'LAYOUT_WIDE';
       pptx.title = model.title;
@@ -13036,7 +13075,6 @@
         background: { color: C.bg },
         objects: [
           { rect: { x: 0, y: 0, w: 0.22, h: 7.5, fill: { color: C.accent } } },
-          { text: { text: 'AI-generated, check against your sources', options: { x: 0.7, y: 7.05, w: 8, h: 0.3, fontFace: 'Calibri', fontSize: 10, color: C.foot } } },
         ],
         slideNumber: { x: 12.1, y: 7.05, w: 0.8, h: 0.3, fontFace: 'Calibri', fontSize: 10, color: C.foot, align: 'right' },
       });
@@ -13048,9 +13086,16 @@
         rule(s, 0.7, 1.52, 1.6);
       };
       const area = (s, runs, o = {}) => s.addText(runs, { x: 0.7, y: 1.8, w: 11.9, h: 4.7, fontFace: 'Calibri', color: C.ink, valign: 'top', fit: 'shrink', ...o });
+      // The corner of every slide: the icon (larger on the title slide) and the name of the app. The slides here have light backgrounds, so the green icon is used.
+      const corner = (s, big) => {
+        const d = big ? 0.5 : 0.3;
+        if (icon) s.addImage({ data: icon, x: 0.7, y: 7.2 - d / 2, w: d, h: d, altText: STUDIO_APP_ICON.label });
+        s.addText('Made with Student Tools Hub', { x: 0.7 + d + 0.1, y: 7.05, w: 6, h: 0.3, fontFace: 'Calibri', fontSize: 10, color: C.foot, valign: 'middle' });
+      };
       const cited = new Set();
       for (const sl of model.slides) {
         const s = pptx.addSlide({ masterName: 'STH' });
+        corner(s, sl.layout === 'title');
         if (sl.layout === 'title') {
           s.addText(sl.title, { x: 0.9, y: 1.9, w: 11.5, h: 2.1, fontFace: 'Georgia', fontSize: 44, bold: true, color: C.ink, valign: 'bottom', fit: 'shrink' });
           rule(s, 0.9, 4.15, 2.4);
@@ -13080,6 +13125,7 @@
         if (sl.notes) s.addNotes(sl.notes);
       }
       const last = pptx.addSlide({ masterName: 'STH' });
+      corner(last, false);
       heading(last, 'Sources');
       const ns = cited.size ? [...cited].sort((a, b) => a - b) : Array.from({ length: count }, (_, i) => i + 1);
       area(last, ns.length ? ns.map(n => ({ text: `${n}. ${nameOf(n)}`, options: { breakLine: true, paraSpaceAfter: 6 } })) : 'The sources you chose.', { fontSize: 20 });
@@ -13460,8 +13506,12 @@
     const studioKnownTool = (tool) => Object.prototype.hasOwnProperty.call(STUDIO_TOOLS, tool) && (STUDIO_TOOLS[tool].v7 ? studioV7Released() : !!STUDIO_TOOLS[tool].enabled);
     const studioTs = (n) => typeof n === 'number' && isFinite(n) && n > 0 && n < 4e12 ? Math.floor(n) : 0;
 
+    // Whether the infographic of this aid shows its sources on the picture: the student's choice, on by default (an aid without the field, or from an older version, shows them).
+    // It is kept on the aid and in the sync file only; it is not an option of the request, so the server never sees it.
+    const studioShowSources = (item) => item.showSources !== false;
+
     function studioSyncSummary(item) {
-      return { id: item.id, tool: item.tool, title: item.title, language: item.language, topic: item.topic, options: item.options, sourceIds: item.sourceIds, sourceNames: item.sourceNames, createdAt: item.createdAt, updatedAt: item.updatedAt, driveFileId: item.driveFileId, artifactBytes: item.artifactBytes || 0 };
+      return { id: item.id, tool: item.tool, title: item.title, language: item.language, topic: item.topic, options: item.options, sourceIds: item.sourceIds, sourceNames: item.sourceNames, createdAt: item.createdAt, updatedAt: item.updatedAt, driveFileId: item.driveFileId, artifactBytes: item.artifactBytes || 0, ...(item.tool === 'infographic' ? { showSources: studioShowSources(item) } : {}) };
     }
 
     // Pure: one summary from the sync file as a local item, or null when it is unusable (the file may come from another device or be edited by hand)
@@ -13487,6 +13537,7 @@
         updatedAt: studioTs(raw.updatedAt) || createdAt,
         driveFileId: raw.driveFileId,
         artifactBytes: Number.isFinite(raw.artifactBytes) && raw.artifactBytes > 0 ? Math.floor(raw.artifactBytes) : 0,
+        ...(raw.tool === 'infographic' && typeof raw.showSources === 'boolean' ? { showSources: raw.showSources } : {}),
       };
     }
 
@@ -13599,7 +13650,7 @@
         if (!cur) { plan.add.push({ ...r, status: 'ready', seen: false, error: null, artifact: null }); continue; }
         if (cur.status !== 'ready') continue;
         if (!cur.driveFileId) plan.update.push({ id, fields: { driveFileId: r.driveFileId, artifactBytes: r.artifactBytes } });
-        else if (r.updatedAt > (cur.updatedAt || 0)) plan.update.push({ id, fields: { title: r.title, updatedAt: r.updatedAt, ...(cur.artifact ? {} : { driveFileId: r.driveFileId, artifactBytes: r.artifactBytes }) } });
+        else if (r.updatedAt > (cur.updatedAt || 0)) plan.update.push({ id, fields: { title: r.title, updatedAt: r.updatedAt, ...(typeof r.showSources === 'boolean' ? { showSources: r.showSources } : {}), ...(cur.artifact ? {} : { driveFileId: r.driveFileId, artifactBytes: r.artifactBytes }) } });
       }
       return plan;
     }
@@ -14126,7 +14177,7 @@
             studioMap.unmount();
             viewer.classList.remove('is-map', 'is-fc', 'is-qz', 'is-sl');
             viewer.classList.add('is-ig');
-            if (studioIg.showing(item)) studioIg.refreshCites(); else studioIg.mount(item, model);
+            if (studioIg.showing(item)) { studioIg.refreshCites(); studioIg.refreshSources(); } else studioIg.mount(item, model);
             return;
           }
           cannot = model.reason === 'schema' ? 'This study aid was made by a newer version of the app. Reload the page.' : 'This study aid is damaged. Regenerate it.';
@@ -14457,6 +14508,8 @@
           this.el(slot.box).innerHTML = seg(slot.name, g.values, opts[g.key]);
           this.el(slot.box).classList.toggle('is-many', g.values.length > 3);
         });
+        this.el('studioShowSourcesField').hidden = tool !== 'infographic';
+        this.el('studioShowSources').checked = prefill.showSources !== false;
         const savedLang = storageGet(STUDIO_LANG_KEY);
         const pick = [prefill.language, savedLang].find(c => STUDIO_LANGUAGES.some(l => l.code === c)) || 'en';
         this.el('studioLanguage').value = pick;
@@ -14524,6 +14577,7 @@
         const params = { tool, language: this.el('studioLanguage').value, topic: this.el('studioTopic').value.trim().slice(0, STUDIO_TOPIC_MAX), sourceIds: this.orderedSelection() };
         const groups = studioOptionGroups(tool);
         if (groups.length) params.options = Object.fromEntries(groups.map((g, i) => [g.key, g.values.find(v => String(v.value) === this.el(STUDIO_OPTION_SLOTS[i].box).querySelector('input:checked').value).value]));
+        if (tool === 'infographic') params.showSources = this.el('studioShowSources').checked; // for the picture only: not part of the request
         storageSet(STUDIO_LANG_KEY, params.language);
         // a run that may be more than one call takes (and the gate on) is asked about first; anything smaller goes the same way as before
         const sized = studioMrOn() ? this.plan(params.sourceIds) : null;
@@ -14556,6 +14610,7 @@
           language: params.language,
           topic: params.topic,
           options: studioCleanOptions(params.tool, params.options),
+          ...(params.tool === 'infographic' ? { showSources: params.showSources !== false } : {}),
           sourceIds: picked.map(i => i.id),
           sourceNames: picked.map(i => i.name),
           status: 'queued',
@@ -14770,8 +14825,8 @@
         if (reason) { showToast(reason, 'error'); return; }
         // a big run starts again through its question (the parts finished before are found again, not paid for twice)
         if (plan.level === 'big') {
-          this.openDialog(item.tool, { language: item.language, topic: item.topic, sourceIds: item.sourceIds, options: item.options });
-          if (this.dialog.tool === item.tool && await this.mrBegin({ tool: item.tool, language: item.language, topic: item.topic, sourceIds: item.sourceIds, options: item.options }, item.id)) return;
+          this.openDialog(item.tool, { language: item.language, topic: item.topic, sourceIds: item.sourceIds, options: item.options, showSources: item.showSources });
+          if (this.dialog.tool === item.tool && await this.mrBegin({ tool: item.tool, language: item.language, topic: item.topic, sourceIds: item.sourceIds, options: item.options, showSources: item.showSources }, item.id)) return;
           if (this.dialog.tool === item.tool) this.closeDialog(false);
         }
         item.status = 'queued';
@@ -14862,7 +14917,7 @@
           else if (act === 'export-sl-pptx') studioSl.exportPptx();
           else if (act === 'connect') triggerSyncSignIn();
           else if (act === 'reload-remote') { this.remote.delete(id); this.refreshViews(); }
-          else if (act === 'regenerate') { const it = this.items.find(i => i.id === id); if (it) this.openDialog(it.tool, { language: it.language, topic: it.topic, sourceIds: it.sourceIds, options: it.options }); }
+          else if (act === 'regenerate') { const it = this.items.find(i => i.id === id); if (it) this.openDialog(it.tool, { language: it.language, topic: it.topic, sourceIds: it.sourceIds, options: it.options, showSources: it.showSources }); }
         };
         this.el('studioItemList').addEventListener('click', onAct);
         this.el('studioViewerCard').addEventListener('click', onAct);
@@ -15658,6 +15713,7 @@
               </details>
             </div>
             <p class="studio-mm-notice" id="studioIgNotice" hidden><span></span><button type="button" aria-label="Dismiss">&times;</button></p>
+            <div class="studio-ig-opts"><label class="studio-check" for="studioIgSources"><input type="checkbox" id="studioIgSources" /><span>Show sources on the picture</span></label></div>
             <div class="studio-ig-stage" id="studioIgStage" role="region" tabindex="0" aria-label="Infographic. On a narrow screen it scrolls sideways. The text version below has the same content as a list."></div>
             <details class="studio-ig-text" id="studioIgText"><summary>Text version</summary><div id="studioIgTextBody"></div></details>
             <p class="studio-mm-foot" id="studioIgFoot"></p>
@@ -15667,6 +15723,9 @@
         this.el('studioIgTitle').textContent = model.title;
         const names = item.sourceNames.map(studioStem);
         this.el('studioIgFoot').textContent = `Made with Student Tools Hub${names.length ? ` from: ${names.join(', ')}` : ''}. AI-generated, so check it against your sources.`;
+        const sources = this.el('studioIgSources');
+        sources.checked = studioShowSources(item);
+        sources.addEventListener('change', () => this.setSources(sources.checked));
         const notice = this.el('studioIgNotice');
         if (model.notices.length) {
           notice.firstElementChild.textContent = model.notices.join(' ');
@@ -15703,7 +15762,27 @@
       },
 
       render(width) {
-        return studioIgSvg(this.model, { width, nameOf: (n) => this.sourceName(n), sourceNames: this.item.sourceNames.map(studioStem) });
+        return studioIgSvg(this.model, { width, nameOf: (n) => this.sourceName(n), sourceNames: this.item.sourceNames.map(studioStem), showSources: studioShowSources(this.item) });
+      },
+
+      // The student's choice, kept with the study aid (and in the sync file); the drawing and every download follow it
+      setSources(on) {
+        if (!this.item || studioShowSources(this.item) === on) return;
+        this.item.showSources = on;
+        this.width = 0;
+        this.draw();
+        this.announce(on ? 'Sources shown on the picture.' : 'Sources hidden on the picture.');
+        studio.save(this.item);
+      },
+      announce(message) { studio.announce(message); },
+
+      // The item may have been changed from outside (a sync round): follow it
+      refreshSources() {
+        const box = this.el('studioIgSources');
+        if (!this.item || !box || box.checked === studioShowSources(this.item)) return;
+        box.checked = studioShowSources(this.item);
+        this.width = 0;
+        this.draw();
       },
 
       // The same content as the drawing, as a list a screen reader can walk through, with working citations and "Ask tutor"
