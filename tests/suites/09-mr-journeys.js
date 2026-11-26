@@ -80,8 +80,10 @@ t.test('5-part mind map: five digests (two at a time), one last step over all fi
   assert.equal(await app.ev(`studio.items[0].error`), null);
   // the run cleans up after itself once everything is acknowledged
   await app.advanceUntil(`jobs.groups.size === 0`, { step: 1000, what: 'run reaped' });
-  const keys = await app.ev(`jobs.store.keys()`);
-  assert.deepEqual(keys.filter(k => /^(mrc|out|gin|group):/.test(k)), [], 'no parts, answers or inputs are left on the device');
+  // the group leaves memory first and its stored keys go a moment later
+  let keys = [];
+  for (let i = 0; i < 30; i++) { keys = (await app.ev(`jobs.store.keys()`)).filter(k => /^(mrc|out|gin|group):/.test(k)); if (!keys.length) break; await h.sleep(100); }
+  assert.deepEqual(keys, [], 'no parts, answers or inputs are left on the device');
   assert.ok(app.n8n.list().every(j => j.acked), 'every job acknowledged');
 });
 

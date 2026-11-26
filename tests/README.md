@@ -16,7 +16,7 @@ tests/
     fixtures.js         answers of the fake server (mind map, cards, quiz, infographic, slides, digest) and Knowledge Bay items
     common.js           release dates, studioItem(), connectDrive(), noHScroll, mask()
     mr.js               helpers for the map-reduce journeys (big sources, consent step, tray buttons, counting creates)
-    vendor.js           CDN libraries: fetched once with curl into .cache (about 1.1 MB), the rest stubbed
+    vendor.js           CDN libraries: fetched once with curl into .cache (about 1.4 MB; PptxGenJS 4.0.1 is the real file, so the .pptx can be opened with the cached JSZip), the rest stubbed
     table.js            the final table of run-all.sh
   suites/
     01-gate-sync        opens unlocked, sign-in gate, hello v6 vs v7, release date, 10 vs 15 sources, jobs flag, Drive sync push and pull
@@ -29,6 +29,7 @@ tests/
     08-mr-pure          map-reduce pure functions (plan, estimate, merge, hash, digest checks, cite checks)
     09-mr-journeys      map-reduce journeys: consent, 5-part run, resume, retry, skip, cancel, replaced run, delete
     10-mr-gates         map-reduce gate (v6 / date / flag), busy 429, budget and limits, retry limits, tutor next to a run
+    11-ig-sources-icon  infographic "Show sources on the picture" (default, toggle, reload, sync, exports, request unchanged) and the app icon in the SVG/PNG/PDF/mind map/.pptx footers
 ```
 
 ## Running
