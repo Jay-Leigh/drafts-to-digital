@@ -11432,7 +11432,7 @@
     const STUDIO_MAX_SOURCES_V7 = 15; // the server accepts source ids S1 to S15 only from v7 on
     const studioMaxSources = () => serverHas(7) ? Math.min(STUDIO_MAX_SOURCES_V7, service.server.maxSources) : STUDIO_MAX_SOURCES_V6;
     // The one switch for every v7 feature (infographic and slides now; J4 and map-reduce reuse it): on from the release date, and only against a v7 server
-    const STUDIO_V7_RELEASE_MS = Date.UTC(2026, 10, 26); // 26 November 2026: the date the new features and terms took effect (testers only; the notice period was waived)
+    const STUDIO_V7_RELEASE_MS = Date.UTC(2026, 10, 26); // 26 November 2026: the date the new features and terms took effect
     const studioV7Released = () => Date.now() >= STUDIO_V7_RELEASE_MS;
     const studioV7Live = () => serverHas(7) && studioV7Released();
     // Map-reduce (runs bigger than one call, see studioMr below). The part and reduce limits are the server's (the hello caps can only lower them).
