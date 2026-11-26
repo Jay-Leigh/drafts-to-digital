@@ -12,7 +12,7 @@ async function main() {
 
   console.log('[hello gate and the Route by Mode fallback]');
   let r = await post('sth-job', { v: 1, op: 'status', jobs: [] }, H);
-  t(r.status === 200 && r.json.ok === true && r.json.v === 7 && r.json.caps.maxSources === 15 && r.json.caps.bulkCap === 2 && r.json.caps.reserve === 2 && r.json.caps.jobCap === 4 && r.json.modes.length === 10 && Math.abs(r.json.now - Date.now()) < 5000, 'hello answers v 7 and the caps (15 sources, bulk cap 2, reserve 2, total 4)', r.text);
+  t(r.status === 200 && r.json.ok === true && r.json.v === (process.env.WF_V8 ? 8 : 7) && r.json.caps.maxSources === 15 && r.json.caps.bulkCap === 2 && r.json.caps.reserve === 2 && r.json.caps.jobCap === 4 && r.json.modes.length === 10 && Math.abs(r.json.now - Date.now()) < 5000, 'hello answers v 7 and the caps (15 sources, bulk cap 2, reserve 2, total 4)', r.text);
   t((await post('sth-job', { v: 1, op: 'status', jobs: [] })).status === 401, 'hello needs the token');
   for (const [name, body] of [['unknown mode', { mode: 'nope' }], ['no mode', {}], ['studio_zzz', { mode: 'studio_zzz', v: 1 }]]) {
     r = await post('student-tools-v2', body, H);
