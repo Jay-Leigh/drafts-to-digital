@@ -2173,6 +2173,14 @@
       font-size: 11px; color: rgba(26,46,28,0.4);
       text-align: center; margin-top: 6px; line-height: 1.4;
     }
+    .sync-link-btn {
+      display: block; margin: 4px auto 0; padding: 4px 8px;
+      background: none; border: none; cursor: pointer;
+      font-family: 'Outfit', sans-serif; font-size: 12px;
+      color: rgba(26,46,28,0.55); text-decoration: underline;
+    }
+    .sync-link-btn:hover { color: #1a2e1c; }
+    .sync-link-btn.hidden { display: none; }
     .sync-user-row { display: flex; align-items: center; gap: 10px; }
     .sync-avatar {
       width: 30px; height: 30px; border-radius: 50%;
@@ -2458,6 +2466,7 @@
       .sidebar.collapsed .sync-btn { justify-content: center; padding: 9px 0; gap: 0; }
       .sidebar.collapsed .sync-btn .nav-label,
       .sidebar.collapsed .sync-hint,
+      .sidebar.collapsed .sync-link-btn,
       .sidebar.collapsed .sync-user-info,
       .sidebar.collapsed .sync-sign-out-btn { display: none; }
       .sidebar.collapsed .sync-user-row { justify-content: center; }
@@ -2592,7 +2601,7 @@
       .sidebar.collapsed .sync-btn.is-busy::before { margin: 0; }
       .sidebar.collapsed .sync-btn.is-busy > svg, .sidebar.collapsed .sync-btn.is-busy > .nav-label { display: none; }
       .sidebar.collapsed .sync-avatar { width: 34px; height: 34px; }
-      .sidebar.collapsed .sync-hint, .sidebar.collapsed .sync-user-info, .sidebar.collapsed .sync-sign-out-btn { display: none; }
+      .sidebar.collapsed .sync-hint, .sidebar.collapsed .sync-link-btn, .sidebar.collapsed .sync-user-info, .sidebar.collapsed .sync-sign-out-btn { display: none; }
       .sidebar.collapsed .sync-user-row { justify-content: center; }
       .sidebar.collapsed .sidebar-legal { display: none; }
     }
@@ -3033,6 +3042,7 @@
             <span class="nav-label">Sync across devices</span>
           </button>
           <p class="sync-hint">Sign in with Google to keep your data on every device</p>
+          <button id="btnSyncSignOutLink" class="sync-link-btn hidden" type="button">Sign out</button>
         </div>
         <div id="syncSignedIn" class="hidden sync-user-row">
           <img id="syncAvatar" class="sync-avatar" src="" alt="" />
@@ -4181,6 +4191,8 @@
       createdDocs: null,
       removedDocs: null,
       driveSyncToken: null,
+      driveSyncTokenExpiresAt: 0, // when the sync token ends (ms), from expires_in
+      syncAuto: false,            // this visit may still try to renew the sync token on a tap (memory only)
       driveSyncClient: null,
       driveSyncFileId: null,
       driveSyncUser: null,
@@ -4400,6 +4412,7 @@
       syncStatus:           $('syncStatus'),
       btnSyncSignIn:        $('btnSyncSignIn'),
       btnSyncSignOut:       $('btnSyncSignOut'),
+      btnSyncSignOutLink:   $('btnSyncSignOutLink'),
     };
 
     // ═══════════════════════════════════════════════════════════
@@ -8906,6 +8919,13 @@
     // ─── Reusable Google Docs helpers ────────────────
     function ensureGoogleToken() {
       if (hasFreshGoogleToken()) return Promise.resolve(state.googleAccessToken);
+      // A connected user already holds drive.file in the sync token: reuse it, or share the one sync request, so there is never a second window
+      if (hasFreshSyncToken()) return Promise.resolve(state.driveSyncToken);
+      if (syncTokenInflight) return syncTokenInflight.promise;
+      if (storedSyncUser()) {
+        if (!state.driveSyncClient) initDriveSyncClient();
+        if (state.driveSyncClient) return requestSyncToken();
+      }
       if (googleTokenInflight) {
         // A later tap asks again so the sign-in window comes back to the front; a quick double tap does not open a second one
         if (Date.now() - googleTokenRequestedAt > 2000) {
@@ -9077,13 +9097,15 @@
     function initDriveSyncClient() {
       if (typeof google === 'undefined' || !google.accounts) return;
       if (state.driveSyncClient) return;
-      state.driveSyncClient = google.accounts.oauth2.initTokenClient({
+      const client = google.accounts.oauth2.initTokenClient({
         client_id: CONFIG.googleClientId,
         scope: SYNC_SCOPE,
         include_granted_scopes: false,
-        callback: onDriveSyncToken,
-        error_callback: (err) => { clearSyncSignInBusy(); showGoogleAuthToast(err); },
+        // A client that was signed out of must not bring a late answer back to life
+        callback: (resp) => { if (state.driveSyncClient === client) onDriveSyncToken(resp); },
+        error_callback: (err) => { if (state.driveSyncClient === client) onSyncRequestFailed(err); },
       });
+      state.driveSyncClient = client;
     }
 
     let syncSignInTimer = null;
@@ -9092,16 +9114,188 @@
       setBusy(dom.btnSyncSignIn, false);
     }
 
+    // ── Staying connected ───────────────────────────
+    // The sync token lasts about an hour and is never stored. While a Google account is connected, the first tap or key press of a visit
+    // (and the first one after the token ends) asks Google for a new token with the account's e-mail as a hint; Google shows a brief window
+    // only when it needs to. One request at a time (tap, button, export share it); one automatic try per visit: if it is blocked,
+    // closed or refused, the "Re-connect Google" button is shown and nothing is tried by itself again. Other tabs of the app may hand over their
+    // token through a BroadcastChannel (memory to memory, never written anywhere).
+    let syncTokenInflight = null; // { promise, resolve, reject, timer }
+    let syncEpoch = 0;            // changes on sign-out, so an answer that was on its way is dropped
+    let syncKnownUser = false;    // a connected account was known when this tab started (or connected since)
+    let syncInitDone = false;     // the merge of this visit has run
+    let gtokenChannel = null;
+
+    const hasFreshSyncToken = () => !!state.driveSyncToken && Date.now() < state.driveSyncTokenExpiresAt;
+    const normEmail = (e) => String(e || '').trim().toLowerCase();
+    function storedSyncUser() {
+      try { return JSON.parse(storageGet(SYNC_USER_KEY)) || state.driveSyncUser || null; } catch { return state.driveSyncUser || null; }
+    }
+    const storedSyncEmail = () => { const u = storedSyncUser(); return u && u.email ? String(u.email) : ''; };
+
+    function settleSyncTokenRequest(err, token) {
+      const flight = syncTokenInflight;
+      if (!flight) return;
+      syncTokenInflight = null;
+      clearTimeout(flight.timer);
+      if (err) flight.reject(err); else flight.resolve(token);
+    }
+
+    // The one place that asks Google for a sync token. Call it directly inside a tap or key press (no await before it).
+    function requestSyncToken() {
+      if (syncTokenInflight) return syncTokenInflight.promise;
+      if (!state.driveSyncClient) initDriveSyncClient();
+      if (!state.driveSyncClient) return Promise.reject(handledGoogleAuthError('google_not_loaded'));
+      const flight = {};
+      flight.promise = new Promise((resolve, reject) => { flight.resolve = resolve; flight.reject = reject; });
+      flight.promise.catch(() => {}); // callers handle it; nobody may be waiting
+      flight.timer = setTimeout(() => {
+        if (syncTokenInflight !== flight) return;
+        clearSyncSignInBusy();
+        showToast('Google sign-in did not complete. Please try again.', 'error');
+        state.syncAuto = false;
+        if (storedSyncUser()) updateSyncUI('expired');
+        settleSyncTokenRequest(handledGoogleAuthError('google_auth_timeout'));
+      }, 3 * 60 * 1000);
+      syncTokenInflight = flight;
+      const email = storedSyncEmail();
+      try { state.driveSyncClient.requestAccessToken(email ? { prompt: '', login_hint: email } : {}); }
+      catch (err) { settleSyncTokenRequest(err); }
+      return flight.promise;
+    }
+
+    // Blocked, closed or refused window: say so once, show the button, stop trying by itself this visit
+    function onSyncRequestFailed(err) {
+      clearSyncSignInBusy();
+      showGoogleAuthToast(err);
+      state.syncAuto = false;
+      if (storedSyncUser()) updateSyncUI('expired');
+      settleSyncTokenRequest(handledGoogleAuthError(err && err.type ? err.type : 'google_auth_error'));
+    }
+
     function onDriveSyncToken(resp) {
       clearSyncSignInBusy();
       if (resp.error) {
         if (isGoogleAuthCancel(resp)) showToast('Google sign-in was cancelled.');
         else showToast('Google sign-in did not complete. Please try again.', 'error');
+        state.syncAuto = false;
+        if (storedSyncUser()) updateSyncUI('expired');
+        settleSyncTokenRequest(handledGoogleAuthError(resp.error));
         return;
       }
-      state.driveSyncToken = resp.access_token;
+      acceptSyncToken(resp);
+    }
+
+    // A token is used only after it is known to belong to the connected account: another account's file must never be merged here
+    async function acceptSyncToken(resp) {
+      const token = resp.access_token;
+      const epoch = syncEpoch;
+      const wanted = storedSyncEmail();
+      if (wanted) {
+        let user = null;
+        try { user = await driveFetchUserInfo(token); } catch { user = null; }
+        if (epoch !== syncEpoch) return; // signed out meanwhile
+        if (!user || !user.email) {
+          showToast('Could not check which Google account this is. Please try again.', 'error');
+          state.syncAuto = false;
+          updateSyncUI('expired');
+          settleSyncTokenRequest(handledGoogleAuthError('google_account_unchecked'));
+          return;
+        }
+        if (normEmail(user.email) !== normEmail(wanted)) {
+          revokeGoogleToken(token);
+          state.syncAuto = false;
+          showToast(`This is a different Google account (${user.email}). Sign out of sync first to switch.`, 'error');
+          updateSyncUI('expired');
+          settleSyncTokenRequest(handledGoogleAuthError('google_account_mismatch'));
+          return;
+        }
+      }
+      state.driveSyncToken = token;
+      state.driveSyncTokenExpiresAt = Date.now() + ((Number(resp.expires_in) || 3600) - 60) * 1000;
+      state.syncAuto = true;
+      syncKnownUser = true;
       failedDocs.clear();
-      runInitialSync();
+      shareSyncToken();
+      settleSyncTokenRequest(null, token);
+      startSyncRound();
+    }
+
+    // First token of a visit: the full merge. A renewal later in the visit only pushes what changed.
+    function startSyncRound() {
+      if (!syncInitDone) runInitialSync();
+      else { scheduleDrivePush(); updateSyncUI('signed-in'); }
+    }
+
+    // The token ended (401). While the visit may still renew by itself this is quiet ("Paused"); otherwise it is the button
+    function onSyncTokenEnded() {
+      state.driveSyncToken = null;
+      state.driveSyncTokenExpiresAt = 0;
+      updateSyncUI(state.syncAuto ? 'paused' : 'expired');
+    }
+
+    // ── Tap or key press renews the token ───────────
+    const SYNC_GESTURE_SKIP = '#btnSyncSignIn, #btnSyncSignOut, #btnSyncSignOutLink';
+    const SYNC_EDITABLE = 'input, textarea, select, [contenteditable=""], [contenteditable="true"]';
+    function onSyncGesture(e) {
+      if (!state.syncAuto || hasFreshSyncToken() || syncTokenInflight || document.visibilityState !== 'visible') return;
+      if (!document.getElementById('loginOverlay').classList.contains('dismissed')) return; // never on the sign-in gate
+      const el = e.target instanceof Element ? e.target : null;
+      if (el && el.closest(SYNC_GESTURE_SKIP)) return; // those ask by themselves
+      if (e.type === 'keydown') {
+        // A window would dismiss the keyboard in the middle of typing; bare modifier keys and Escape are no gesture
+        if (e.isComposing || ['Escape', 'Shift', 'Control', 'Alt', 'Meta', 'CapsLock'].includes(e.key)) return;
+        if (el && el.closest(SYNC_EDITABLE)) return;
+      }
+      if (!state.driveSyncClient) initDriveSyncClient();
+      if (!state.driveSyncClient) return; // Google's script has not loaded (yet)
+      requestSyncToken().catch(() => {}); // failures are already shown
+    }
+
+    function installSyncGestureHook() {
+      document.addEventListener('click', onSyncGesture, true);
+      document.addEventListener('keydown', onSyncGesture, true);
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') askOtherTabsForToken(); });
+      gtokenOpen();
+    }
+
+    // ── Other tabs ──────────────────────────────────
+    // The token travels from one tab to another only inside the browser's memory (BroadcastChannel), with its end time and e-mail.
+    // There is no storage fallback on purpose: the token is never written anywhere.
+    function gtokenOpen() {
+      if (gtokenChannel) return gtokenChannel;
+      try {
+        gtokenChannel = new BroadcastChannel('sth-gtoken');
+        gtokenChannel.onmessage = (e) => onGtokenMessage(e.data);
+      } catch { gtokenChannel = null; }
+      return gtokenChannel;
+    }
+    function gtokenPost(msg) {
+      const ch = gtokenOpen();
+      if (ch) { try { ch.postMessage({ ...msg, tab: TAB_ID }); } catch { /* channel closed */ } }
+    }
+    function shareSyncToken() {
+      if (!hasFreshSyncToken()) return;
+      gtokenPost({ type: 'token', token: state.driveSyncToken, exp: state.driveSyncTokenExpiresAt, email: storedSyncEmail() });
+    }
+    function askOtherTabsForToken() {
+      if (!syncKnownUser || hasFreshSyncToken() || syncTokenInflight) return;
+      gtokenPost({ type: 'ask', email: storedSyncEmail() });
+    }
+    function onGtokenMessage(msg) {
+      if (!msg || msg.tab === TAB_ID) return;
+      if (msg.type === 'ask') {
+        if (hasFreshSyncToken() && msg.email && normEmail(msg.email) === normEmail(storedSyncEmail())) shareSyncToken();
+        return;
+      }
+      if (msg.type !== 'token' || !syncKnownUser || hasFreshSyncToken() || syncTokenInflight) return;
+      const mine = storedSyncEmail();
+      if (!mine || normEmail(mine) !== normEmail(msg.email) || typeof msg.token !== 'string' || !(msg.exp > Date.now())) return; // never another account's token
+      state.driveSyncToken = msg.token;
+      state.driveSyncTokenExpiresAt = msg.exp;
+      state.syncAuto = true;
+      failedDocs.clear();
+      startSyncRound();
     }
 
     function triggerSyncSignIn() {
@@ -9114,7 +9308,7 @@
       }
       setBusy(dom.btnSyncSignIn, true);
       syncSignInTimer = setTimeout(clearSyncSignInBusy, 30000);
-      state.driveSyncClient.requestAccessToken();
+      requestSyncToken().catch(() => {}); // failures are already shown
     }
 
     function revokeGoogleToken(token) {
@@ -9126,9 +9320,19 @@
       });
     }
 
-    function signOutSync() {
-      const tokens = [state.driveSyncToken, state.googleAccessToken].filter(Boolean);
+    // remote: true = another tab signed out (it revoked the sync token already; this tab only drops what it holds)
+    function signOutSync(opts) {
+      const remote = !!(opts && opts.remote === true);
+      const tokens = (remote ? [state.googleAccessToken] : [state.driveSyncToken, state.googleAccessToken]).filter(Boolean);
       state.driveSyncToken = null;
+      state.driveSyncTokenExpiresAt = 0;
+      state.syncAuto = false;
+      syncKnownUser = false;
+      syncInitDone = false;
+      syncEpoch++;
+      settleSyncTokenRequest(handledGoogleAuthError('signed_out'));
+      clearSyncSignInBusy();
+      if (!remote) tabSync.post('gsignout');
       state.googleAccessToken = null;
       state.googleTokenExpiresAt = 0;
       state.driveSyncClient = null;
@@ -9145,6 +9349,11 @@
       storageRemove(SYNC_USER_KEY);
       storageRemove(SYNC_FILE_KEY);
       updateSyncUI('signed-out');
+      if (remote) {
+        Promise.all(tokens.map(revokeGoogleToken));
+        showToast('Signed out of sync in another tab.');
+        return;
+      }
       Promise.all(tokens.map(revokeGoogleToken)).then(results => {
         showToast(results.length && results.every(Boolean)
           ? 'Signed out and Google access removed.'
@@ -9298,10 +9507,7 @@
 
     // An expired sync token shows as "Re-connect Google", like a failed push
     function handleDriveTokenError(err) {
-      if (err && err.status === 401 && state.driveSyncToken) {
-        state.driveSyncToken = null;
-        updateSyncUI('expired');
-      }
+      if (err && err.status === 401 && state.driveSyncToken) onSyncTokenEnded();
     }
 
     // Files read from Drive while a request is prepared, so one file is not downloaded twice (dropped after 2 minutes or at the end of the request)
@@ -9552,6 +9758,7 @@
         if (signedOut()) return;
         if (newFileId !== fileId) setSyncFileId(newFileId);
 
+        syncInitDone = true;
         updateSyncUI('synced', user);
         showToast('✓ Synced — your data is up to date across all devices');
 
@@ -9560,7 +9767,10 @@
         console.error('[Sync]', err);
         // Token expired / rejected → clear so the button prompts re-auth (same as pushToDrive)
         if (err.status === 401 || err.status === 403) {
+          // A token that was just issued and is refused: ask the user, not another automatic try
           state.driveSyncToken = null;
+          state.driveSyncTokenExpiresAt = 0;
+          state.syncAuto = false;
           showToast(withCode('Google sign-in expired — please re-connect to sync', err), 'error');
           updateSyncUI('expired');
         } else {
@@ -9601,9 +9811,13 @@
       } catch (err) {
         if (signedOut()) return;
         console.error('[Sync push]', err);
-        // Token expired → clear so button prompts re-auth
-        if (String(err.message).includes('401') || String(err.message).includes('403')) {
+        // 401: the token ended, the next tap renews it. 403: Google refuses, so the button asks the user
+        if (err.status === 401) {
+          onSyncTokenEnded();
+        } else if (err.status === 403) {
           state.driveSyncToken = null;
+          state.driveSyncTokenExpiresAt = 0;
+          state.syncAuto = false;
           updateSyncUI('expired');
         } else {
           updateSyncUI('error');
@@ -9639,6 +9853,7 @@
           </svg>
           <span class="nav-label">${status === 'expired' ? 'Re-connect Google' : 'Sync across devices'}</span>`;
         btnSyncSignIn.dataset.tip = status === 'expired' ? 'Re-connect Google' : 'Sync across devices';
+        if (dom.btnSyncSignOutLink) dom.btnSyncSignOutLink.classList.toggle('hidden', status !== 'expired');
         return;
       }
 
@@ -9664,6 +9879,8 @@
         syncStatus.textContent = 'Sync failed \u2014 will retry';
       } else if (status === 'signed-in') {
         syncStatus.textContent = 'Connected \u2014 tap to sync now';
+      } else if (status === 'paused') {
+        syncStatus.textContent = 'Paused \u2014 tap anywhere to resume';
       }
     }
 
@@ -17153,7 +17370,8 @@
     dom.btnSyncSignIn.addEventListener('click', triggerSyncSignIn);
     dom.syncAvatar.addEventListener('load', () => dom.syncAvatar.classList.add('loaded'));
     dom.syncAvatar.addEventListener('error', () => dom.syncAvatar.classList.add('loaded'));
-    dom.btnSyncSignOut.addEventListener('click', signOutSync);
+    dom.btnSyncSignOut.addEventListener('click', () => signOutSync());
+    dom.btnSyncSignOutLink.addEventListener('click', () => signOutSync());
 
     dom.btnHamburger.addEventListener('click', () => {
       if (dom.sidebar.classList.contains('open')) closeSidebar();
@@ -17699,20 +17917,29 @@
           clearInterval(gisInterval);
         }
       }, 500);
-      setTimeout(() => clearInterval(gisInterval), 10000);
+      setTimeout(() => {
+        clearInterval(gisInterval);
+        // Google's script never loaded: nothing can renew by itself, so offer the button
+        if (!state.driveSyncClient && state.syncAuto) { state.syncAuto = false; if (storedSyncUser()) updateSyncUI('expired'); }
+      }, 10000);
 
       // Restore sync UI from last session (token expired but show who was connected)
       const storedUser = storageGet(SYNC_USER_KEY);
       if (storedUser) {
         try {
           const user = JSON.parse(storedUser);
-          // Show as expired so user knows to re-tap to reconnect
-          updateSyncUI('expired', user);
+          // Connected before: the first tap renews the Google token by itself, so no button yet. Without a stored e-mail
+          // (or on a failed try) the "Re-connect Google" button is shown instead.
+          syncKnownUser = true;
+          state.syncAuto = !!(user && user.email);
+          updateSyncUI(state.syncAuto ? 'paused' : 'expired', user);
         } catch { /* ignore */ }
       }
+      installSyncGestureHook();
+      askOtherTabsForToken();
 
       // Init KB + Tutor stores
-      tabSync.handlers = { kb: () => kb.reload(), tutor: () => tutor.reload(), history: refreshHistoryUi, studio: () => studio.reload(), jobs: () => jobs.reload() };
+      tabSync.handlers = { kb: () => kb.reload(), tutor: () => tutor.reload(), history: refreshHistoryUi, studio: () => studio.reload(), jobs: () => jobs.reload(), gsignout: () => signOutSync({ remote: true }) };
       tabSync.init();
       renderKbGrid();
       tutor.renderSidebarList();
