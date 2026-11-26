@@ -21,7 +21,8 @@
   <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js" integrity="sha384-948ahk4ZmxYVYOc+rxN1H2gM1EJ2Duhp7uHtZ4WSLkV4Vtx5MUqnV+l7u9B+jFv+" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.5.0/dist/purify.min.js" integrity="sha384-DOUwTXbuiiQxlONuue5N42674XXDfjIJ/LTPtJMZ2ZV1Ir4NRQ3OnM/yM505YQAc" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -3048,12 +3049,6 @@
           <button type="button" id="statusBannerClose" class="status-banner-close" aria-label="Dismiss status message">&times;</button>
         </span>
       </div>
-      <div id="noticeBanner" class="status-banner" role="status" hidden>
-        <span class="status-banner-text">On 8 December 2026 infographics, slide decks and more background processing arrive, and the Privacy Policy and Terms are updated. <a href="privacy.html#upcoming" target="_blank" rel="noopener">What changes</a></span>
-        <span class="status-banner-actions">
-          <button type="button" id="noticeBannerClose" class="status-banner-close" aria-label="Dismiss update notice">&times;</button>
-        </span>
-      </div>
       <div class="topbar">
         <div class="flex items-center gap-3">
           <button id="btnHamburger" class="hamburger-btn" aria-label="Toggle sidebar">
@@ -4016,7 +4011,7 @@
     const AUTH_TIMEOUT_MS = 20000;
     const CONSENT_KEY = 'sth_consent';
     // Bump whenever the effective date on privacy.html or terms.html changes: everyone is asked to accept again
-    const TERMS_VERSION = '2026-11-18';
+    const TERMS_VERSION = '2026-11-26';
 
     // Storage can be blocked or full (private modes, policies): the app must still open for the visit
     function storageGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
@@ -4583,8 +4578,7 @@
         body.textContent = entry.resultText;
       } else {
         body.style.whiteSpace = 'normal';
-        try { body.innerHTML = marked.parse(entry.resultText); }
-        catch { body.textContent = entry.resultText; }
+        setMarkdown(body, entry.resultText);
       }
       modal.classList.add('open');
     }
@@ -8553,11 +8547,7 @@
       } else {
         dom.resultTextarea.classList.add('hidden');
         dom.resultContent.classList.remove('hidden');
-        try {
-          dom.resultContent.innerHTML = marked.parse(state.resultText);
-        } catch {
-          dom.resultContent.textContent = state.resultText;
-        }
+        setMarkdown(dom.resultContent, state.resultText);
       }
 
       renderTextStats(state.resultText);
@@ -10787,9 +10777,16 @@
       return t.length > max ? t.slice(0, max) + '…' : t;
     }
 
-    function renderMarkdown(el, text) {
-      try { el.innerHTML = marked.parse(text); } catch { el.textContent = text; }
+    // Reply and document text is untrusted: parse, then sanitise (no scripts, handlers, remote images, forms; links open in a new tab). If either library did not load, show plain text.
+    const MD_PURIFY = { USE_PROFILES: { html: true }, FORBID_TAGS: ['style', 'img', 'picture', 'source', 'video', 'audio', 'iframe', 'object', 'embed', 'form', 'input', 'button', 'textarea', 'select', 'link', 'meta', 'svg', 'math'], FORBID_ATTR: ['style', 'srcset'] };
+    if (typeof DOMPurify !== 'undefined') DOMPurify.addHook('afterSanitizeAttributes', (node) => { if (node.tagName === 'A') { node.setAttribute('target', '_blank'); node.setAttribute('rel', 'noopener noreferrer'); } });
+    function setMarkdown(el, text) {
+      const plain = String(text ?? '');
+      let html = null;
+      try { if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') html = DOMPurify.sanitize(marked.parse(plain), MD_PURIFY); } catch { html = null; }
+      if (html === null) el.textContent = plain; else el.innerHTML = html;
     }
+    function renderMarkdown(el, text) { setMarkdown(el, text); }
 
     // Shared tooltip on <body>: never clipped by scrolling rails / collapsed sidebar.
     const floatTip = (() => {
@@ -11435,7 +11432,7 @@
     const STUDIO_MAX_SOURCES_V7 = 15; // the server accepts source ids S1 to S15 only from v7 on
     const studioMaxSources = () => serverHas(7) ? Math.min(STUDIO_MAX_SOURCES_V7, service.server.maxSources) : STUDIO_MAX_SOURCES_V6;
     // The one switch for every v7 feature (infographic and slides now; J4 and map-reduce reuse it): on from the release date, and only against a v7 server
-    const STUDIO_V7_RELEASE_MS = Date.UTC(2026, 11, 8); // 8 December 2026, the end of the 14-day notice
+    const STUDIO_V7_RELEASE_MS = Date.UTC(2026, 10, 26); // 26 November 2026: the date the new features and terms took effect
     const studioV7Released = () => Date.now() >= STUDIO_V7_RELEASE_MS;
     const studioV7Live = () => serverHas(7) && studioV7Released();
     // Map-reduce (runs bigger than one call, see studioMr below). The part and reduce limits are the server's (the hello caps can only lower them).
@@ -13649,7 +13646,7 @@
         }
         const grid = dom.viewHome.querySelector('.grid');
         if (grid) {
-          grid.insertAdjacentHTML('beforeend', `<a class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center bg-white/50" data-studio-entry href="#studio" title="Study Studio" aria-label="Study Studio"><div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center" style="color:#2c5f2d">${studioSvg('nav', 24)}</div><h3 class="text-lg mt-3">Study Studio</h3><p class="font-body text-sm text-ink/45 mt-1">Turn your Knowledge Bay into mind maps, flashcards and quizzes. Slides and infographics are coming</p></a>`);
+          grid.insertAdjacentHTML('beforeend', `<a class="mode-card border-2 border-warm/40 rounded-2xl p-6 text-center bg-white/50" data-studio-entry href="#studio" title="Study Studio" aria-label="Study Studio"><div class="mode-icon w-12 h-12 mx-auto rounded-xl bg-accent/8 flex items-center justify-center" style="color:#2c5f2d">${studioSvg('nav', 24)}</div><h3 class="text-lg mt-3">Study Studio</h3><p class="font-body text-sm text-ink/45 mt-1">Turn your Knowledge Bay into mind maps, flashcards, quizzes, infographics and slide decks.</p></a>`);
         }
         updateSidebarActive(state.currentRoute);
       },
@@ -17514,17 +17511,9 @@
       }
     });
 
-    const UPDATE_NOTICE_KEY = 'sth_notice_2026_12_08';
-    function showUpdateNotice() {
-      const el = document.getElementById('noticeBanner');
-      if (!el || studioV7Released() || storageGet(UPDATE_NOTICE_KEY) === '1') return;
-      el.hidden = false;
-      document.getElementById('noticeBannerClose').addEventListener('click', () => { storageSet(UPDATE_NOTICE_KEY, '1'); el.hidden = true; }, { once: true });
-    }
     async function initAfterAuth() {
       if (authInitDone) return;
       authInitDone = true;
-      showUpdateNotice();
 
       // Google OAuth init (deferred) — Docs export + Drive sync
       const gisInterval = setInterval(() => {

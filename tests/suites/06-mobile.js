@@ -21,10 +21,9 @@ async function seed(app) {
 }
 
 for (const width of WIDTHS) {
-  t.test(`${width}px: no horizontal scroll on home, tutor, studio, Knowledge Bay and the tools (notice banner showing)`, async (h) => {
+  t.test(`${width}px: no horizontal scroll on home, tutor, studio, Knowledge Bay and the tools`, async (h) => {
     const app = await h.newApp({ width, height: 760 });
     const chat = await seed(app);
-    assert.equal(await app.ev(`document.getElementById('noticeBanner').hidden`), false, 'the 8 Dec notice is showing today');
     const views = [['#home', 'home'], ['#tutor', 'tutor landing'], [`#tutor/${chat}`, 'tutor chat'], ['#studio', 'studio'], ['#studio/m_mindmap', 'studio viewer'], ['#knowledge', 'Knowledge Bay'], ['#transcribe', 'transcribe'], ['#template', 'template'], ['#reviewer', 'reviewer'], ['#references', 'references']];
     for (const [hash, label] of views) {
       await app.goto(hash);

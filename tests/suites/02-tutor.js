@@ -262,8 +262,8 @@ t.test('drafts: storage blocked does not throw', async (h) => {
   assert.deepEqual(app.pageErrors, []);
 });
 
-// page.js renderMarkdown(): el.innerHTML = marked.parse(text). marked does not sanitise, so HTML in a model reply (which can echo a hostile attached document or web page) runs.
-t.known('chat: HTML in a tutor reply is shown as text and never runs', async (h) => {
+// Replies are untrusted (a reply can echo a hostile attached document or web page): parsed by marked, then sanitised by DOMPurify.
+t.test('chat: HTML in a tutor reply is shown as text and never runs', async (h) => {
   const app = await h.newApp({ jobs: false });
   app.n8n.handlers.tutor = () => ({ text: 'Look: <img src=x onerror="window.__xss=1"> and <b>bold</b>' });
   const id = await app.newChat();
@@ -272,6 +272,16 @@ t.known('chat: HTML in a tutor reply is shown as text and never runs', async (h)
   await h.sleep(800);
   assert.equal(await app.page.evaluate(() => window.__xss), undefined, 'no script ran from the reply');
   assert.equal(await app.page.evaluate(() => document.querySelectorAll('#tutorMessages img[src="x"]').length), 0, 'no element was made from the reply');
+});
+
+t.test('markdown: scripts, handlers, javascript: links and remote images are removed; links open safely; without the sanitiser plain text shows', async (h) => {
+  const app = await h.newApp({ jobs: false });
+  const html = await app.ev(`(() => { const d = document.createElement('div'); setMarkdown(d, '[x](javascript:alert(1)) <script>window.__s=1</script> [ok](https://example.com) ![i](https://evil.test/p.png) <a href="https://e.test" onclick="window.__c=1">y</a> <iframe src="https://e.test"></iframe> **bold**'); return d.innerHTML; })()`);
+  assert.ok(!/javascript:/i.test(html) && !/<script/i.test(html) && !/onclick/i.test(html) && !/<img/i.test(html) && !/<iframe/i.test(html), 'dangerous parts removed: ' + html);
+  assert.ok(/<strong>bold<\/strong>/.test(html), 'normal Markdown kept');
+  assert.ok(/href="https:\/\/example\.com"[^>]*target="_blank"[^>]*rel="noopener noreferrer"|target="_blank"[^>]*rel="noopener noreferrer"[^>]*href="https:\/\/example\.com"/.test(html), 'links open in a new tab safely: ' + html);
+  const plain = await app.ev(`(() => { const keep = window.DOMPurify; window.DOMPurify = undefined; const d = document.createElement('div'); setMarkdown(d, '<b>x</b>'); window.DOMPurify = keep; return d.innerHTML; })()`);
+  assert.equal(plain, '&lt;b&gt;x&lt;/b&gt;', 'no sanitiser: shown as plain text');
 });
 
 t.run();
