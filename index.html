@@ -5733,7 +5733,7 @@
       leader: false, ticking: false, timer: null, kickT: null, uiTimer: null, busy: new Set(),
       groups: new Map(), groupQ: null, groupHandlers: {}, finishing: new Set(), held: new Set(),
       serverOffUntil: 0, modes: null, lastHello: 0, authPaused: false, authAsked: false, ackBlockedUntil: 0,
-      away: null, awayUntil: 0, baseTitle: '', slowKey: '', acking: false,
+      away: null, awayUntil: 0, baseTitle: '', slowKey: '', acking: false, claimOffUntil: 0,
       el: (id) => document.getElementById(id),
       enabled() { return !this.forcedOff && storageGet(JOBS_FLAG_KEY) !== '0'; },
 
@@ -5798,6 +5798,7 @@
           const old = this.recs.get(id);
           if (old && old.state === rec.state) { rec.nextPollAt = old.nextPollAt; rec.pollStep = old.pollStep; rec.createTries = Math.max(rec.createTries || 0, old.createTries || 0); }
           if (fn(rec) === false) { this.recs.set(id, rec); return; }
+          pickup.stamp(rec);
           try { await this.store.setItem(`job:${id}`, rec); } catch { /* kept in memory */ }
           out = rec;
         });
@@ -5850,6 +5851,7 @@
           this.awayUntil = now + JOBS_AWAY_MS;
           for (const r of [...this.recs.values()]) {
             if (!JOBS_ACTIVE.has(r.state) && now - (r.finishedAt || r.createdAt || now) > JOBS_KEEP_MS) { await this.drop(r.id); continue; }
+            if (r.foreign && JOBS_ACTIVE.has(r.state) && now > (r.expiresAt || 0)) { await pickup.expireForeign(r); continue; } // its entry in the pickup list has ended
             if (r.state === 'preparing') { await this.resumePrepared(r); continue; }
             if (r.state === 'submitting' && now - (r.submittedAt || r.createdAt) > JOBS_UNSENT_MS) { await this.giveUpUnsent(r); continue; }
             if (JOBS_ACTIVE.has(r.state) && r.state !== 'needsConfirm') { r.nextPollAt = now; if (!this.groupShown(r)) this.away.add(r.id); }
@@ -5891,7 +5893,8 @@
         const next = { v, seen: true, maxSources: Number.isInteger(c.maxSources) && c.maxSources >= STUDIO_MAX_SOURCES_V6 && c.maxSources <= STUDIO_MAX_SOURCES_V7 ? c.maxSources : STUDIO_MAX_SOURCES_V7, bulk: Number.isInteger(c.bulkCap) && c.bulkCap >= 1 && c.bulkCap <= JOBS_BULK_MAX ? c.bulkCap : JOBS_BULK_MAX,
           maxParts: Number.isInteger(c.maxParts) && c.maxParts >= 1 && c.maxParts <= STUDIO_MR_MAX_PARTS ? c.maxParts : STUDIO_MR_MAX_PARTS,
           partMax: Number.isInteger(c.partMaxTokens) && c.partMaxTokens >= STUDIO_CAP_MIN && c.partMaxTokens <= STUDIO_MR_PART_MAX ? c.partMaxTokens : STUDIO_MR_PART_MAX,
-          reduceMax: Number.isInteger(c.reduceMaxTokens) && c.reduceMaxTokens >= STUDIO_CAP_MIN && c.reduceMaxTokens <= STUDIO_MR_REDUCE_MAX ? c.reduceMaxTokens : STUDIO_MR_REDUCE_MAX };
+          reduceMax: Number.isInteger(c.reduceMaxTokens) && c.reduceMaxTokens >= STUDIO_CAP_MIN && c.reduceMaxTokens <= STUDIO_MR_REDUCE_MAX ? c.reduceMaxTokens : STUDIO_MR_REDUCE_MAX,
+          lease: Number.isInteger(c.claimLeaseS) && c.claimLeaseS >= 60 && c.claimLeaseS <= 3600 ? c.claimLeaseS * 1000 : 600000 }; // v8: how long a claim on a finished answer holds
         const before = studioMaxSources(), live = studioV7Live();
         service.server = next;
         renew.noteServerV(v);
@@ -5932,6 +5935,7 @@
       kick() {
         if (!this.available) return;
         this.resumeAuth();
+        pickup.kick();
         if (this.kickT) return;
         this.kickT = setTimeout(() => {
           this.kickT = null;
@@ -5999,6 +6003,7 @@
           if (pollable.some(r => due.includes(r))) await this.pollBatch(pollable);
           await this.ackBatch();
           this.checkAway();
+          pickup.step();
         } finally {
           this.ticking = false;
           this.schedule();
@@ -6091,7 +6096,9 @@
         await this.update(rec.id, x => {
           if (x.state !== 'submitting' && x.state !== 'waiting') return false;
           x.state = 'submitted'; x.lastCreateAt = now; x.createTries = tries; x.pollStep = 0; x.nextPollAt = now + JOBS_FIRST_POLL_MS; x.waitKind = null;
+          if (pickup.eligible(x)) x.pickupDue = true; // the server has it: it may go to the pickup list (written once sync has a fresh token)
         });
+        pickup.kick();
         // cancelled while this create was still on its way: the server accepted it, so tell it to stop
         const after = this.recs.get(rec.id);
         if (after && after.state === 'cancelled') { try { await this.call({ v: 1, op: 'cancel', jobs: [{ id: rec.id, key: rec.key }] }); } catch { /* the server drops it after 72 hours */ } }
@@ -6129,6 +6136,7 @@
       async onStatus(r, s) {
         const cur = this.recs.get(r.id);
         if (!cur || (cur.state !== 'submitted' && cur.state !== 'running')) return;
+        if (cur.foreign) { await pickup.onStatus(cur, s); return; }
         const stale = Number.isInteger(s.attempt) && s.attempt < cur.attempt && s.state !== 'unknown';
         const state = stale ? 'unknown' : s.state;
         if (state === 'running') {
@@ -6142,6 +6150,8 @@
           await this.onFailed(cur, s, state === 'lost');
         } else if (state === 'cancelled') {
           await this.finalFail(cur, new AppError('JOB-410'), true);
+        } else if (state === 'collected') {
+          await this.onCollected(cur); // another device took the answer: done elsewhere, never sent again
         } else if (state === 'rejected') {
           await this.onRejected(cur, s);
         } else {
@@ -6150,6 +6160,12 @@
       },
 
       async onUnknown(cur) {
+        // A request that went to the pickup list may have been collected on another device and its note since deleted: it is never sent again (that would run and bill it twice)
+        if (cur.pub) {
+          if (Date.now() - (cur.lastCreateAt || 0) < JOBS_UNKNOWN_GRACE_MS) { this.stepPoll(cur); return; } // a job the server has just been given is not known to it for a moment
+          await this.onCollected(cur);
+          return;
+        }
         if (cur.sawServer) { await this.onFailed(cur, { error: null }, true); return; }
         if (Date.now() - (cur.lastCreateAt || 0) < JOBS_UNKNOWN_GRACE_MS) { this.stepPoll(cur); return; }
         if ((cur.createTries || 0) >= JOBS_CREATE_TRIES) {
@@ -6211,33 +6227,88 @@
         if (server) await this.ackBatch();
       },
 
-      // Fetch the answer, apply it once, then acknowledge so the server deletes it
+      // Fetch the answer, apply it once, then acknowledge so the server deletes it. From a v8 server the answer is taken with `claim` (a 10 minute lease under a
+      // nonce of this device, saved first so a crash can claim again): only one device applies it. One tab at a time per job (a lock where there is one).
       async fetchApplyAck(rec) {
         const cur = this.recs.get(rec.id);
         if (!cur || cur.state !== 'succeeded') return;
+        if (!(navigator.locks && navigator.locks.request)) { await this.claimApply(cur.id); return; }
+        await navigator.locks.request(`sth-job-apply-${cur.id}`, { ifAvailable: true }, lock => (lock ? this.claimApply(cur.id) : null));
+      },
+
+      // The claim body of a job (the nonce is the device's proof that the lease is its own)
+      claimBody(r) { return { v: 1, op: 'claim', jobs: [{ id: r.id, key: r.key, nonce: r.nonce }] }; },
+
+      async claimApply(id) {
+        let cur = this.recs.get(id);
+        if (!cur || cur.state !== 'succeeded') return;
+        const foreign = !!cur.foreign;
+        const claim = serverHas(8) && Date.now() >= this.claimOffUntil;
+        // a record that is not ours never uses the old `result` op (without the claim two devices would both apply it)
+        if (foreign && !claim) { cur.nextPollAt = Date.now() + 10 * 60 * 1000; return; }
+        if (claim && !cur.nonce) cur = (await this.update(id, x => { if (x.state !== 'succeeded') return false; x.nonce = x.nonce || jobsRandom(32); })) || this.recs.get(id);
+        if (!cur || cur.state !== 'succeeded') return;
         let data;
-        try { data = await this.call({ v: 1, op: 'result', jobs: [{ id: cur.id, key: cur.key }] }); }
+        try { data = await this.call(claim ? this.claimBody(cur) : { v: 1, op: 'result', jobs: [{ id: cur.id, key: cur.key }] }); }
         catch (err) {
           const e = errorFromException(err);
-          if (e.key === 'JOB-404') { await this.expire(cur); return; }
-          if ((e.status === 401 || e.status === 403) && !e.guessed) { this.pauseForSignIn(); return; }
           const live = this.recs.get(cur.id);
+          if (claim && e.key === 'INPUT-400') { // the server went back to v7: no claim op; ask what it is now. Own jobs go on with result and ack, never dropped
+            this.claimOffUntil = Date.now() + JOBS_HELLO_MS;
+            await this.hello();
+            if (foreign) { if (live) live.nextPollAt = Date.now() + 10 * 60 * 1000; return; }
+            await this.claimApply(cur.id);
+            return;
+          }
+          if (claim && e.key === 'JOB-409') { // another device holds the lease: keep watching until it says `collected`, or its lease ends and this device can take the answer
+            const n = (live && live.claimTries) || 0;
+            await this.update(cur.id, x => { x.claimTries = n + 1; x.nextPollAt = Date.now() + PICKUP_CLAIM_WAIT_S[Math.min(n, PICKUP_CLAIM_WAIT_S.length - 1)] * 1000; });
+            return;
+          }
+          if (e.key === 'JOB-404') { if (foreign) await pickup.expireForeign(cur); else await this.expire(cur); return; }
+          if ((e.status === 401 || e.status === 403) && !e.guessed) { this.pauseForSignIn(); return; }
           if (live) live.nextPollAt = Date.now() + 10000;
           return;
         }
-        const live = this.recs.get(cur.id);
+        let live = this.recs.get(cur.id);
         if (!live || live.state !== 'succeeded') return;
+        // not an answer: the job is not finished (state from the raw record: a job past its deadline reads `running`, the status op knows `lost`), or another device collected it
+        if (claim && data && data.ok === true && data.result === undefined && typeof data.state === 'string') {
+          if (data.state === 'collected') await this.onCollected(live);
+          else await this.update(live.id, x => { if (x.state !== 'succeeded') return false; x.state = 'running'; x.nextPollAt = Date.now() + 5000; });
+          return;
+        }
         const inner = data && data.result;
         const bad = !inner || data.id !== cur.id ? new AppError('SRV-500', { safeMessage: 'Job result was not usable' }) : errorFromPayload(inner);
+        if (foreign) {
+          if (bad || (claim && data.mode !== live.mode)) { await pickup.abandon(live); return; }
+          await pickup.applyAndAck(live, inner, claim);
+          return;
+        }
         if (bad) { await this.finalFail(live, bad, true); return; }
+        const beat = claim ? setInterval(() => { this.call(this.claimBody(live)).catch(() => {}); }, Math.max(30000, ((service.server.lease || 600000) / 2))) : null; // a slow apply keeps its lease
         let applied = true;
         try { applied = await this.handlers[live.kind].apply(live, inner); }
         catch (err) { await this.finalFail(live, errorFromException(err), true); return; }
+        finally { if (beat) clearInterval(beat); }
         const now = Date.now();
         await this.update(live.id, x => { if (x.state !== 'succeeded') return false; x.state = 'applied'; x.appliedAt = now; x.finishedAt = now; x.ackDue = true; x.seen = applied === false; });
         await this.deleteInputs(live.id);
         if (!this.groupShown(live)) this.el('jobsLive').textContent = `${live.label}: ready.`;
         await this.ackBatch();
+      },
+
+      // Another device collected the answer (the server says `collected`, or says nothing of a job that went to the pickup list): done elsewhere, calm, never sent again
+      async onCollected(cur) {
+        if (!['submitted', 'running', 'succeeded'].includes(cur.state)) return;
+        if (!cur.foreign) { try { await this.handlers[cur.kind].collected?.(cur); } catch (err) { console.warn('[STH] Background job handler failed:', errorFromException(err).code); } }
+        const now = Date.now();
+        const r = await this.update(cur.id, x => {
+          if (!['submitted', 'running', 'succeeded'].includes(x.state)) return false;
+          x.state = 'done'; x.doneElsewhere = true; x.finishedAt = now; x.seen = true; x.ackDue = false;
+          if (x.foreign) x.dismissed = true;
+        });
+        if (r) await this.deleteInputs(cur.id);
       },
 
       async expire(rec) {
@@ -6254,7 +6325,7 @@
           for (;;) {
             const part = [...this.recs.values()].filter(r => r.ackDue).slice(0, 10);
             if (!part.length) return;
-            try { await this.call({ v: 1, op: 'ack', jobs: part.map(r => ({ id: r.id, key: r.key })) }); }
+            try { await this.call({ v: 1, op: 'ack', jobs: part.map(r => ({ id: r.id, key: r.key, ...(r.nonce ? { nonce: r.nonce } : {}) })) }); } // the nonce proves the lease is ours (a v7 server ignores it)
             catch { this.ackBlockedUntil = Date.now() + 30000; return; }
             for (const r of part) await this.update(r.id, x => { x.ackDue = false; if (x.state === 'applied') x.state = 'done'; });
           }
@@ -6322,7 +6393,7 @@
         let ready = 0, failed = 0;
         for (const id of this.away) {
           const r = this.recs.get(id);
-          if (!r) continue;
+          if (!r || r.dismissed || r.doneElsewhere) continue;
           if (r.state === 'applied' || r.state === 'done') ready++;
           else if (r.state === 'failed' || r.state === 'expired') failed++;
         }
@@ -6410,7 +6481,8 @@
           if (!r || r.state === 'preparing') {
             if (r) await this.drop(r.id);
             await this.groupUpdate(g.id, x => { const y = x.members[m.i]; if (y.state !== 'running' || y.jobId !== m.jobId) return false; y.state = 'todo'; y.jobId = null; });
-          } else if (r.state === 'applied' || r.state === 'done') await this.groupMemberDone(g.id, m.i, m.jobId);
+          } else if (r.state === 'done' && r.doneElsewhere) await this.handlers.group.collected(r); // collected on another device: settled by the kind's handler, never a failed run
+          else if (r.state === 'applied' || r.state === 'done') await this.groupMemberDone(g.id, m.i, m.jobId);
           else if (r.state === 'failed' || r.state === 'expired' || r.state === 'cancelled') await this.groupMemberFailed(g.id, m.i, m.jobId, errorFromPayload({ ok: false, error: { code: r.error ? r.error.code : 'STH-JOB-502' } }) || new AppError('JOB-502'));
         }
         const cur = this.groups.get(g.id);
@@ -6566,6 +6638,7 @@
         window.addEventListener('pageshow', () => { this.elect(true); this.kick(); });
         window.addEventListener('online', () => this.kick());
         window.addEventListener('focus', () => this.kick());
+        setInterval(() => { if (document.visibilityState === 'visible') pickup.step(); }, PICKUP_SCAN_MS / 2); // another device's requests: looked for about once a minute, only while the tab is in view
       },
 
       openTray(open, restoreFocus) {
@@ -6587,7 +6660,7 @@
         if (act.dataset.jobsAct === 'cancel') this.cancel(id);
         else if (act.dataset.jobsAct === 'again') this.retryNow(id);
         else if (act.dataset.jobsAct === 'retry') { this.drop(id); this.handlers[r.kind].retry(r); }
-        else if (act.dataset.jobsAct === 'dismiss') this.drop(id);
+        else if (act.dataset.jobsAct === 'dismiss') { if (r.foreign) this.update(id, x => { x.dismissed = true; }); else this.drop(id); } // a record from another device stays (hidden) so the same entry is not picked up again
         else if (act.dataset.jobsAct === 'send') this.handlers[r.kind].resumeUnsent(r, true);
       },
 
@@ -6613,14 +6686,21 @@
 
       count() {
         let n = 0;
-        for (const r of this.recs.values()) if (!this.groupShown(r) && (JOBS_ACTIVE.has(r.state) || (!r.seen && ['applied', 'done', 'failed', 'expired'].includes(r.state)))) n++;
+        for (const r of this.recs.values()) if (!r.dismissed && !this.groupShown(r) && (JOBS_ACTIVE.has(r.state) || (!r.seen && ['applied', 'done', 'failed', 'expired'].includes(r.state)))) n++;
         for (const g of this.shownGroups()) if (g.state === 'running' || g.state === 'failed' || (g.state === 'done' && !g.seen)) n++;
         return n;
       },
 
-      slow(r) { return (r.state === 'submitted' || r.state === 'running') && Date.now() - (r.submittedAt || r.createdAt) > (JOBS_SLOW_MS[r.mode] || 240000); },
+      slow(r) { return !r.foreign && (r.state === 'submitted' || r.state === 'running') && Date.now() - (r.submittedAt || r.createdAt) > (JOBS_SLOW_MS[r.mode] || 240000); },
 
+      // A request that another device started and this one collects says so; one that another device collected says so too (calm, no alarm, nothing is sent again)
       stateText(r) {
+        if (r.doneElsewhere) return 'Collected on your other device. It shows up here after the next sync.';
+        const t = this.stateTextOf(r);
+        const quiet = r.state === 'failed' || r.state === 'expired';
+        return r.foreign && !quiet ? `Picked up from your other device. ${t}` : t;
+      },
+      stateTextOf(r) {
         const since = `<span data-jobs-since="${r.submittedAt || r.createdAt}">${jobsElapsed(r.submittedAt || r.createdAt)}</span>`;
         if (r.state === 'preparing' || r.state === 'submitting') return `Sending (${since})`;
         if (r.state === 'submitted' || r.state === 'running') return this.slow(r) ? `Taking longer than usual (${since})` : `Working on it (${since})`;
@@ -6647,10 +6727,10 @@
         const id = escapeHtml(r.id);
         const acts = [];
         const active = JOBS_ACTIVE.has(r.state);
-        if (r.state === 'applied' || r.state === 'done') acts.push(`<a href="${escapeHtml(d.href)}" data-jobs-id="${id}">Open</a>`);
-        if (this.slow(r)) acts.push(`<button type="button" data-jobs-act="again" data-id="${id}">Try again now</button>`);
+        if ((r.state === 'applied' || r.state === 'done') && !r.doneElsewhere) acts.push(`<a href="${escapeHtml(d.href)}" data-jobs-id="${id}">Open</a>`);
+        if (this.slow(r) && !r.foreign) acts.push(`<button type="button" data-jobs-act="again" data-id="${id}">Try again now</button>`);
         if (active && r.state !== 'preparing') acts.push(`<button type="button" data-jobs-act="cancel" data-id="${id}">Cancel</button>`);
-        if (r.state === 'failed' || r.state === 'expired') acts.push(`<button type="button" data-jobs-act="retry" data-id="${id}">Try again</button>`);
+        if ((r.state === 'failed' || r.state === 'expired') && !r.foreign) acts.push(`<button type="button" data-jobs-act="retry" data-id="${id}">Try again</button>`);
         if (r.state === 'needsConfirm') acts.push(`<button type="button" data-jobs-act="send" data-id="${id}">Send now</button>`);
         if (!active) acts.push(`<button type="button" data-jobs-act="dismiss" data-id="${id}">Dismiss</button>`);
         return `<li class="jobs-row${r.state === 'failed' || r.state === 'expired' ? ' is-failed' : ''}" data-jobs-row="${id}"><span class="jobs-row-label">${escapeHtml(d.label)}</span><span class="jobs-row-state">${this.stateText(r)}</span><div class="jobs-row-actions">${acts.join('')}</div></li>`;
@@ -6672,7 +6752,7 @@
         this.el('jobsTrayBtn').setAttribute('aria-label', n ? `Background jobs, ${n} need${n === 1 ? 's' : ''} attention` : 'Background jobs');
         document.title = (n ? `(${n}) ` : '') + this.baseTitle;
         if (!this.el('jobsTray').hidden) {
-          const list = [...this.recs.values()].filter(r => r.state !== 'preparing' && !this.groupShown(r)).map(r => ({ at: r.createdAt, html: this.rowHtml(r) }))
+          const list = [...this.recs.values()].filter(r => r.state !== 'preparing' && !r.dismissed && !this.groupShown(r)).map(r => ({ at: r.createdAt, html: this.rowHtml(r) }))
             .concat(this.shownGroups().map(g => ({ at: g.createdAt, html: this.groupRowHtml(g) }))).sort((a, b) => b.at - a.at);
           this.el('jobsTrayList').innerHTML = list.map(x => x.html).join('');
           this.el('jobsTrayEmpty').hidden = list.length > 0;
@@ -6700,6 +6780,7 @@
           send: (j, payload) => studioSend(payload),
           retry: (j) => studio.retry(j.ref.itemId),
           rebind: (oldJob, newJob) => studio.rebindJob(oldJob.ref.itemId, newJob.id),
+          collected: (j) => studio.markPickedUp(j.ref.itemId, j.id),
         },
         group: {
           describe: (j) => { const g = jobs.groupOf(j.id); return { label: `${j.label} (part ${j.group.i + 1} of ${j.group.n})`, href: g && jobs.groupHandler(g).href ? jobs.groupHandler(g).href(g) : '#studio' }; },
@@ -6714,6 +6795,23 @@
           send: (j, payload, files) => { const g = jobs.groupOf(j.id); if (!g || !jobs.groupHandler(g).send) throw new AppError('JOB-502'); return jobs.groupHandler(g).send(g, j.group.i, payload, files); },
           retry: (j) => jobs.retryMember(j.group.id, j.group.i),
           rebind: async (oldJob, newJob) => { await jobs.groupUpdate(oldJob.group.id, x => { const m = x.members[oldJob.group.i]; if (m.jobId !== oldJob.id) return false; m.jobId = newJob.id; }); },
+          // another device collected the (single) member of a one-request run: it is done here too, and its History entry comes with the next sync. Safe to run again.
+          collected: async (j) => {
+            const g = jobs.groupOf(j.id);
+            if (!g || g.n !== 1 || g.kind !== 'tool') return;
+            if (await jobs.store.getItem(`out:${g.id}:0`).catch(() => null)) { await jobs.groupMemberDone(g.id, j.group.i, j.id); return; } // the answer was kept here after all
+            const now = Date.now();
+            await jobs.groupUpdate(g.id, x => { if (x.state !== 'running' && x.state !== 'failed') return false; x.members[0].state = 'done'; x.members[0].error = null; x.state = 'done'; x.finishedAt = now; x.pickedUp = true; x.handled = true; x.outcome = 'ok'; x.seen = true; });
+            await jobs.groupDropInputs(g.id, g.n);
+          },
+        },
+        // a request another device started, collected here from the pickup list (see `pickup`)
+        pickup: {
+          describe: (j) => ({ label: j.label, href: j.pk && j.pk.kind === 'studio' ? `#studio/${j.pk.ctx.itemId}` : `#${j.mode}` }),
+          apply: (j, data) => pickup.applyForeign(j, data),
+          fail: () => {},
+          send: () => { throw new AppError('JOB-502'); },
+          retry: () => {},
         },
         tutor: {
           describe: (j) => ({ label: j.label, href: `#tutor/${j.ref.chatId}` }),
@@ -6723,6 +6821,447 @@
           retry: (j) => tutor.retryJob(j),
           resumeUnsent: (j, confirmed) => tutor.resumeUnsent(j, confirmed),
         },
+      },
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    // ─── Pickup of background results on another device ────────
+    // ═══════════════════════════════════════════════════════════
+    // With Google sync connected, a request that goes to the server as ONE background job (a mind map, flashcards, quiz, infographic or slide deck, or a
+    // transcription, template or review of a single request) is listed in a small hidden Drive file (`sth-jobs-v1.json`, app data folder): its random id and secret
+    // key, the kind, a label, times, and where the result belongs. Another device signed in to the same Google account finds the entry, claims the answer on the
+    // server (one claim wins, a 10 minute lease under a nonce), applies it once, acknowledges it and marks the entry done. The file is only a hint: the server is the
+    // truth (a decision to apply always rests on a won claim, "done" on `collected`). Tutor replies, big (map-reduce) runs and runs of several batches are never
+    // listed: they finish on the device that started them. The key is never written anywhere but this file, the job calls to the server and this device's job store.
+    const PICKUP_FILE = 'sth-jobs-v1.json';
+    const PICKUP_VERSION = 1;
+    const PICKUP_MAX_ENTRIES = 50;
+    const PICKUP_MAX_BYTES = 256 * 1024;
+    const PICKUP_TTL_MS = 72 * 60 * 60 * 1000;        // an entry lives this long after the (last) start; the server keeps an answer 72 hours after it is ready
+    const PICKUP_DONE_KEEP_MS = 24 * 60 * 60 * 1000;  // a done / cancelled entry (its key is already gone) is kept this long so no device picks it up again
+    const PICKUP_SKEW_MS = 8 * 24 * 60 * 60 * 1000;   // times in the file must be within this of now
+    const PICKUP_SCAN_MS = 60 * 1000;
+    const PICKUP_LOCK = 'sth-drive-jobs';
+    const PICKUP_LABEL_MAX = 120;
+    const PICKUP_TOOL_MODES = ['transcribe', 'template', 'reviewer'];
+    const PICKUP_STUDIO_MODES = ['studio_mindmap', 'studio_flashcards', 'studio_quiz', 'studio_infographic', 'studio_slides'];
+    const PICKUP_ID_RE = /^j_[A-Za-z0-9_-]{22}$/;
+    const PICKUP_KEY_RE = /^[A-Za-z0-9_-]{43}$/;
+    const PICKUP_GROUP_RE = /^g_[A-Za-z0-9_-]{22}$/;
+    const PICKUP_STATES = ['open', 'done', 'cancelled'];
+    const PICKUP_CLAIM_WAIT_S = [20, 60, 120, 300]; // a claim that meets another device's lease is asked again after these waits (the last one repeats)
+    const PICKUP_END = { applied: 'done', done: 'done', cancelled: 'cancelled', failed: 'cancelled', expired: 'cancelled' };
+
+    const pickupTs = (n, now) => typeof n === 'number' && isFinite(n) && n > 0 && Math.abs(n - now) <= PICKUP_SKEW_MS ? Math.floor(n) : 0;
+    const pickupNames = (list) => (Array.isArray(list) ? list.filter(n => typeof n === 'string').slice(0, 20).map(n => n.slice(0, 200)) : []);
+    const pickupInt = (n, lo, hi) => (Number.isInteger(n) && n >= lo && n <= hi ? n : 0);
+
+    // Pure. The details a device needs to place the result, from an untrusted value (a typed copy, never the object itself); null when unusable
+    function pickupCleanCtx(kind, mode, raw) {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+      if (kind === 'studio') {
+        const tool = typeof raw.tool === 'string' ? raw.tool : '';
+        if (!Object.prototype.hasOwnProperty.call(STUDIO_TOOLS, tool) || STUDIO_TOOLS[tool].mode !== mode) return null;
+        if (typeof raw.itemId !== 'string' || !STUDIO_ID_RE.test(raw.itemId)) return null;
+        const ids = Array.isArray(raw.sourceIds) ? raw.sourceIds : [], names = Array.isArray(raw.sourceNames) ? raw.sourceNames : [];
+        const sourceIds = [], sourceNames = [];
+        for (let i = 0; i < ids.length && sourceIds.length < STUDIO_MAX_SOURCES_V7; i++) {
+          if (typeof ids[i] !== 'string' || !STUDIO_ID_RE.test(ids[i])) continue;
+          sourceIds.push(ids[i]);
+          sourceNames.push(typeof names[i] === 'string' ? names[i].slice(0, 200) : '');
+        }
+        return {
+          itemId: raw.itemId, tool,
+          title: studioClean(raw.title, 120) || 'Study aid',
+          language: STUDIO_LANGUAGES.some(l => l.code === raw.language) ? raw.language : 'en',
+          topic: typeof raw.topic === 'string' ? raw.topic.slice(0, STUDIO_TOPIC_MAX) : '',
+          options: studioCleanOptions(tool, raw.options),
+          sourceIds, sourceNames,
+          createdAt: studioTs(raw.createdAt),
+          ...(tool === 'infographic' && typeof raw.showSources === 'boolean' ? { showSources: raw.showSources } : {}),
+        };
+      }
+      const groupMode = typeof raw.mode === 'string' ? raw.mode : '';
+      if (!PICKUP_TOOL_MODES.includes(mode) || groupMode !== mode) return null;
+      if (typeof raw.groupId !== 'string' || !PICKUP_GROUP_RE.test(raw.groupId)) return null;
+      const pages = pickupInt(raw.pages, 1, 20000), batch = pickupInt(raw.batch, 1, 100);
+      if (!pages || !batch) return null;
+      return { groupId: raw.groupId, mode, fileNames: pickupNames(raw.fileNames), srcNames: pickupNames(raw.srcNames), pages, batch };
+    }
+
+    // Pure. One entry of the file, whitelisted field by field, or null (an entry that is not valid is skipped, never used)
+    function pickupCleanEntry(e, now) {
+      if (!e || typeof e !== 'object' || Array.isArray(e)) return null;
+      if (typeof e.id !== 'string' || !PICKUP_ID_RE.test(e.id) || !PICKUP_STATES.includes(e.state)) return null;
+      const open = e.state === 'open';
+      if (open ? !(typeof e.key === 'string' && PICKUP_KEY_RE.test(e.key)) : !(e.key === '' || (typeof e.key === 'string' && PICKUP_KEY_RE.test(e.key)))) return null;
+      const mode = typeof e.mode === 'string' && (PICKUP_STUDIO_MODES.includes(e.mode) || PICKUP_TOOL_MODES.includes(e.mode)) ? e.mode : '';
+      if (!mode) return null;
+      const kind = PICKUP_STUDIO_MODES.includes(mode) ? 'studio' : 'tool';
+      if (e.kind !== undefined && e.kind !== kind) return null;
+      const createdAt = pickupTs(e.createdAt, now), expiresAt = pickupTs(e.expiresAt, now);
+      if (!createdAt || !expiresAt) return null;
+      const ctx = pickupCleanCtx(kind, mode, e.ctx);
+      if (!ctx) return null;
+      return { id: e.id, key: open ? e.key : '', mode, kind, label: studioClean(e.label, PICKUP_LABEL_MAX) || 'Background request', createdAt, expiresAt, state: e.state, doneAt: open ? 0 : pickupTs(e.doneAt, now) || createdAt, ctx };
+    }
+
+    // An entry this version cannot read (a newer one) is kept as it is when it still looks like an entry and is small
+    function pickupForeignOk(e, now) {
+      if (!e || typeof e !== 'object' || Array.isArray(e)) return false;
+      if (typeof e.id !== 'string' || !PICKUP_ID_RE.test(e.id) || !PICKUP_STATES.includes(e.state) || typeof e.mode !== 'string') return false;
+      if (PICKUP_STUDIO_MODES.includes(e.mode) || PICKUP_TOOL_MODES.includes(e.mode)) return false; // one of ours that failed the checks: dropped
+      if (typeof e.expiresAt !== 'number' || !(e.expiresAt > now) || e.expiresAt - now > PICKUP_SKEW_MS) return false;
+      try { return JSON.stringify(e).length < 2000; } catch { return false; }
+    }
+
+    // Pure. Two copies of one entry (two devices wrote): a finished state beats open, the later finish wins, the later end time wins; a finished entry has no key
+    function pickupMerge(a, b) {
+      if (a.key && b.key && a.key !== b.key) return a; // the same id with another key is not the same request: the first stays
+      const rank = (x) => (x.state === 'open' ? 0 : 1);
+      const win = rank(b) > rank(a) || (rank(b) === rank(a) && rank(b) === 1 && b.doneAt > a.doneAt) ? b : a, lose = win === a ? b : a;
+      return { ...win, key: win.state === 'open' ? (win.key || lose.key) : '', expiresAt: Math.max(a.expiresAt, b.expiresAt), doneAt: Math.max(a.doneAt, b.doneAt) };
+    }
+
+    // Pure. The file's content as { future, entries: Map(id -> entry), foreign: [...] }. A newer version (future) is never written. Entries live in a Map and are
+    // built by hand, so no key of the file (`__proto__`, `constructor`) can reach an object this code uses.
+    function pickupParse(raw, now = Date.now()) {
+      const out = { future: false, entries: new Map(), foreign: [] };
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+      if (Number.isInteger(raw.v) && raw.v > PICKUP_VERSION) { out.future = true; return out; }
+      if (raw.v !== PICKUP_VERSION || !Array.isArray(raw.jobs)) return out;
+      for (const e of raw.jobs.slice(0, PICKUP_MAX_ENTRIES * 2)) {
+        const c = pickupCleanEntry(e, now);
+        if (c) { const have = out.entries.get(c.id); out.entries.set(c.id, have ? pickupMerge(have, c) : c); continue; }
+        if (out.foreign.length < 10 && pickupForeignOk(e, now)) out.foreign.push(JSON.parse(JSON.stringify(e)));
+      }
+      return out;
+    }
+
+    // Pure. Takes out what has ended (past its end time; finished more than 24 hours ago) and keeps at most 50 entries (open and newest first). Returns true when it changed anything.
+    function pickupPrune(entries, now) {
+      let changed = false;
+      for (const [id, e] of entries) {
+        if (now > e.expiresAt || (e.state !== 'open' && now - (e.doneAt || e.createdAt) > PICKUP_DONE_KEEP_MS)) { entries.delete(id); changed = true; }
+      }
+      if (entries.size > PICKUP_MAX_ENTRIES) {
+        const keep = [...entries.values()].sort((a, b) => (a.state === 'open' ? 0 : 1) - (b.state === 'open' ? 0 : 1) || b.createdAt - a.createdAt).slice(0, PICKUP_MAX_ENTRIES).map(e => e.id);
+        for (const id of [...entries.keys()]) if (!keep.includes(id)) entries.delete(id);
+        changed = true;
+      }
+      return changed;
+    }
+
+    // Pure. The file as it is written: only the fields below, newest first, at most 50 entries in all
+    function pickupSerialize(entries, foreign, now) {
+      const list = [...entries.values()].sort((a, b) => b.createdAt - a.createdAt || (a.id < b.id ? -1 : 1)).slice(0, PICKUP_MAX_ENTRIES);
+      const room = Math.max(0, PICKUP_MAX_ENTRIES - list.length);
+      return { v: PICKUP_VERSION, jobs: [...list.map(e => ({ id: e.id, key: e.key, mode: e.mode, kind: e.kind, label: e.label, createdAt: e.createdAt, expiresAt: e.expiresAt, state: e.state, doneAt: e.doneAt, ctx: e.ctx })), ...foreign.slice(0, room)], at: now };
+    }
+
+    // The hidden file in Drive (appDataFolder). Nothing here asks Google for a token: it works only with a fresh sync token.
+    const pickupIo = {
+      cache: null, // { id, version, entries, foreign }: the file as this tab last read or wrote it, reused while its version has not changed
+
+      async list(token) {
+        const q = encodeURIComponent(`name='${PICKUP_FILE}'`);
+        const res = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,size,version)`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) throw driveHttpError('Drive list', res.status);
+        const { files } = await res.json();
+        return (Array.isArray(files) ? files : []).filter(f => f && typeof f.id === 'string').sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)).slice(0, 4);
+      },
+
+      // One file's entries, or null when it is too big or damaged (it is then ignored and the next write replaces it)
+      async readFile(token, f, now) {
+        if (Number(f.size) > PICKUP_MAX_BYTES) return null;
+        const blob = await driveDownloadFile(token, f.id);
+        if (blob.size > PICKUP_MAX_BYTES) return null;
+        let raw = null;
+        try { raw = JSON.parse(await blob.text()); } catch { return null; }
+        return pickupParse(raw, now);
+      },
+
+      async patch(token, id, body) {
+        const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(id)}?uploadType=media&fields=id,version`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body });
+        if (!res.ok) throw driveHttpError('Drive update', res.status);
+        let j = null;
+        try { j = await res.json(); } catch { j = null; }
+        return j && j.version != null ? String(j.version) : null;
+      },
+
+      // Read, change (fn gets the merged entries and returns true when it changed them), write: one at a time (a lock across tabs), and the file is read again when
+      // another device wrote in between. Resolves { entries, wrote } | { future } | { skipped }.
+      mutate(fn) {
+        const run = () => this.mutateNow(fn);
+        return navigator.locks && navigator.locks.request ? navigator.locks.request(PICKUP_LOCK, run) : run();
+      },
+      async mutateNow(fn) {
+        const token = state.driveSyncToken;
+        if (!token || !hasFreshSyncToken()) return { skipped: 'no-token' };
+        const signedOut = () => state.driveSyncToken !== token;
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const files = await this.list(token);
+          if (signedOut()) return { skipped: 'signed-out' };
+          const now = Date.now();
+          let entries = new Map(), foreign = [], future = false, ignored = false;
+          const one = files.length === 1 ? files[0] : null;
+          if (one && one.version && this.cache && this.cache.id === one.id && this.cache.version === String(one.version)) {
+            entries = new Map(this.cache.entries); foreign = this.cache.foreign.slice();
+          } else {
+            for (const f of files) {
+              const parsed = await this.readFile(token, f, now);
+              if (signedOut()) return { skipped: 'signed-out' };
+              if (!parsed) { ignored = true; continue; }
+              if (parsed.future) future = true;
+              for (const e of parsed.entries.values()) { const have = entries.get(e.id); entries.set(e.id, have ? pickupMerge(have, e) : e); }
+              foreign.push(...parsed.foreign);
+            }
+          }
+          if (future) return { future: true }; // a newer app wrote it: never touched from here
+          foreign = foreign.filter(e => pickupForeignOk(e, now)).slice(0, 10);
+          const changed = fn(entries, now) === true;
+          const pruned = pickupPrune(entries, now);
+          const needsWrite = changed || pruned || ignored || files.length > 1;
+          if (!needsWrite || (!files.length && !entries.size)) {
+            this.cache = one && one.version ? { id: one.id, version: String(one.version), entries: new Map(entries), foreign } : null;
+            return { entries, wrote: false };
+          }
+          const primary = files[0];
+          if (primary && primary.version) {
+            const latest = await driveFileVersion(token, primary.id);
+            if (signedOut()) return { skipped: 'signed-out' };
+            if (latest !== String(primary.version)) { this.cache = null; continue; } // another device wrote since: read and merge again
+          }
+          const body = JSON.stringify(pickupSerialize(entries, foreign, now));
+          let id = primary ? primary.id : null, version = null;
+          if (primary) version = await this.patch(token, primary.id, body);
+          else id = await driveUploadRawFile(token, new Blob([body], { type: 'application/json' }), PICKUP_FILE);
+          if (signedOut()) return { skipped: 'signed-out' };
+          for (const extra of files.slice(1)) await driveDeleteFile(token, extra.id).catch(err => { if (err.status !== 404) throw err; }); // two files with one name (two devices created it at once): merged above
+          this.cache = version ? { id, version, entries: new Map(entries), foreign } : null;
+          return { entries, wrote: true };
+        }
+        return { skipped: 'busy' };
+      },
+    };
+
+    const pickup = {
+      running: false, again: false, kickT: null, lastScan: 0, future: false,
+
+      // A request that may go to the list: one study aid job, or the single member of a one-request tool run. Never a tutor reply, a big run or a run of several batches.
+      eligible(rec) {
+        if (!rec || rec.foreign) return false;
+        if (rec.kind === 'studio') return PICKUP_STUDIO_MODES.includes(rec.mode) && !!rec.ref && typeof rec.ref.itemId === 'string';
+        if (rec.kind === 'group') {
+          const g = rec.group && jobs.groups.get(rec.group.id);
+          return !!g && g.kind === 'tool' && g.n === 1 && PICKUP_TOOL_MODES.includes(rec.mode) && g.mode === rec.mode;
+        }
+        return false;
+      },
+
+      // Runs inside every write of a job record: a request that ended is marked in the list (its key goes) by the next round; one never listed needs nothing
+      stamp(rec) {
+        const end = PICKUP_END[rec.state];
+        if (!end) return;
+        rec.pickupDue = false;
+        if (rec.foreign && (rec.state === 'failed' || rec.state === 'expired')) return; // not collected: the device that started it may still do it
+        if ((rec.pub || rec.foreign) && !rec.pickupEnded && !rec.pickupMark) rec.pickupMark = end;
+      },
+
+      // Sync has a fresh token, this tab is the jobs leader, the server has claim
+      active() { return jobs.canWork() && serverHas(8) && hasFreshSyncToken() && syncKnownUser && !this.future; },
+
+      kick() {
+        if (this.kickT) return;
+        this.kickT = setTimeout(() => { this.kickT = null; this.step(); }, 300);
+      },
+
+      async step(force) {
+        if (this.running) { this.again = true; return; }
+        if (!this.active()) return;
+        const now = Date.now();
+        const due = [...jobs.recs.values()].some(r => r.pickupDue || (r.pickupMark && (r.pub || r.foreign)));
+        const scan = !!force || (document.visibilityState === 'visible' && now - this.lastScan >= PICKUP_SCAN_MS);
+        if (!due && !scan) return;
+        this.running = true;
+        try { await this.round(scan, now); }
+        catch (err) { console.warn('[STH] Pickup list skipped:', errorFromException(err).code); handleDriveTokenError(err); }
+        finally { this.running = false; if (this.again) { this.again = false; this.kick(); } }
+      },
+
+      // The entry for a record, built from what this device holds (a study aid's fields, a run's file names); null when there is nothing to list
+      async entryFor(r) {
+        let kind, ctx;
+        if (r.kind === 'studio') {
+          await studio.ensureInit();
+          const item = studio.items.find(i => i.id === r.ref.itemId);
+          if (!item || item.status === 'ready' || item.status === 'failed') return null;
+          kind = 'studio';
+          ctx = { itemId: item.id, tool: item.tool, title: item.title, language: item.language, topic: item.topic, options: item.options, sourceIds: item.sourceIds, sourceNames: item.sourceNames, createdAt: item.createdAt, ...(item.tool === 'infographic' ? { showSources: studioShowSources(item) } : {}) };
+        } else {
+          const g = jobs.groupOf(r.id);
+          if (!g || !g.ref) return null;
+          kind = 'tool';
+          ctx = { groupId: g.id, mode: g.ref.mode, fileNames: g.ref.fileNames, srcNames: g.ref.srcNames, pages: g.ref.pages, batch: g.ref.batch };
+        }
+        return pickupCleanEntry({ id: r.id, key: r.key, mode: r.mode, kind, label: r.label, createdAt: r.createdAt, expiresAt: (r.lastCreateAt || r.createdAt) + PICKUP_TTL_MS, state: 'open', doneAt: 0, ctx }, Date.now());
+      },
+
+      async round(scan, now) {
+        const work = [];
+        for (const r of [...jobs.recs.values()]) {
+          if (r.pickupMark && (r.pub || r.foreign)) work.push({ id: r.id, mark: r.pickupMark });
+          else if (r.pickupDue && JOBS_ACTIVE.has(r.state)) {
+            const entry = await this.entryFor(r);
+            work.push(entry ? { id: r.id, entry } : { id: r.id, skip: true });
+          }
+        }
+        if (!work.length && !scan) return;
+        const res = await pickupIo.mutate((entries, t) => {
+          let changed = false;
+          for (const w of work) {
+            const cur = entries.get(w.id);
+            if (w.entry) { entries.set(w.id, cur ? pickupMerge(cur, w.entry) : w.entry); changed = true; }
+            else if (w.mark && cur && cur.state === 'open') { entries.set(w.id, { ...cur, key: '', state: w.mark, doneAt: t }); changed = true; }
+          }
+          return changed;
+        });
+        if (res.future) { this.future = true; return; }
+        if (res.skipped) return;
+        if (scan) this.lastScan = now;
+        for (const w of work) {
+          await jobs.update(w.id, x => {
+            if (w.entry) { x.pub = true; x.pickupDue = false; }
+            else if (w.skip) x.pickupDue = false;
+            else { x.pickupMark = null; x.pickupEnded = true; }
+          });
+        }
+        if (res.entries) await this.take(res.entries, now);
+      },
+
+      // What the list says about requests this device does not own (new ones are taken up) and about the ones it has (a hint to ask the server soon)
+      async take(entries, now) {
+        for (const e of entries.values()) {
+          const mine = jobs.recs.get(e.id);
+          if (mine) {
+            if (e.state === 'open' || !JOBS_ACTIVE.has(mine.state) || jobs.busy.has(mine.id)) continue;
+            if (mine.foreign && e.state === 'cancelled' && (mine.state === 'submitted' || mine.state === 'running' || mine.state === 'succeeded')) await this.abandon(mine);
+            else if ((mine.nextPollAt || 0) > now) mine.nextPollAt = now; // the list is a hint: the server is asked, and decides
+            continue;
+          }
+          if (e.state !== 'open' || !e.key || now > e.expiresAt) continue;
+          if (e.kind === 'studio' && !studioKnownTool(e.ctx.tool)) continue;
+          await jobs.add(this.recFor(e));
+        }
+        jobs.schedule();
+      },
+
+      recFor(e) {
+        return { v: 1, id: e.id, key: e.key, mode: e.mode, kind: 'pickup', foreign: true, pk: { kind: e.kind, ctx: e.ctx }, ref: e.kind === 'studio' ? { itemId: e.ctx.itemId } : { groupId: e.ctx.groupId }, label: e.label,
+          attempt: 0, maxAttempts: 1, state: 'submitted', error: null, createdAt: e.createdAt, submittedAt: e.createdAt, lastCreateAt: e.createdAt, createTries: 0, finishedAt: null, nextPollAt: Date.now(), pollStep: 0, applyCtx: null, seen: false, appliedAt: null, expiresAt: e.expiresAt };
+      },
+
+      // A status answer for a request of another device: poll only; it never creates, resends, cancels by itself or acknowledges
+      async onStatus(cur, s) {
+        if (Date.now() > (cur.expiresAt || 0)) { await this.expireForeign(cur); return; }
+        const st = s && s.state;
+        if (st === 'running') {
+          if (cur.state !== 'running') await jobs.update(cur.id, x => { if (x.state !== 'submitted' && x.state !== 'running') return false; x.state = 'running'; x.sawServer = true; });
+          jobs.stepPoll(jobs.recs.get(cur.id) || cur, JOBS_HIDDEN_POLL_MS);
+        } else if (st === 'succeeded') {
+          await jobs.update(cur.id, x => { if (x.state !== 'submitted' && x.state !== 'running') return false; x.state = 'succeeded'; x.sawServer = true; x.nextPollAt = 0; });
+          const next = jobs.recs.get(cur.id);
+          if (next && next.state === 'succeeded') jobs.spawn(next, () => jobs.fetchApplyAck(next));
+        } else if (st === 'collected') {
+          await jobs.onCollected(cur);
+        } else if (st === 'cancelled') {
+          await this.abandon(cur);
+        } else {
+          jobs.stepPoll(cur, 5 * 60 * 1000); // not finished, failed, refused or not known yet: the device that started it decides; watched until the entry ends
+        }
+      },
+
+      // Silent end of a record of another device (cancelled, or not for this device to apply): hidden, nothing is shown, nothing is acknowledged
+      async abandon(r) {
+        await jobs.update(r.id, x => { if (!JOBS_ACTIVE.has(x.state)) return false; x.state = 'cancelled'; x.dismissed = true; x.finishedAt = Date.now(); x.seen = true; });
+        await jobs.deleteInputs(r.id);
+      },
+      async expireForeign(r) {
+        await jobs.update(r.id, x => { if (!JOBS_ACTIVE.has(x.state)) return false; x.state = 'expired'; x.dismissed = true; x.finishedAt = Date.now(); x.seen = true; x.error = null; });
+        await jobs.deleteInputs(r.id);
+      },
+
+      // Sync was signed out: what other devices started stops being watched here
+      async onSignOut() {
+        pickupIo.cache = null; this.lastScan = 0; this.future = false;
+        if (!jobs.available) return;
+        for (const r of [...jobs.recs.values()]) if (r.foreign && JOBS_ACTIVE.has(r.state) && !jobs.busy.has(r.id)) await this.expireForeign(r);
+      },
+
+      // The won claim: apply the answer where it belongs, then acknowledge it with the nonce. A failed apply is tried again after the lease (up to 3 times) and is never
+      // acknowledged, so the device that started the request can still take the answer.
+      async applyAndAck(live, inner, claim) {
+        const beat = claim ? setInterval(() => { jobs.call(jobs.claimBody(live)).catch(() => {}); }, Math.max(30000, ((service.server.lease || 600000) / 2))) : null;
+        let out;
+        try { out = await this.applyForeign(live, inner); }
+        catch (err) {
+          const e = errorFromException(err);
+          console.warn('[STH] Collecting a result from another device failed:', e.code);
+          const tries = (live.applyTries || 0) + 1;
+          await jobs.update(live.id, x => {
+            if (x.state !== 'succeeded') return false;
+            x.applyTries = tries;
+            if (tries >= 3) { x.state = 'failed'; x.error = { code: e.code, message: e.message }; x.finishedAt = Date.now(); x.seen = false; }
+            else x.nextPollAt = Date.now() + (service.server.lease || 600000) + 30000;
+          });
+          return;
+        } finally { if (beat) clearInterval(beat); }
+        if (out === 'drop') { await this.abandon(live); return; }
+        const now = Date.now();
+        await jobs.update(live.id, x => { if (x.state !== 'succeeded') return false; x.state = 'applied'; x.appliedAt = now; x.finishedAt = now; x.ackDue = true; x.seen = false; });
+        jobs.el('jobsLive').textContent = `${live.label}: ready.`;
+        await jobs.ackBatch();
+      },
+
+      // Resolves true (applied or already there), or 'drop' (this answer does not belong anywhere here: wrong tool, a deleted item, another job's item); throws to try again
+      async applyForeign(j, data) {
+        const ctx = j.pk && j.pk.ctx;
+        if (!ctx) return 'drop';
+        return j.pk.kind === 'studio' ? this.applyStudio(j, ctx, data) : this.applyTool(j, ctx, data);
+      },
+
+      async applyStudio(j, ctx, data) {
+        if (!studioKnownTool(ctx.tool) || STUDIO_TOOLS[ctx.tool].mode !== j.mode) return 'drop';
+        await studio.ensureInit();
+        if ((await studio.loadTombs()).has(ctx.itemId)) return 'drop'; // deleted on this or another device
+        const found = await studio.findForJob(ctx.itemId);
+        if (found) return found.jobId === j.id ? studio.applyJobResult(found.id, data) : 'drop'; // an item of another job (or one that came by sync) is never written to
+        const now = Date.now();
+        const item = {
+          id: ctx.itemId, tool: ctx.tool, title: ctx.title, language: ctx.language, topic: ctx.topic, options: ctx.options,
+          ...(ctx.tool === 'infographic' ? { showSources: ctx.showSources !== false } : {}),
+          sourceIds: ctx.sourceIds, sourceNames: ctx.sourceNames,
+          status: 'generating', jobId: j.id, createdAt: ctx.createdAt || j.createdAt, updatedAt: now, seen: false, error: null, artifact: null,
+        };
+        studio.items.unshift(item);
+        try { studio.hooks.applyResult(item, data); }
+        catch (err) { studio.items = studio.items.filter(i => i !== item); throw err; }
+        await studio.save(item);
+        studio.announce(`${item.title}: ready.`);
+        return true;
+      },
+
+      async applyTool(j, ctx, data) {
+        if (!PICKUP_TOOL_MODES.includes(j.mode) || ctx.mode !== j.mode) return 'drop';
+        const hid = `h_${ctx.groupId}`;
+        if (jobs.groups.has(ctx.groupId)) return 'drop'; // a run of this device with that id is not this request
+        if (Object.prototype.hasOwnProperty.call((await historyRec.load()).removed, hid)) return 'drop'; // that History entry was deleted
+        if ((await getHistory()).some(e => e.id === hid)) return true; // already there (History entry ids are the run's id: never written twice)
+        const g = { id: ctx.groupId, n: 1, quiet: true, ref: { mode: ctx.mode, fileNames: ctx.fileNames, srcNames: ctx.srcNames, newKbNames: [], pages: ctx.pages, batch: ctx.batch } };
+        await jobs.groupHandlers.tool.applyMember(g, 0, data);
+        await toolFinish(g);
+        if (!(await getHistory()).some(e => e.id === hid)) throw new AppError('JOB-502');
+        return true;
       },
     };
 
@@ -8790,7 +9329,8 @@
       }
       const onView = toolOnView(g);
       await jobs.groupUpdate(g.id, x => { x.outcome = err ? { code: err.code, message: err.message } : 'ok'; if (onView) x.seen = true; });
-      if (err) {
+      if (g.quiet) { /* a result collected from another device: no popup, it is in History */ }
+      else if (err) {
         if (onView) handleAppError(null, err); else showToast(errorToastText(err), 'error');
       } else if (onView) {
         state.resultText = resultText;
@@ -8821,6 +9361,7 @@
         return { label: t.name, text, actions: [{ act: 'cancel', label: 'Cancel' }] };
       }
       if (g.state === 'done') {
+        if (g.pickedUp) return { label: t.name, text: 'Collected on your other device. It shows up in History after the next sync.', actions: [{ act: 'dismiss', label: 'Dismiss' }] };
         if (g.outcome && g.outcome !== 'ok') return { label: t.name, failed: true, text: `${escapeHtml(g.outcome.message)} (Code ${escapeHtml(g.outcome.code)})`, actions: [{ act: 'dismiss', label: 'Dismiss' }] };
         return { label: t.name, text: 'Ready', actions: [{ act: 'open', label: 'Open' }, { act: 'dismiss', label: 'Dismiss' }] };
       }
@@ -9481,6 +10022,7 @@
     function startSyncRound() {
       if (!syncInitDone) runInitialSync();
       else { scheduleDrivePush(); updateSyncUI('signed-in'); }
+      pickup.kick(); // a fresh token: the background pickup list can be written and read now
     }
 
     // The token ended (401). While the visit may still renew by itself this is quiet ("Paused"); otherwise it is the button
@@ -9641,6 +10183,7 @@
       syncPullWrites = [];
       syncBase.clear().catch(() => {});
       historyRec.clearBase().catch(() => {});
+      pickup.onSignOut().catch(() => {});
       state.driveSyncFileId = null;
       state.driveSyncUser = null;
       convertedDocs.clear();
@@ -12550,6 +13093,8 @@
     const STUDIO_PROMPT_VERSION_V7 = 'studio-2026-12-a'; // the tools that arrived with v7
     const STUDIO_ENVELOPE = 'sth.studio/1';
     const STUDIO_KEEP_OPEN = 'Keep this tab open while this is made (about 1–2 minutes).';
+    const STUDIO_PICKUP_WAIT_MS = 3 * 24 * 60 * 60 * 1000;
+    const STUDIO_PICKUP_LOST = 'Your other device collected this, but it did not reach this one. Try again to make it.';
     const STUDIO_INTERRUPTED = 'This was interrupted because the page was closed or reloaded, so the result was lost. Try again to make it.';
     const STUDIO_REPORT_HREF = `mailto:jayleigh.dev@gmail.com?subject=${encodeURIComponent('Study Studio problem')}`;
     const STUDIO_ICONS = {
@@ -14728,7 +15273,8 @@
         if (tombs.has(id)) continue;
         const cur = mine.get(id);
         if (!cur) { plan.add.push({ ...r, status: 'ready', seen: false, error: null, artifact: null }); continue; }
-        if (cur.status !== 'ready') continue;
+        // a study aid whose job another device collected: this device's waiting copy becomes the finished one that came by sync
+        if (cur.status !== 'ready') { if (cur.pickedUp) plan.update.push({ id, fields: { ...r, status: 'ready', seen: false, error: null, artifact: null, pickedUp: false, jobId: null } }); continue; }
         if (!cur.driveFileId) plan.update.push({ id, fields: { driveFileId: r.driveFileId, artifactBytes: r.artifactBytes } });
         else if (r.updatedAt > (cur.updatedAt || 0)) plan.update.push({ id, fields: { title: r.title, updatedAt: r.updatedAt, ...(typeof r.showSources === 'boolean' ? { showSources: r.showSources } : {}), ...(cur.artifact ? {} : { driveFileId: r.driveFileId, artifactBytes: r.artifactBytes }) } });
       }
@@ -15048,6 +15594,7 @@
         if (item.status === 'queued' || item.status === 'generating') {
           const run = studioMr.groupOf(item);
           if (run) { const d = jobs.groupHandler(run).describeGroup(run); return `<span class="studio-item-note${d.failed ? ' is-error' : ''}">${d.text}</span>${d.failed ? '' : '<span class="skeleton studio-item-skeleton" aria-hidden="true"></span>'}`; }
+          if (item.pickedUp) return '<span class="studio-item-note">Collected on your other device. It shows up here after the next sync.</span>';
           const job = item.jobId && jobs.recs.get(item.jobId);
           return `<span class="studio-item-note">${job && jobs.isLive(job.id) ? jobs.noteFor(job) : STUDIO_KEEP_OPEN}</span><span class="skeleton studio-item-skeleton" aria-hidden="true"></span>`;
         }
@@ -15424,7 +15971,8 @@
           try {
             const blob = new Blob([JSON.stringify({ v: STUDIO_FILE_VERSION, id: item.id, tool: item.tool, artifact: item.artifact })], { type: 'application/json' });
             if (blob.size > STUDIO_FILE_MAX_BYTES) { console.warn('[Sync] Study aid too large for Drive sync:', item.id); continue; }
-            const fileId = await driveUploadRawFile(token, blob, studioFileName(item.id));
+            // the name first: a file of this aid that another device uploaded (two devices that both held the answer) is taken, never doubled
+            const fileId = (await driveListSyncFile(token, studioFileName(item.id))) || await driveUploadRawFile(token, blob, studioFileName(item.id));
             if (signedOut()) return;
             item.driveFileId = fileId;
             item.artifactBytes = blob.size;
@@ -15897,6 +16445,16 @@
         item.jobId = jobId;
         await this.save(item);
       },
+      // Another device collected this aid's job: the finished aid arrives with the next sync (asked for now), the waiting copy here is replaced then
+      async markPickedUp(itemId, jobId) {
+        const item = await this.findForJob(itemId);
+        if (!item || item.status === 'ready' || item.jobId !== jobId) return;
+        item.pickedUp = true;
+        item.pickedUpAt = Date.now();
+        await this.save(item);
+        autoPull('collected');
+        setTimeout(() => { const cur = this.items.find(i => i.id === itemId); if (cur && cur.pickedUp) autoPull('collected'); }, 10000); // the other device pushes a few seconds after it applied
+      },
 
       async retry(id) {
         const item = this.items.find(i => i.id === id);
@@ -15927,7 +16485,7 @@
         if (!item || !(await showConfirm(`Delete <strong>${escapeHtml(item.title)}</strong>? This removes it from this device and, if sync is on, from your Google Drive and your other devices.`))) return;
         if (item.jobId) await jobs.cancel(item.jobId, true);
         for (const run of studioMr.groupsOf(item.id)) { await jobs.groupUpdate(run.id, x => { x.replaced = true; }); await jobs.cancelGroup(run.id, true); await jobs.dropGroup(run.id); } // every run of it, however it is pointed at
-        if (item.status === 'ready') {
+        if (item.status === 'ready' || item.pickedUp) { // an aid collected elsewhere is deleted by id too, so the finished copy that comes by sync does not bring it back
           const tombs = await this.loadTombs();
           tombs.set(id, { at: Date.now(), ...(item.driveFileId ? { driveFileId: item.driveFileId } : {}) });
           await this.saveTombs(tombs);
@@ -15957,6 +16515,15 @@
         for (const item of this.items) {
           if ((item.status !== 'generating' && item.status !== 'queued') || this.running.has(item.id)) continue;
           if (await this.lockHeld(item.id)) continue;
+          if (item.pickedUp) { // collected on another device: it comes by sync; after 3 days it is not coming
+            if (Date.now() - (item.pickedUpAt || item.updatedAt || 0) < STUDIO_PICKUP_WAIT_MS) continue;
+            item.status = 'failed';
+            item.error = { code: null, message: STUDIO_PICKUP_LOST, interrupted: true };
+            item.pickedUp = false;
+            item.updatedAt = Date.now();
+            await this.persist(item);
+            continue;
+          }
           if (item.jobId && !jobs.recs.has(item.jobId)) await jobs.reload();
           if ((item.jobId && jobs.isLive(item.jobId)) || jobs.hasActive('studio', item.id) || studioMr.live(item)) continue;
           item.status = 'failed';

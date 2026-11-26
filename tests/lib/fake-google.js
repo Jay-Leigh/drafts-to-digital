@@ -56,7 +56,7 @@ class FakeDrive {
     if (p === '/drive/v3/files' && method === 'GET') {
       const q = url.searchParams.get('q') || '';
       const m = /name='([^']*)'/.exec(q);
-      return out(200, { files: [...this.files.values()].filter(f => !m || f.name === m[1]).map(f => ({ id: f.id })) });
+      return out(200, { files: [...this.files.values()].filter(f => !m || f.name === m[1]).map(f => ({ id: f.id, size: String(Buffer.byteLength(f.body)), version: String(f.version) })) }); // size and version ride along (the app asks for them with `fields`)
     }
     const one = /^\/(?:upload\/)?drive\/v3\/files\/([^/]+)$/.exec(p);
     if (one) {
