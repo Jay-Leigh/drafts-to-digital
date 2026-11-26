@@ -10019,7 +10019,6 @@
             syncInitDone = true;
             updateSyncUI('synced', user);
             showToast('✓ Synced — your data is up to date across all devices');
-            armAutoPull();
           } else {
             updateSyncUI('synced');
           }
@@ -10060,6 +10059,7 @@
       } finally {
         state.driveSyncing = false;
         syncLastRound = Date.now();
+        if (syncInitDone && state.driveSyncToken) armAutoPull(); // the next pull is 5 minutes after this round
       }
     }
 

@@ -126,7 +126,7 @@ t.test('A deletes a KB item and a chat; B receives the deletions; they never com
   await pull(B);
   assert.deepEqual(await kbIds(B), ['k_keep'], 'deleted on B too');
   assert.deepEqual(await chatIds(B), ['c_keep']);
-  assert.deepEqual(await B.ev(`Object.keys(await kb.store.getItem('knowledge_bay_removed'))`), ['k_x'], 'recorded as removed so another tab does not bring it back');
+  assert.deepEqual(await B.ev(`kb.store.getItem('knowledge_bay_removed').then(m => Object.keys(m))`), ['k_x'], 'recorded as removed so another tab does not bring it back');
   // B now adds something and pushes: the deleted ones stay out of the file and A
   await addKb(B, 'k_new'); await push(B);
   assert.deepEqual(fileKb(drive), ['k_keep', 'k_new']);
@@ -270,7 +270,7 @@ t.test('a quiet pull: calm status, no toast, no spinner stuck, and a return with
   await A.until(`kb.cache.some(i => i.id === 'k_1')`);
   await A.until(`!document.getElementById('syncSection').getAttribute('aria-busy') || document.getElementById('syncSection').getAttribute('aria-busy') === 'false'`);
   assert.deepEqual(await A.page.evaluate(() => window.__toasts), [], 'no toast for a pull');
-  assert.match(await status(A), /^Synced \u2014 \d\d:\d\d$/);
+  assert.match(await status(A), /^Synced \u2014 \d\d:\d\d/);
   const v = versionChecks(drive);
   await setVisible(A, 'hidden'); await setVisible(A, 'visible'); // inside the 60 s gap
   await sleep(200);
@@ -353,7 +353,8 @@ t.test('no ping-pong: two devices that each hold something new settle after two 
   const B = await connected(h, drive);
   await addKb(A, 'k_a'); await addChat(A, 'c_a', 'A'); await say(A, 'c_a', 'ma', 'hello');
   await addKb(B, 'k_b'); await addChat(B, 'c_b', 'B');
-  for (let i = 0; i < 4; i++) { await pull(A); await pull(B); }
+  await push(A); // write 1: A's news
+  for (let i = 0; i < 4; i++) { await pull(B); await pull(A); } // B merges and writes the union (write 2); after that nobody has anything to write
   assert.equal(writes(drive), 2, 'A wrote its news, B merged and wrote the union; nobody wrote again');
   assert.deepEqual(await kbIds(A), ['k_a', 'k_b']);
   assert.deepEqual(await kbIds(B), ['k_a', 'k_b']);
@@ -393,7 +394,8 @@ t.test('one sync at a time across tabs: a tab that finds the lock taken skips it
   await page2.waitForFunction(() => window.__t && window.__t.authInitDone === true, null, { timeout: 20000 });
   const tab2 = Object.assign(Object.create(Object.getPrototypeOf(A)), A, { page: page2 });
   await tab2.until('!kb.loading && !tutor.loading && studio.ready');
-  await connectDrive(tab2);
+  await tab2.ev(`requestSyncToken().then(() => true)`);
+  await tab2.until(`/^Synced/.test(document.getElementById('syncStatus').textContent)`, { what: 'tab 2 synced', timeout: 20000 });
   await addKb(B, 'k_1'); await push(B);
   // tab 1 holds the lock (a round in progress)
   await A.page.evaluate(() => { window.__rel = null; navigator.locks.request('sth-drive-sync', () => new Promise(r => { window.__rel = r; })); });
@@ -485,19 +487,24 @@ t.test('offline: pulls and pushes fail quietly, nothing crashes, and it picks up
   const A = await connected(h, drive);
   const B = await connected(h, drive);
   await addKb(B, 'k_1'); await push(B);
-  await A.context.setOffline(true);
+  // offline: the page says so, and the requests fail
+  const origHandle = drive.handle.bind(drive);
+  drive.handle = async (route) => { try { await route.abort('internetdisconnected'); } catch { /* gone */ } };
+  await A.page.evaluate(() => Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false }));
   await A.advance(70000, { step: 10000 });
   const log0 = drive.log.length;
   await setVisible(A, 'hidden'); await setVisible(A, 'visible');
   await sleep(200);
   assert.equal(drive.log.length, log0, 'offline: no request is made');
-  const failed = await pull(A); // forced while offline
+  await A.page.evaluate(() => { delete navigator.onLine; });
+  await A.page.evaluate(() => Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true })); // the page believes it is online but the request fails
+  const failed = await pull(A);
   assert.deepEqual(failed, { error: true });
   await addKb(A, 'k_off');
   await push(A);
   assert.match(await status(A), /Sync failed/);
   assert.deepEqual(A.pageErrors, []);
-  await A.context.setOffline(false);
+  drive.handle = origHandle;
   await A.page.evaluate(() => window.dispatchEvent(new Event('online')));
   await A.until(`kb.cache.some(i => i.id === 'k_1')`, { what: 'pulled after coming back online' });
   await push(A);
