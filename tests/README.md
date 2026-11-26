@@ -32,6 +32,7 @@ tests/
     11-ig-sources-icon  infographic "Show sources on the picture" (default, toggle, reload, sync, exports, request unchanged) and the app icon in the SVG/PNG/PDF/mind map/.pptx footers
     12-history-studio   History panel with study aids: live rows (badge, title, date, size line), interleaved by date, All / Documents / Study aids chips (sth_history_filter), open in Studio, delete through Studio (Drive file, tombstone), button dot, XSS, 320/390/1280
     13-google-reconnect stay connected to Google: first tap/key renews the sync token (prompt '', login_hint), expiry tracking, one request at a time, one try per visit (blocked/closed/refused -> Re-connect + Sign out link), wrong account never merges, tabs share the token in memory only, sign-out reaches other tabs, Docs export reuses the sync token, no token in storage
+    14-server-v8        the v8 server contract as the page sees it: hello v 8, student-tools-renew (answers, the 30-day cap, v1 tokens, epoch, fail closed, breaker, n8n's JWT layer), claim / collected / result 409 / the v7 rollback shape, the current page against a v8 server; KNOWN: a client must not resend after `collected` (PR-D)
 ```
 
 ## Running
@@ -72,8 +73,8 @@ The page is changed in no other way. The same hook is injected into BASE, so bot
 
 ## What the fakes do
 
-* `FakeN8n`: `POST student-tools-auth` (code `app.n8n.code`), `student-tools-v2` (direct requests), `sth-job-start` (create, JSON or multipart) and `sth-job`
-  (hello, status, result, ack, cancel, budget). Tokens are checked (bump `n8n.epoch` to make every token invalid). Jobs finish on their first status poll unless a
+* `FakeN8n`: `POST student-tools-auth` (code `app.n8n.code`), `student-tools-v2` (direct requests), `student-tools-renew` (v8: the real renewal rules, they are `n8n/tools/src/auth.lib.js` itself), `sth-job-start` (create, JSON or multipart) and `sth-job`
+  (hello, status, result, ack, cancel, budget; v8: claim, `collected`). Tokens are v2 tokens signed per secret generation: `n8n.secretGen++` (alias `epoch`, = rotating the JWT secret) makes every token invalid at once; `n8n.renewEpoch` (= the Upstash key `auth:ep`) only makes renewal answer STH-AUTH-441; `authEpRaw`, `redisDown`, `renewCount`, `checkExp` + `clock`, `issueToken(now, ttl, {v: 1, authTimeMs, ep, claims})` drive the renewal cases. `new FakeN8n({ v: 8 })` is a v8 server (default stays 7). Jobs finish on their first status poll unless a
   plan says otherwise: `n8n.plan(matchFn, { type: 'hold' | 'busy' | 'fail', code, retryable }, times)`, `n8n.release()`. `new FakeN8n({ v: 0 })` is a v6 server (no `v`, no
   caps); `fake: { caps: { maxParts: 5 }, budget: { bulkRemaining: ... }, enforceCaps: true }` pass options. Everything the page sends is in `n8n.log` (`creates()`,
   `direct()`, `ops('cancel')`, `list()`).

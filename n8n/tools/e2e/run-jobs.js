@@ -103,8 +103,8 @@ async function main() {
   r = await create(jt, tutorBody('hello there', chatA)); await sleep(1500);
   t((await gcalls()).length === calls1 + 1 && (await stOne(jt)).state === 'succeeded', 'idempotent re-create of a finished job: no new execution (only the sync call above ran)');
   r = await op('ack', [jt]); t(r.json.ok === true && r.json.acked.join() === jt.id, 'ack -> acked', r.json);
-  t(redis('EXISTS', 'sth:job:' + jt.id) === '0' && redis('EXISTS', 'sth:jobr:' + jt.id) === '0', 'ack deleted the record and the result');
-  t((await stOne(jt)).state === 'unknown', 'after ack: unknown');
+  t(process.env.WF_V8 ? redis('HGET', 'sth:job:' + jt.id, 'st') === 'collected' && redis('EXISTS', 'sth:jobr:' + jt.id) === '0' : redis('EXISTS', 'sth:job:' + jt.id) === '0' && redis('EXISTS', 'sth:jobr:' + jt.id) === '0', process.env.WF_V8 ? 'ack left a contentless collected note and deleted the result (v8)' : 'ack deleted the record and the result');
+  t((await stOne(jt)).state === (process.env.WF_V8 ? 'collected' : 'unknown'), process.env.WF_V8 ? 'after ack: collected (v8)' : 'after ack: unknown');
   r = await op('result', [jt]); t(r.json.ok === false && r.json.error.code === 'STH-JOB-404', 'after ack: result -> STH-JOB-404');
   r = await op('ack', [jt]); t(r.json.ok === true && r.json.acked.join() === jt.id, 'second ack is harmless');
 

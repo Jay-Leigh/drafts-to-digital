@@ -62,7 +62,7 @@ const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   const st = await state();
   t(st.store['auth:fail:10.3.3.3'] && Number(st.store['auth:fail:10.3.3.3']) >= 11, 'fail counter stored for last XFF hop only', st.store);
   t(!Object.keys(st.store).some((k) => k.includes('6.6.6.6')), 'client-supplied XFF hops ignored');
-  const ex10 = st.log.filter((l) => l.cmd && l.cmd[0] === 'EVAL' && l.cmd[5] === '600').length; t(ex10 > 0, 'EXPIRE window 600 passed');
+  const ex10 = st.log.filter((l) => l.cmd && l.cmd[0] === 'EVAL' && (l.cmd[5] === '600' || l.cmd[6] === '600')).length; t(ex10 > 0, 'EXPIRE window 600 passed');
   // success clears counter
   await auth('a', '10.4.4.4'); await auth('b', '10.4.4.4'); await auth('letmein', '10.4.4.4');
   t((await state()).store['auth:fail:10.4.4.4'] === undefined, 'successful login clears the counter');
@@ -212,7 +212,7 @@ const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   await fetch(M + '/_reset'); await setKey('auth:code', 'letmein');
   {
     const capIp = '11.1.1.1'; const first = await auth('letmein', capIp); const claims = jwt.verify(first.json.token, SECRET, { algorithms: ['HS256'] });
-    t(claims.sub === 'sth' && claims.sid === claims.jti && claims.ac === 'sth' && claims.v === 1 && claims.exp - claims.iat === 604800 && Object.keys(claims).sort().join() === 'ac,exp,iat,jti,sid,sub,v', 'token claims {sub,sid=jti,ac,v,jti,iat,exp(7d)}', claims);
+    t(claims.sub === 'sth' && claims.sid === claims.jti && claims.ac === 'sth' && (process.env.WF_V8 ? claims.v === 2 && claims.auth_time === claims.iat && claims.ep === 0 && Object.keys(claims).sort().join() === 'ac,auth_time,ep,exp,iat,jti,sid,sub,v' : claims.v === 1 && Object.keys(claims).sort().join() === 'ac,exp,iat,jti,sid,sub,v') && claims.exp - claims.iat === 604800, process.env.WF_V8 ? 'token claims v8 {sub,sid=jti,ac,v 2,jti,iat,exp(7d),auth_time,ep}' : 'token claims {sub,sid=jti,ac,v,jti,iat,exp(7d)}', claims);
     const codes = [first.status]; for (let i = 1; i < 20; i++) codes.push((await auth('letmein', capIp)).status);
     t(codes.every((c) => c === 200), '20 successful sign-ins per hour per IP are issued', codes);
     r = await auth('letmein', capIp); t(r.status === 429 && r.json && r.json.error === 'rate_limited' && !r.json.token, '21st sign-in -> 429 rate_limited even with the right code', r);

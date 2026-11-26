@@ -1,11 +1,12 @@
 #!/bin/bash
-# Rebuild v1..v7, validate, unit-test, then e2e against a local n8n 2.29.7 (mock Upstash/Gemini/DoH, real Redis 7 on :6390).
+# Rebuild v1..v8, validate, unit-test, then e2e against a local n8n 2.29.7 (mock Upstash/Gemini/DoH, real Redis 7 on :6390).
 # needs: redis-server on 6390 (e2e) and 6391 (Lua unit tests), node e2e/mock.js running, /etc/hosts alias "127.0.0.1 a.pub.test" (scrape tests)
 cd "$(dirname "$0")"
 REPO="$(cd .. && pwd)"
 node build.js && node validate.js | tail -1 || exit 1
 for v in v1-additive v2-enforce v3-studio v4-jobs v5-flashcards v6-quiz; do cmp sth-workflow-$v.json $REPO/sth-workflow-$v.json || { echo "$v changed"; exit 1; }; done
-cp sth-workflow-v7-bundle.json $REPO/sth-workflow-v7-bundle.json
+cmp sth-workflow-v7-bundle.json $REPO/sth-workflow-v7-bundle.json || { echo 'v7 changed (it must stay byte-identical: rollback copy)'; exit 1; }
+cp sth-workflow-v8-bundle.json $REPO/sth-workflow-v8-bundle.json
 node tests/t-safefetch.js && node tests/t-other.js && node tests/t-studio.js && node tests/t-jobs.js || exit 1
 # v5 unit tests, and the v3/v4 suites against v5 (everything v4 asserts must still hold)
 node tests/t-flashcards.js || exit 1
@@ -43,4 +44,15 @@ e2e/reload.sh v7-bundle && node -r ./e2e/retry-fetch.js e2e/run-e2e.js v3 || exi
 STUDIO_TEST_TIMEOUT_MS=6000 e2e/reload.sh v7-bundle && node -r ./e2e/retry-fetch.js e2e/run-studio.js && node -r ./e2e/retry-fetch.js e2e/run-flashcards.js && node -r ./e2e/retry-fetch.js e2e/run-quiz.js && node -r ./e2e/retry-fetch.js e2e/run-infographic.js && node -r ./e2e/retry-fetch.js e2e/run-slides.js && node -r ./e2e/retry-fetch.js e2e/run-digest.js || exit 1
 STUDIO_TEST_TIMEOUT_MS=6000 JOB_TEST_TUTOR_TIMEOUT_MS=4000 e2e/reload.sh v7-bundle && node -r ./e2e/retry-fetch.js e2e/run-jobs.js main && node -r ./e2e/retry-fetch.js e2e/run-jobs-fc.js main && node -r ./e2e/retry-fetch.js e2e/run-jobs-qz.js main || exit 1
 JOB_TEST_DEADLINES=tutor=8,studio_mindmap=10,studio_flashcards=10,studio_quiz=10 JOB_TEST_GRACE=2 JOB_TEST_TUTOR_TIMEOUT_MS=30000 STUDIO_TEST_TIMEOUT_MS=30000 e2e/reload.sh v7-bundle && node -r ./e2e/retry-fetch.js e2e/run-jobs.js short && node -r ./e2e/retry-fetch.js e2e/run-jobs-fc.js short && node -r ./e2e/retry-fetch.js e2e/run-jobs-qz.js short || exit 1
-STUDIO_TEST_TIMEOUT_MS=6000 J4_TEST_TIMEOUT_MS=8000 JOB_TEST_TUTOR_TIMEOUT_MS=4000 e2e/reload.sh v7-bundle && node -r ./e2e/retry-fetch.js e2e/run-jobs-j4.js && node -r ./e2e/retry-fetch.js e2e/run-v7.js
+STUDIO_TEST_TIMEOUT_MS=6000 J4_TEST_TIMEOUT_MS=8000 JOB_TEST_TUTOR_TIMEOUT_MS=4000 e2e/reload.sh v7-bundle && node -r ./e2e/retry-fetch.js e2e/run-jobs-j4.js && node -r ./e2e/retry-fetch.js e2e/run-v7.js || exit 1
+# v8 = v7 + token renewal, auth epoch, job claim / collected, hello v 8. Unit suites first (auth / renewal rules, claim / ack Lua on real Redis, the extra-origin build)
+node tests/t-auth.js && node tests/t-v8.js || exit 1
+# then every v7 e2e suite against v8 (nothing may regress; WF_V8 = the hello says 8), then the renewal / pickup suite, then the extra-origin build
+export WF_V8=1
+e2e/reload.sh v8-bundle && node -r ./e2e/retry-fetch.js e2e/run-e2e.js v3 || exit 1
+STUDIO_TEST_TIMEOUT_MS=6000 e2e/reload.sh v8-bundle && node -r ./e2e/retry-fetch.js e2e/run-studio.js && node -r ./e2e/retry-fetch.js e2e/run-flashcards.js && node -r ./e2e/retry-fetch.js e2e/run-quiz.js && node -r ./e2e/retry-fetch.js e2e/run-infographic.js && node -r ./e2e/retry-fetch.js e2e/run-slides.js && node -r ./e2e/retry-fetch.js e2e/run-digest.js || exit 1
+STUDIO_TEST_TIMEOUT_MS=6000 JOB_TEST_TUTOR_TIMEOUT_MS=4000 e2e/reload.sh v8-bundle && node -r ./e2e/retry-fetch.js e2e/run-jobs.js main && node -r ./e2e/retry-fetch.js e2e/run-jobs-fc.js main && node -r ./e2e/retry-fetch.js e2e/run-jobs-qz.js main && node -r ./e2e/retry-fetch.js e2e/run-renew.js || exit 1
+JOB_TEST_DEADLINES=tutor=8,studio_mindmap=10,studio_flashcards=10,studio_quiz=10 JOB_TEST_GRACE=2 JOB_TEST_TUTOR_TIMEOUT_MS=30000 STUDIO_TEST_TIMEOUT_MS=30000 e2e/reload.sh v8-bundle && node -r ./e2e/retry-fetch.js e2e/run-jobs.js short && node -r ./e2e/retry-fetch.js e2e/run-jobs-fc.js short && node -r ./e2e/retry-fetch.js e2e/run-jobs-qz.js short || exit 1
+STUDIO_TEST_TIMEOUT_MS=6000 J4_TEST_TIMEOUT_MS=8000 JOB_TEST_TUTOR_TIMEOUT_MS=4000 e2e/reload.sh v8-bundle && node -r ./e2e/retry-fetch.js e2e/run-jobs-j4.js && node -r ./e2e/retry-fetch.js e2e/run-v7.js || exit 1
+# the extra-origin build (review B1): all five webhooks answer both origins; built into a temp folder, never into the repo
+EXTRA_DIR="$(mktemp -d)"; STH_EXTRA_ORIGIN=https://school.example.org STH_OUT_DIR="$EXTRA_DIR" node build.js > /dev/null && WF_DIR="$EXTRA_DIR" e2e/reload.sh v8-bundle && node -r ./e2e/retry-fetch.js e2e/run-renew.js extra; rc=$?; rm -rf "$EXTRA_DIR"; exit $rc

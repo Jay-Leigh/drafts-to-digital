@@ -4,6 +4,7 @@ const { parseMultipart, CORS } = require('./fake-n8n');
 
 const GIS = `
 window.__gis = { requests: [], mode: 'ok', expiresIn: 3600, token: 'fake-drive-token', otherToken: 'fake-other-token', pending: [], revoked: [] };
+// __gis.noneMode (when set) is the mode for requests with prompt 'none' (silent tries); interaction_required answers { error: 'interaction_required' }
 // modes: ok | cancel (access_denied) | blocked (popup_failed_to_open) | closed (popup_closed) | otherAccount (a token of another account) | hold (answers when __gis.complete(mode) is called)
 window.__gis.complete = (mode) => { const run = window.__gis.pending.shift(); if (run) run(mode || 'ok'); };
 window.google = { accounts: { oauth2: {
@@ -12,13 +13,15 @@ window.google = { accounts: { oauth2: {
       const g = window.__gis;
       g.requests.push({ scope: cfg.scope, at: Date.now(), prompt: opts && opts.prompt, login_hint: opts && opts.login_hint, hasOpts: !!opts });
       const answer = (mode) => {
+        if (mode === 'interaction_required') { (cfg.callback || function(){})({ error: 'interaction_required' }); return; }
         if (mode === 'cancel') { (cfg.callback || function(){})({ error: 'access_denied' }); return; }
         if (mode === 'blocked') { (cfg.error_callback || function(){})({ type: 'popup_failed_to_open' }); return; }
         if (mode === 'closed') { (cfg.error_callback || function(){})({ type: 'popup_closed' }); return; }
         cfg.callback({ access_token: mode === 'otherAccount' ? g.otherToken : g.token, expires_in: g.expiresIn, scope: cfg.scope });
       };
-      if (g.mode === 'hold') { g.pending.push(answer); return; }
-      setTimeout(() => answer(g.mode), 0);
+      const m = (opts && opts.prompt === 'none' && g.noneMode) ? g.noneMode : g.mode;
+      if (m === 'hold') { g.pending.push(answer); return; }
+      setTimeout(() => answer(m), 0);
     } };
   },
   revoke(token, cb) { window.__gis.revoked.push(token); if (cb) cb({ successful: true }); },
