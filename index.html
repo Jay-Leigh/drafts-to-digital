@@ -5743,6 +5743,9 @@
           if (x.state !== 'submitting' && x.state !== 'waiting') return false;
           x.state = 'submitted'; x.lastCreateAt = now; x.createTries = tries; x.pollStep = 0; x.nextPollAt = now + JOBS_FIRST_POLL_MS; x.waitKind = null;
         });
+        // cancelled while this create was still on its way: the server accepted it, so tell it to stop
+        const after = this.recs.get(rec.id);
+        if (after && after.state === 'cancelled') { try { await this.call({ v: 1, op: 'cancel', jobs: [{ id: rec.id, key: rec.key }] }); } catch { /* the server drops it after 72 hours */ } }
         return 'sent';
       },
 
@@ -10704,6 +10707,9 @@
         const total = tokens.length;
         if (total < 12 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
         const box = dom.tutorMessages;
+        // notes and error lines already on the bubble are put back after each redraw of the reply text
+        const extras = [...bubble.querySelectorAll(':scope > .chat-error-code')];
+        const redraw = (t) => { renderMarkdown(bubble, t); extras.forEach(n => bubble.appendChild(n)); };
         const perMs = Math.max(0.12, total / 4000);
         const start = performance.now();
         let shown = 0;
@@ -10713,17 +10719,17 @@
           if (n !== shown) {
             shown = n;
             const pinned = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-            renderMarkdown(bubble, tokens.slice(0, n).join(''));
+            redraw(tokens.slice(0, n).join(''));
             if (pinned) box.scrollTop = box.scrollHeight;
           }
           if (n < total) r.raf = requestAnimationFrame(step);
           else this.finishReveal();
         };
-        const r = { bubble, text, raf: 0 };
+        const r = { bubble, text, raf: 0, redraw };
         this._reveal = r;
         bubble.classList.add('revealing');
         bubble.addEventListener('click', () => { if (this._reveal === r) this.finishReveal(); }, { once: true });
-        renderMarkdown(bubble, '');
+        redraw('');
         r.raf = requestAnimationFrame(step);
       },
 
@@ -10732,7 +10738,7 @@
         if (!r) return;
         this._reveal = null;
         cancelAnimationFrame(r.raf);
-        renderMarkdown(r.bubble, r.text);
+        r.redraw(r.text);
         r.bubble.classList.remove('revealing');
       },
 
