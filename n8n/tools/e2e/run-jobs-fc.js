@@ -88,7 +88,7 @@ async function main() {
   t(Number(redis('TTL', 'sth:job:' + jf.id)) > 259000 && Number(redis('TTL', 'sth:jobr:' + jf.id)) > 259000, 'record and result live 72 h');
   const cnt1 = (await gcalls()).length; await create(jf, fcBody()); await sleep(1500); t((await gcalls()).length === cnt1 && (await stOne(jf)).state === 'succeeded', 'idempotent re-create of a finished job: no new execution');
   r = await op('ack', [jf]); t(r.json.ok === true && r.json.acked.join() === jf.id && redis('EXISTS', 'sth:job:' + jf.id) === '0' && redis('EXISTS', 'sth:jobr:' + jf.id) === '0', 'ack deletes the record and the result');
-  t((await stOne(jf)).state === 'unknown', 'after ack: unknown'); r = await op('result', [jf]); t(r.json.ok === false && r.json.error.code === 'STH-JOB-404', 'after ack: result -> STH-JOB-404');
+  t((await stOne(jf)).state === (process.env.WF_V8 ? 'collected' : 'unknown'), process.env.WF_V8 ? 'after ack: collected (v8)' : 'after ack: unknown'); r = await op('result', [jf]); t(r.json.ok === false && r.json.error.code === 'STH-JOB-404', 'after ack: result -> STH-JOB-404');
   const bad = { ...jf, key: rkey() }; const jw = mkF(); await create(jw, fcBody()); await waitState(jw, DONE);
   t((await stOne({ ...jw, key: rkey() })).state === 'unknown', 'wrong key: status unknown'); r = await op('result', [{ ...jw, key: rkey() }]); t(r.json.error && r.json.error.code === 'STH-JOB-404', 'wrong key: result 404'); await op('ack', [jw]);
   for (const [count, difficulty] of [[15, 'easy'], [50, 'hard']]) {
