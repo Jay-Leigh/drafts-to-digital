@@ -1,4 +1,4 @@
-// Builds sth-workflow-v1..v7 (v5 = flashcards, v6 = quiz, v7 = bundle: infographic, slides, J4 jobs, map-reduce server side) from live.json.
+// Builds sth-workflow-v1..v8 (v5 = flashcards, v6 = quiz, v7 = bundle: infographic, slides, J4 jobs, map-reduce server side, v8 = v7 + token renewal, auth epoch, job claim / collected) from live.json.
 // Usage: node build.js
 const fs = require('fs');
 const path = require('path');
@@ -1335,17 +1335,112 @@ function buildV7(v6, v6Lib) {
   pt.parameters.jsCode = mustReplace(pt.parameters.jsCode, 'const sendWholeDocuments = totalTokens <= RETRIEVAL_BUDGET_TOKENS || WHOLE_DOCUMENT_PATTERN.test(latestQuestion);', 'const wholeAsked = WHOLE_DOCUMENT_PATTERN.test(latestQuestion);\n  const sendWholeDocuments = totalTokens <= RETRIEVAL_BUDGET_TOKENS || (wholeAsked && totalTokens <= WHOLE_DOCUMENT_MAX_TOKENS);\n  const tooBigForWhole = wholeAsked && totalTokens > WHOLE_DOCUMENT_MAX_TOKENS;');
   pt.parameters.jsCode = mustReplace(pt.parameters.jsCode, "These are excerpts, not the full documents. Treat them as the source of truth.\n", "These are excerpts, not the full documents. Treat them as the source of truth.\n${tooBigForWhole ? 'The student asked about the whole of material that is too large to read at once. Answer from the excerpts and add one sentence: for a summary or outline of a whole book, Study Studio can make it.\\n' : ''}");
 
-  // ── i. App origins: the webhook nodes answer only the app origin(s). Default = the single current origin (nothing changes). To allow a second
-  // origin (a future custom domain) build with STH_EXTRA_ORIGIN=https://example.org node build.js; n8n takes a comma-separated list. v1..v6 never change.
-  const extra = (process.env.STH_EXTRA_ORIGIN || '').trim();
-  if (extra) {
-    if (!/^https:\/\/[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:\d{1,5})?$/i.test(extra)) throw new Error('STH_EXTRA_ORIGIN must be an https origin without path (https://host[:port]), got: ' + extra);
-    let n = 0;
-    for (const nd of wf.nodes) if (nd.type === 'n8n-nodes-base.webhook' && nd.parameters.options && nd.parameters.options.allowedOrigins === 'https://jay-leigh.github.io') { nd.parameters.options.allowedOrigins = 'https://jay-leigh.github.io,' + extra; n++; }
-    if (n !== 4) throw new Error('expected 4 webhook nodes with the app origin, found ' + n);
-  }
-
   return { wf, libAll };
+}
+
+// ── App origins (a final step over the bundle, run on every shipped bundle AFTER it is built, so nothing added later can miss it): the webhook
+// nodes answer only the app origin(s). Default = the single current origin (nothing changes). To allow a second origin (a future custom domain)
+// build with STH_EXTRA_ORIGIN=https://example.org node build.js; n8n takes a comma-separated list. v1..v6 never change. `expected` = how many
+// webhook nodes must carry the app origin (v7: 4, v8: 5 = + Renew Endpoint); any other number is a build error, so a new webhook cannot be forgotten.
+const APP_ORIGIN = 'https://jay-leigh.github.io';
+function applyExtraOrigin(wf, expected) {
+  const extra = (process.env.STH_EXTRA_ORIGIN || '').trim();
+  if (!extra) return wf;
+  if (!/^https:\/\/[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:\d{1,5})?$/i.test(extra)) throw new Error('STH_EXTRA_ORIGIN must be an https origin without path (https://host[:port]), got: ' + extra);
+  let n = 0;
+  for (const nd of wf.nodes) if (nd.type === 'n8n-nodes-base.webhook' && nd.parameters.options && nd.parameters.options.allowedOrigins === APP_ORIGIN) { nd.parameters.options.allowedOrigins = APP_ORIGIN + ',' + extra; n++; }
+  if (n !== expected) throw new Error(`expected ${expected} webhook nodes with the app origin, found ${n}`);
+  return wf;
+}
+
+// v8 = v7 + (a) token renewal (Renew Endpoint, stateless, optional Upstash key auth:ep = revocation epoch, hourly global breaker), (b) sign-in claims v2 (auth_time, ep),
+// (c) job pickup by another device (op claim, state collected after ack, result honours a live claim), (d) hello v 8. It REPLACES v7 (import v8 instead of v7).
+// Design: docs/design-signin-sync.md B and D; every must-fix of docs/review-signin-sync-BD.md is in. Everything not listed here is byte-for-byte v7.
+function buildV8(v7) {
+  const wf = JSON.parse(JSON.stringify(v7));
+  const c = wf.connections;
+  const lua = (f) => src(f).replace(/\n+$/, '');
+  const authLib = src('auth.lib.js').replace(/\nif \(typeof module[^\n]*\n?$/, '\n');
+  const RX = 13856, RY = 7400;
+
+  // ── a. Sign-in: the epoch rides along in the same Redis round trip; claims v2 ──
+  const EVAL_AUTH8 =
+    "local c = redis.call('INCR', KEYS[2]) if c == 1 then redis.call('EXPIRE', KEYS[2], ARGV[1]) end return {redis.call('GET', KEYS[1]), c, redis.call('GET', KEYS[3])}";
+  const att = byName(wf, 'Auth Redis Attempt');
+  att.parameters.jsonBody = `={{ ["EVAL", ${JSON.stringify(EVAL_AUTH8)}, "3", "auth:code", $json.failKey, "auth:ep", "600"] }}`;
+  att.notes = 'Counts this attempt (key auth:fail:<ip>, window 600 s), reads auth:code and (v8) the optional revocation epoch auth:ep, in one round trip.';
+  byName(wf, 'Auth Evaluate').parameters.jsCode = authLib + src('auth8-evaluate.js');
+  byName(wf, 'Auth Build Claims').parameters.jsCode = authLib + src('auth8-build-claims.js');
+  wf.nodes.push(codeNode('Auth Alarm', src('auth8-alarm.js'), [16992, 3300 + 400], { notes: 'After the 503 answer: a stored auth:ep that is not a whole number raises one short error (mailed to the owner by the error workflow). Anything else passes silently.' }));
+  link(c, 'Auth Respond 503', 'Auth Alarm');
+
+  // ── b. Renewal ──
+  const EVAL_RENEW =
+    "local n = redis.call('INCR', KEYS[1]) if n == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end return {n, redis.call('GET', KEYS[2])}";
+  const readEpoch = redisNode(
+    'Renew Read Epoch',
+    `={{ ["EVAL", ${JSON.stringify(EVAL_RENEW)}, "2", "auth:rn:" + new Date().toISOString().slice(0, 13).replace(/[^0-9]/g, ''), "auth:ep", "7200"] }}`,
+    [RX + 448, RY],
+    { notes: 'ONE round trip: counts this renewal in the hourly global breaker (auth:rn:<yyyymmddhh>, 2 h expiry) and reads the optional revocation epoch auth:ep. Fail closed: no answer = unavailable.' }
+  );
+  readEpoch.parameters.options.timeout = 5000;
+  wf.nodes.push(
+    {
+      parameters: { httpMethod: 'POST', path: 'student-tools-renew', authentication: 'jwtAuth', responseMode: 'responseNode', options: { rawBody: false, allowedOrigins: APP_ORIGIN } },
+      id: uuid('Renew Endpoint'), name: 'Renew Endpoint', type: 'n8n-nodes-base.webhook', typeVersion: 2, position: [RX, RY], webhookId: uuid('webhook:student-tools-renew'), credentials: JWT_CRED,
+      notes: 'Renews the app token (v8). JWT required (n8n checks signature and expiry before anything runs). Stateless: new exp = min(now + 7 d, auth_time + 30 d); refused after the 30-day cap, when auth:ep differs, or when the token is under 1 h old. Answers 200 with {ok:true, token, ...} or {ok:false, error}. The body is ignored.',
+    },
+    codeNode('Renew Prepare', authLib + src('renew8-prepare.js'), [RX + 224, RY], { notes: 'Reads the verified claims only, strictly and by token version (v1 / v2). Never throws.' }),
+    readEpoch,
+    codeNode('Renew Evaluate', authLib + src('renew8-evaluate.js'), [RX + 672, RY], { notes: 'Decides with server time only. Rules in order: Redis failed, hourly breaker, unusable claims, invalid auth:ep, epoch differs, 30-day cap, token too young, ok.' }),
+    outcomeSwitch('Renew Outcome', ['ok', 'refused'], [RX + 896, RY]),
+    {
+      parameters: { operation: 'sign', useJson: true, claimsJson: '={{ $json.claimsJson }}', headerClaims: '{}', options: {} },
+      id: uuid('Renew Sign JWT'), name: 'Renew Sign JWT', type: 'n8n-nodes-base.jwt', typeVersion: 1, position: [RX + 1120, RY - 100], credentials: JWT_CRED, onError: 'continueRegularOutput',
+    },
+    codeNode('Renew Shape Token', src('renew8-shape-token.js'), [RX + 1344, RY - 100]),
+    ifNode('Renew Token Ok?', '={{ $json.ok === true }}', [RX + 1568, RY - 100]),
+    respondNode('Renew Respond OK', 200, '={{ JSON.stringify({ ok: true, token: $json.token, expiresAt: $json.expiresAt, authExpiresAt: $json.authExpiresAt, now: $json.now }) }}', [RX + 1792, RY - 200]),
+    respondNode('Renew Respond Refused', 200, '={{ JSON.stringify($json.reply) }}', [RX + 1792, RY + 100]),
+    codeNode('Renew Alarm', src('renew8-alarm.js'), [RX + 2016, RY + 100], { notes: 'After the refusal is sent: an invalid auth:ep raises one short error (mailed to the owner). Every other refusal passes silently.' })
+  );
+  link(c, 'Renew Endpoint', 'Renew Prepare');
+  link(c, 'Renew Prepare', 'Renew Read Epoch');
+  link(c, 'Renew Read Epoch', 'Renew Evaluate');
+  link(c, 'Renew Evaluate', 'Renew Outcome');
+  link(c, 'Renew Outcome', 'Renew Sign JWT', 0);
+  link(c, 'Renew Outcome', 'Renew Respond Refused', 1);
+  link(c, 'Renew Sign JWT', 'Renew Shape Token');
+  link(c, 'Renew Shape Token', 'Renew Token Ok?');
+  link(c, 'Renew Token Ok?', 'Renew Respond OK', 0);
+  link(c, 'Renew Token Ok?', 'Renew Respond Refused', 1);
+  link(c, 'Renew Respond Refused', 'Renew Alarm');
+
+  // ── c. Jobs: hello v 8, claim, collected after ack, result honours a live claim ──
+  const X0 = 13856, Y = 5300;
+  byName(wf, 'Job - Read Request').parameters.jsCode = src('job8-read-request.js');
+  byName(wf, 'Job - Plan').parameters.jsCode = src('job8-plan.js');
+  byName(wf, 'Job - Result Reply').parameters.jsCode = src('job8-result-reply.js');
+  const ack = byName(wf, 'Job - Ack');
+  ack.parameters.jsonBody = `={{ $json.jobs.map((j) => ["EVAL", ${JSON.stringify(lua('job8-ack.lua'))}, "2", j.job, j.jobr, j.kh, j.nonce, String($json.now), String($json.collectedTtlS)]) }}`;
+  ack.notes = 'ACK (v8): a finished (succeeded) job becomes a contentless `collected` record (72 h) and its answer is deleted, so a device that started the job never re-runs it; a job claimed by ANOTHER nonce is left alone (returns 3); failed / rejected / cancelled jobs are deleted as before; running is left alone.';
+  byName(wf, 'Job - Ack Reply').parameters.jsCode = src('job8-ack-reply.js');
+  byName(wf, 'Job - Result Read').notes = 'HMGET (kh, st, a, m, cl, cla) + GET of one job (a /pipeline call). A live claim makes the answer STH-JOB-409.';
+  const ro = byName(wf, 'Job - Route Op');
+  const rule0 = JSON.parse(JSON.stringify(ro.parameters.rules.values[0]));
+  rule0.conditions.conditions[0].id = uuid('Job - Route Op:claim');
+  rule0.conditions.conditions[0].rightValue = 'claim';
+  rule0.outputKey = 'claim';
+  ro.parameters.rules.values.push(rule0);
+  const claim = redisNode('Job - Claim', `={{ [["EVAL", ${JSON.stringify(lua('job-claim.lua'))}, "2", $json.jobs[0].job, $json.jobs[0].jobr, $json.jobs[0].kh, $json.jobs[0].nonce, String($json.now), String($json.claimLeaseMs)]] }}`, [X0 + 1344, Y + 1300], {
+    notes: 'CLAIM (v8, atomic): the holder of the key takes the finished answer under a nonce of its own (10 minute lease; the same nonce renews it). Another live claim = STH-JOB-409. Writes only cl / cla on an existing record (its expiry is unchanged).',
+  });
+  claim.parameters.options.timeout = 5000;
+  claim.parameters.url = UPSTASH_URL + '/pipeline';
+  wf.nodes.push(claim, codeNode('Job - Claim Reply', src('job-claim-reply.js'), [X0 + 1568, Y + 1300], { notes: 'Answer to op claim: the answer and its mode, or a state, or STH-JOB-409 (claimed), or STH-JOB-404.' }));
+  link(c, 'Job - Route Op', 'Job - Claim', 8);
+  link(c, 'Job - Claim', 'Job - Claim Reply');
+  return wf;
 }
 
 const v1 = buildV1();
@@ -1355,15 +1450,20 @@ const v4 = buildV4(v3);
 const { wf: v5, libAll: v5Lib } = buildV5(v4);
 const { wf: v6, libAll: v6Lib } = buildV6(v5, v5Lib);
 const { wf: v7, libAll: v7Lib } = buildV7(v6, v6Lib);
-fs.writeFileSync(path.join(DIR, 'sth-workflow-v1-additive.json'), JSON.stringify(v1, null, 2) + '\n');
-fs.writeFileSync(path.join(DIR, 'sth-workflow-v2-enforce.json'), JSON.stringify(v2, null, 2) + '\n');
-fs.writeFileSync(path.join(DIR, 'sth-workflow-v3-studio.json'), JSON.stringify(v3, null, 2) + '\n');
-fs.writeFileSync(path.join(DIR, 'sth-workflow-v4-jobs.json'), JSON.stringify(v4, null, 2) + '\n');
-fs.writeFileSync(path.join(DIR, 'sth-workflow-v5-flashcards.json'), JSON.stringify(v5, null, 2) + '\n');
-fs.writeFileSync(path.join(DIR, 'sth-workflow-v6-quiz.json'), JSON.stringify(v6, null, 2) + '\n');
-fs.writeFileSync(path.join(DIR, 'sth-workflow-v7-bundle.json'), JSON.stringify(v7, null, 2) + '\n');
-fs.mkdirSync(path.join(DIR, 'gen'), { recursive: true });
-fs.writeFileSync(path.join(DIR, 'gen', 'studio5.lib.js'), '// GENERATED by build.js (v5 Studio - Validate library): do not edit\n' + v5Lib);
-fs.writeFileSync(path.join(DIR, 'gen', 'studio6.lib.js'), '// GENERATED by build.js (v6 Studio - Validate library): do not edit\n' + v6Lib);
-fs.writeFileSync(path.join(DIR, 'gen', 'studio7.lib.js'), '// GENERATED by build.js (v7 Studio - Validate library): do not edit\n' + v7Lib);
-console.log('v7 nodes', v7.nodes.length, '|', 'v6 nodes', v6.nodes.length, '|', 'v5 nodes', v5.nodes.length, '|', 'v4 nodes', v4.nodes.length, '|', 'v1 nodes', v1.nodes.length, 'v2 nodes', v2.nodes.length, 'v3 nodes', v3.nodes.length);
+const v8 = applyExtraOrigin(buildV8(v7), 5); // built from the plain v7, before v7 itself gets the extra origin
+applyExtraOrigin(v7, 4);
+const OUT = process.env.STH_OUT_DIR ? path.resolve(process.env.STH_OUT_DIR) : DIR; // tests build into a temp folder (the extra-origin build)
+fs.mkdirSync(OUT, { recursive: true });
+fs.writeFileSync(path.join(OUT, 'sth-workflow-v1-additive.json'), JSON.stringify(v1, null, 2) + '\n');
+fs.writeFileSync(path.join(OUT, 'sth-workflow-v2-enforce.json'), JSON.stringify(v2, null, 2) + '\n');
+fs.writeFileSync(path.join(OUT, 'sth-workflow-v3-studio.json'), JSON.stringify(v3, null, 2) + '\n');
+fs.writeFileSync(path.join(OUT, 'sth-workflow-v4-jobs.json'), JSON.stringify(v4, null, 2) + '\n');
+fs.writeFileSync(path.join(OUT, 'sth-workflow-v5-flashcards.json'), JSON.stringify(v5, null, 2) + '\n');
+fs.writeFileSync(path.join(OUT, 'sth-workflow-v6-quiz.json'), JSON.stringify(v6, null, 2) + '\n');
+fs.writeFileSync(path.join(OUT, 'sth-workflow-v7-bundle.json'), JSON.stringify(v7, null, 2) + '\n');
+fs.writeFileSync(path.join(OUT, 'sth-workflow-v8-bundle.json'), JSON.stringify(v8, null, 2) + '\n');
+fs.mkdirSync(path.join(OUT, 'gen'), { recursive: true });
+fs.writeFileSync(path.join(OUT, 'gen', 'studio5.lib.js'), '// GENERATED by build.js (v5 Studio - Validate library): do not edit\n' + v5Lib);
+fs.writeFileSync(path.join(OUT, 'gen', 'studio6.lib.js'), '// GENERATED by build.js (v6 Studio - Validate library): do not edit\n' + v6Lib);
+fs.writeFileSync(path.join(OUT, 'gen', 'studio7.lib.js'), '// GENERATED by build.js (v7 Studio - Validate library): do not edit\n' + v7Lib);
+console.log('v8 nodes', v8.nodes.length, '|', 'v7 nodes', v7.nodes.length, '|', 'v6 nodes', v6.nodes.length, '|', 'v5 nodes', v5.nodes.length, '|', 'v4 nodes', v4.nodes.length, '|', 'v1 nodes', v1.nodes.length, 'v2 nodes', v2.nodes.length, 'v3 nodes', v3.nodes.length);

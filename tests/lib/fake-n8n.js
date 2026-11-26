@@ -2,7 +2,11 @@
 // An in-process stand-in for the n8n backend (auth, the v2 webhook, the job endpoints). Every request is recorded in `log`.
 // No real credentials: tokens are signed with a fixed fake secret.
 const crypto = require('crypto');
+const path = require('path');
 const fx = require('./fixtures');
+// The server's own renewal rules: the real library of the "Renew Evaluate" / "Auth Build Claims" nodes (n8n/tools/src/auth.lib.js), so the fake and the
+// workflow cannot drift apart.
+const A = require(path.join(__dirname, '..', '..', 'n8n', 'tools', 'src', 'auth.lib.js'));
 
 const HOST = 'n8n-67295956827.africa-south1.run.app';
 const SECRET = 'fake-test-secret-not-a-real-key';
@@ -33,14 +37,26 @@ function parseMultipart(buf, boundary) {
 }
 
 class FakeN8n {
-  // v: 7 (default) or 0 for a v6 server (its hello has no v and no caps)
+  // v: 7 (default), 8 (renewal + claim / collected) or 0 for a v6 server (its hello has no v and no caps)
   constructor(o = {}) {
     this.v = o.v === undefined ? 7 : o.v;
     this.modes = o.modes || (this.v >= 7 ? MODES_V7 : MODES_V6);
     this.caps = { maxSources: 15, tools: ['mindmap', 'flashcards', 'quiz', 'infographic', 'slides', 'digest'], maxParts: 16, partMaxTokens: 200000, reduceMaxTokens: 300000, jobCap: 4, bulkCap: 2, reserve: 2, ...(o.caps || {}) };
     this.jobsEnabled = o.jobsEnabled !== false;
     this.code = 'fake-access-code';
-    this.epoch = 0; // bump to refuse every token issued so far
+    // Two different things (as on the real server):
+    //  secretGen   = the JWT secret of the `STH JWT` credential. Bump it (= rotate the secret) and EVERY token issued so far is refused at once, on every route.
+    //  renewEpoch  = the Upstash key auth:ep (0 = absent). Bump it (= `INCR auth:ep`) and renewal refuses the chains of older tokens (STH-AUTH-441); tokens that
+    //                already exist stay valid until their own exp. Only the renew route reads it.
+    // `epoch` is the old name of secretGen (suite 04 bumps it to log everybody out); kept as an alias.
+    this.secretGen = 0;
+    this.renewEpoch = 0;
+    this.authEpRaw = undefined; // set a string to put a hand-typed value into auth:ep ('abc', ' 1'): renewal then answers unavailable
+    this.redisDown = false; // true: the renew route's Redis step fails (fail closed: unavailable)
+    this.renewCount = 0; // renewals counted in the hourly breaker so far (set it near RENEW_MAX_PER_HOUR to trip it)
+    this.checkExp = false; // true: n8n's own exp check on every route (an expired token is refused: 403 on renew, 401 elsewhere like before); needs `clock`
+    this.clock = null; // () => ms: the server's time (default Date.now); tests with a fake page clock set it to the page's time
+    this.claimLeaseMs = 600000;
     this.log = [];
     this.jobs = new Map();
     this.handlers = {}; // mode -> (body, req) => json | { status, json }
@@ -56,21 +72,43 @@ class FakeN8n {
     this.seq = 0;
   }
 
+  get epoch() { return this.secretGen; }
+  set epoch(v) { this.secretGen = v; }
+  now() { return this.clock ? this.clock() : Date.now(); }
+
   // ── tokens ──
-  issueToken(nowMs = Date.now(), ttlMs = 7 * 86400000) {
+  secret(gen = this.secretGen) { return `${SECRET}:${gen}`; }
+  // A token as the real server mints it (v2: sub, sid, ac, v, jti, iat, exp, auth_time, ep). `o` overrides claims (v: 1 drops auth_time and ep; claims: {...} replaces fields;
+  // ttlMs; authTimeMs; ep; gen = the secret generation it is signed with).
+  issueToken(nowMs = Date.now(), ttlMs = 7 * 86400000, o = {}) {
     const head = b64({ alg: 'HS256', typ: 'JWT' });
-    const payload = b64({ sub: 'tester', exp: Math.floor((nowMs + ttlMs) / 1000), iat: Math.floor(nowMs / 1000), ep: this.epoch });
-    const sig = crypto.createHmac('sha256', SECRET).update(`${head}.${payload}`).digest('base64url');
-    return { token: `${head}.${payload}.${sig}`, exp: nowMs + ttlMs };
+    const iat = Math.floor(nowMs / 1000);
+    const jti = A.authNewId();
+    const claims = o.v === 1
+      ? { sub: 'sth', sid: jti, ac: 'sth', v: 1, jti, iat, exp: Math.floor((nowMs + ttlMs) / 1000) }
+      : { sub: 'sth', sid: o.sid || jti, ac: 'sth', v: 2, jti, iat, exp: Math.floor((nowMs + ttlMs) / 1000), auth_time: Math.floor((o.authTimeMs === undefined ? nowMs : o.authTimeMs) / 1000), ep: o.ep === undefined ? this.renewEpoch : o.ep };
+    Object.assign(claims, o.claims || {});
+    for (const k of Object.keys(claims)) if (claims[k] === undefined) delete claims[k];
+    const payload = b64(claims);
+    const sig = crypto.createHmac('sha256', this.secret(o.gen === undefined ? this.secretGen : o.gen)).update(`${head}.${payload}`).digest('base64url');
+    return { token: `${head}.${payload}.${sig}`, exp: claims.exp * 1000, claims };
   }
-  validToken(header) {
+  claimsOf(token) { try { return JSON.parse(Buffer.from(String(token).split('.')[1], 'base64url').toString()); } catch { return null; } }
+  // n8n's own JWT check: a well-formed token, signed with the CURRENT secret, HS256 only, not expired (when checkExp). Returns the claims or null.
+  verify(header) {
     const m = /^Bearer (\S+)$/.exec(header || '');
-    if (!m) return false;
+    if (!m) return null;
     const [h, p, s] = m[1].split('.');
-    if (!h || !p || !s) return false;
-    if (crypto.createHmac('sha256', SECRET).update(`${h}.${p}`).digest('base64url') !== s) return false;
-    try { return JSON.parse(Buffer.from(p, 'base64url').toString()).ep === this.epoch; } catch { return false; }
+    if (!h || !p || !s) return null;
+    try {
+      if (JSON.parse(Buffer.from(h, 'base64url').toString()).alg !== 'HS256') return null;
+      if (crypto.createHmac('sha256', this.secret()).update(`${h}.${p}`).digest('base64url') !== s) return null;
+      const c = JSON.parse(Buffer.from(p, 'base64url').toString());
+      if (this.checkExp && !(Number(c.exp) > this.now() / 1000)) return null;
+      return c;
+    } catch { return null; }
   }
+  validToken(header) { return !!this.verify(header); }
 
   // ── what tests read ──
   of(kind) { return this.log.filter(r => r.kind === kind); }
@@ -119,7 +157,8 @@ class FakeN8n {
     const url = new URL(req.url());
     const path = url.pathname.replace(/^\/webhook\//, '');
     if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
-    const rec = { seq: ++this.seq, at: Date.now(), path, kind: path === 'student-tools-auth' ? 'auth' : path === 'student-tools-v2' ? 'direct' : path === 'sth-job-start' ? 'jobStart' : path === 'sth-job' ? 'job' : 'other', status: 0, auth: this.validToken(req.headers().authorization) };
+    const rec = { seq: ++this.seq, at: Date.now(), path, kind: path === 'student-tools-auth' ? 'auth' : path === 'student-tools-v2' ? 'direct' : path === 'sth-job-start' ? 'jobStart' : path === 'sth-job' ? 'job' : path === 'student-tools-renew' ? 'renew' : 'other', status: 0, auth: this.validToken(req.headers().authorization) };
+    rec.hasAuthHeader = !!req.headers().authorization;
     this.log.push(rec);
     // body
     const ctype = req.headers()['content-type'] || '';
@@ -139,9 +178,10 @@ class FakeN8n {
     const send = (status, json) => { rec.status = status; rec.response = json; return this.reply(route, status, json); };
 
     if (rec.kind === 'auth') {
-      if (rec.payload && rec.payload.code === this.code) { const t = this.issueToken(); return send(200, { token: t.token, expiresAt: new Date(t.exp).toISOString() }); }
+      if (rec.payload && rec.payload.code === this.code) { const t = this.issueToken(this.now()); return send(200, { token: t.token, expiresAt: new Date(t.exp).toISOString() }); }
       return send(401, { ok: false, error: 'bad_code' });
     }
+    if (rec.kind === 'renew') return this.renew(rec, req, send);
     if (!rec.auth) return send(401, { message: 'Unauthorized' });
     if (this.networkFailures > 0) { this.networkFailures--; rec.status = -1; return route.abort('failed'); }
     const body = rec.payload || {};
@@ -157,6 +197,26 @@ class FakeN8n {
     if (rec.kind === 'jobStart') { const r = this.jobStart(rec, body, send, true); if (this.createDelay) await sleep(this.createDelay); return r(); }
     if (rec.kind === 'job') return this.jobOp(rec, body, send);
     return send(404, { message: 'not found' });
+  }
+
+  // POST student-tools-renew: n8n's JWT Auth first (no header 401 'No token provided'; bad signature, wrong algorithm or expired 403 'jwt ...'), then the workflow: the
+  // renewal rules are the real ones (auth.lib.js). 200 with {ok:true, token, expiresAt, authExpiresAt, now} or {ok:false, error:{code, retryable, reason}}.
+  renew(rec, req, send) {
+    if (!rec.hasAuthHeader) return send(401, 'No token provided');
+    const claims = this.verify(req.headers().authorization);
+    if (!claims) return send(403, 'jwt malformed');
+    const now = this.now();
+    const prep = A.renewPrepare(claims, now);
+    const ep = this.authEpRaw !== undefined ? this.authEpRaw : this.renewEpoch ? String(this.renewEpoch) : null;
+    const reply = this.redisDown ? { error: 'down' } : { result: [++this.renewCount, ep] };
+    const out = A.renewDecide(prep, reply, now);
+    rec.outcome = out.outcome === 'ok' ? 'ok' : out.reason;
+    if (out.outcome !== 'ok') return send(200, out.reply);
+    const head = b64({ alg: 'HS256', typ: 'JWT' });
+    const payload = b64(out.claims);
+    const sig = crypto.createHmac('sha256', this.secret()).update(`${head}.${payload}`).digest('base64url');
+    rec.claims = out.claims;
+    return send(200, { ok: true, token: `${head}.${payload}.${sig}`, expiresAt: out.expiresAt, authExpiresAt: out.authExpiresAt, now });
   }
 
   // does the work now and returns the function that answers (so a delay can sit between the two)
@@ -188,8 +248,8 @@ class FakeN8n {
     if (this.statusFailures > 0 && (body.op !== 'status' || list.length)) { this.statusFailures--; return send(503, { message: 'unavailable' }); }
     if (body.op === 'status' && !list.length) {
       if (this.helloStatus !== 200) return send(this.helloStatus, { message: 'no' });
-      const hello = { ok: true, jobsEnabled: this.jobsEnabled, modes: this.modes, now: Date.now() };
-      if (this.v) { hello.v = this.v; hello.caps = this.caps; }
+      const hello = { ok: true, jobsEnabled: this.jobsEnabled, modes: this.modes, now: this.now() };
+      if (this.v) { hello.v = this.v; hello.caps = this.v >= 8 ? { ...this.caps, claimLeaseS: Math.round(this.claimLeaseMs / 1000) } : this.caps; }
       return send(200, hello);
     }
     if (body.op === 'budget') {
@@ -203,6 +263,7 @@ class FakeN8n {
         if (!x) return { id: j.id, state: 'unknown' };
         x.polls++;
         if (x.cancelled) return { id: x.id, state: 'cancelled', attempt: x.attempt };
+        if (x.state === 'collected') return { id: x.id, state: 'collected', attempt: x.attempt };
         if (x.state === 'running') {
           const p = x.plan;
           if (p && p.type === 'busy') { x.state = 'rejected'; x.error = { code: 'STH-JOB-429' }; }
@@ -216,14 +277,43 @@ class FakeN8n {
       });
       return send(200, { ok: true, jobsEnabled: this.jobsEnabled, modes: this.modes, now: Date.now(), jobs: out }); // like the real server: modes and jobsEnabled ride along, v only in the hello
     }
+    if (body.op === 'claim') {
+      // v8 only (a v7 server does not know the op: STH-INPUT-400). One job, a 43-character nonce. The real rules are in job-claim.lua / job-claim-reply.js.
+      if (this.v < 8) return send(200, { ok: false, error: { code: 'STH-INPUT-400' } });
+      const nonce = list[0] && list[0].nonce;
+      if (list.length !== 1 || typeof nonce !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(nonce)) return send(200, { ok: false, error: { code: 'STH-INPUT-400' } });
+      const x = mine[0];
+      if (!x) return send(200, { ok: false, error: { code: 'STH-JOB-404' } });
+      if (x.state !== 'succeeded' || x.cancelled) return send(200, { ok: true, id: x.id, state: x.cancelled ? 'cancelled' : x.state });
+      if (x.claim && x.claim.nonce !== nonce && this.now() - x.claim.at < this.claimLeaseMs) return send(200, { ok: false, error: { code: 'STH-JOB-409', retryable: false, reason: 'claimed' } });
+      x.claim = { nonce, at: this.now() };
+      x.claimed = (x.claimed || 0) + 1;
+      return send(200, { ok: true, id: x.id, mode: x.mode, result: this.answer(x.payload) });
+    }
     if (body.op === 'result') {
       const x = mine[0];
       if (!x || x.state !== 'succeeded') return send(200, { ok: false, error: { code: 'STH-JOB-404' } });
+      if (this.v >= 8 && x.claim && this.now() - x.claim.at < this.claimLeaseMs) return send(200, { ok: false, error: { code: 'STH-JOB-409', retryable: false, reason: 'claimed' } });
       x.resultServed = (x.resultServed || 0) + 1;
       const out = this.answer(x.payload);
       return send(200, { ok: true, id: x.id, result: out });
     }
-    if (body.op === 'ack') { for (const x of mine) if (x) x.acked = true; return send(200, { ok: true }); }
+    if (body.op === 'ack') {
+      if (this.v < 8) { for (const x of mine) if (x) x.acked = true; return send(200, { ok: true }); }
+      // v8: a finished job becomes `collected` (a contentless record), a claim by another nonce is left alone (notYours), other states are dropped as before
+      const acked = [], notYours = [];
+      list.forEach((j, k) => {
+        const x = mine[k];
+        if (!x) { acked.push(j.id); return; }
+        if (x.state === 'running') return;
+        if (x.state === 'succeeded' && !x.cancelled) {
+          if (x.claim && x.claim.nonce !== (j.nonce || '')) { notYours.push(j.id); return; }
+          x.state = 'collected'; x.collectedAt = this.now(); x.claim = null; x.acked = true;
+        } else x.acked = true;
+        acked.push(j.id);
+      });
+      return send(200, { ok: true, acked, notYours });
+    }
     if (body.op === 'cancel') { for (const x of mine) if (x) { x.cancelled = true; x.cancelAt = Date.now(); } return send(200, { ok: true, jobs: list.map((j, k) => ({ id: j.id, state: mine[k] ? 'cancelled' : 'unknown' })) }); }
     return send(400, { ok: false });
   }

@@ -31,6 +31,7 @@ tests/
     10-mr-gates         map-reduce gate (v6 / date / flag), busy 429, budget and limits, retry limits, tutor next to a run
     11-ig-sources-icon  infographic "Show sources on the picture" (default, toggle, reload, sync, exports, request unchanged) and the app icon in the SVG/PNG/PDF/mind map/.pptx footers
     12-history-studio   History panel with study aids: live rows (badge, title, date, size line), interleaved by date, All / Documents / Study aids chips (sth_history_filter), open in Studio, delete through Studio (Drive file, tombstone), button dot, XSS, 320/390/1280
+    13-google-reconnect stay connected to Google: first tap/key renews the sync token (prompt '', login_hint), expiry tracking, one request at a time, one try per visit (blocked/closed/refused -> Re-connect + Sign out link), wrong account never merges, tabs share the token in memory only, sign-out reaches other tabs, Docs export reuses the sync token, no token in storage
 ```
 
 ## Running
@@ -76,6 +77,7 @@ The page is changed in no other way. The same hook is injected into BASE, so bot
   plan says otherwise: `n8n.plan(matchFn, { type: 'hold' | 'busy' | 'fail', code, retryable }, times)`, `n8n.release()`. `new FakeN8n({ v: 0 })` is a v6 server (no `v`, no
   caps); `fake: { caps: { maxParts: 5 }, budget: { bulkRemaining: ... }, enforceCaps: true }` pass options. Everything the page sends is in `n8n.log` (`creates()`,
   `direct()`, `ops('cancel')`, `list()`).
+* GIS fake (`window.__gis`): records every `requestAccessToken` (prompt, login_hint, scope); `mode` ok | cancel | blocked | closed | otherAccount | hold (`__gis.complete(mode)`), `expiresIn`, `token`, `revoked`.
 * `FakeDrive`: `appDataFolder` files by name (`drive.byName`, `drive.json(id)`), user info, Docs create.
 * Unknown external requests are aborted and listed in `app.blocked` (fonts and analytics included).
 

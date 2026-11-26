@@ -413,5 +413,83 @@ validate('sth-workflow-v7-bundle.json', {
     ok(wf.nodes.length === 197, 'v7 has 197 nodes (v6: 185, +12)', wf.nodes.length);
   },
 });
+validate('sth-workflow-v8-bundle.json', {
+  noDrive: true,
+  check: ({ added, wf }) => {
+    const v7 = JSON.parse(fs.readFileSync(path.join(__dirname, 'sth-workflow-v7-bundle.json'), 'utf8'));
+    const v7by = new Map(v7.nodes.map((n) => [n.name, n]));
+    const by = new Map(wf.nodes.map((n) => [n.name, n]));
+    const raw = JSON.stringify(wf);
+    const names = wf.nodes.map((n) => n.name);
+    ok(JSON.stringify(wf.settings) === JSON.stringify(v7.settings) && wf.settings.executionTimeout === 720 && wf.settings.saveDataSuccessExecution === 'none' && wf.settings.saveDataErrorExecution === 'none' && wf.settings.errorWorkflow === undefined, 'settings as v7 (Timeout Workflow 720, Do not save, error workflow chosen in the UI)');
+    ok(!/AIza[0-9A-Za-z_-]{30,}|ya29\.|ghp_[A-Za-z0-9]{20,}|-----BEGIN/.test(raw) && !/Bearer [A-Za-z0-9._-]{20,}/.test(raw) && !/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\./.test(raw), 'no embedded keys or tokens');
+    const credKey = (n) => Object.values(n.credentials || {}).map((c) => c.name + '|' + c.id);
+    const liveCreds = new Set(live.nodes.flatMap(credKey)); liveCreds.add('STH JWT|SELECT-STH-JWT');
+    ok(wf.nodes.flatMap(credKey).every((k) => liveCreds.has(k)), 'only credential references that already exist (plus the STH JWT placeholder)');
+    // 14 new nodes, 9 changed nodes, nothing removed, everything else byte-identical to v7
+    const NEW = ['Auth Alarm', 'Renew Endpoint', 'Renew Prepare', 'Renew Read Epoch', 'Renew Evaluate', 'Renew Outcome', 'Renew Sign JWT', 'Renew Shape Token', 'Renew Token Ok?', 'Renew Respond OK', 'Renew Respond Refused', 'Renew Alarm', 'Job - Claim', 'Job - Claim Reply'];
+    const added8 = names.filter((n) => !v7by.has(n));
+    ok(added8.slice().sort().join('|') === NEW.slice().sort().join('|'), 'v8 adds exactly the 14 new nodes to v7', added8);
+    ok(v7.nodes.every((n) => by.has(n.name)), 'v8 removes nothing from v7');
+    const sig = (n) => JSON.stringify({ p: n.parameters, c: n.credentials, e: n.onError, t: n.type, v: n.typeVersion, d: n.disabled, r: n.retryOnFail, m: n.maxTries, w: n.waitBetweenTries, x: n.position, i: n.id, wid: n.webhookId });
+    const changed8 = wf.nodes.filter((n) => v7by.has(n.name) && sig(v7by.get(n.name)) !== sig(n)).map((n) => n.name);
+    ok(changed8.slice().sort().join('|') === ['Auth Redis Attempt', 'Auth Evaluate', 'Auth Build Claims', 'Job - Read Request', 'Job - Plan', 'Job - Route Op', 'Job - Result Reply', 'Job - Ack', 'Job - Ack Reply'].sort().join('|'), 'v8 changes exactly these 9 v7 nodes; every other node is byte-identical to v7', changed8);
+    ok(wf.nodes.length === 211 && v7.nodes.length === 197, 'v8 has 211 nodes (v7: 197, +14)', wf.nodes.length);
+    // connections: every v7 edge stays; the new edges are exactly the renew branch, the claim branch and the two alarms
+    const edges = (w) => { const s2 = new Set(); for (const [f, v] of Object.entries(w.connections)) v.main.forEach((arr, i) => (arr || []).forEach((c) => s2.add(`${f}[${i}] -> ${c.node}`))); return s2; };
+    const e7 = edges(v7), e8 = edges(wf);
+    ok([...e7].every((e) => e8.has(e)), 'every v7 connection is still in v8');
+    const newEdges = [...e8].filter((e) => !e7.has(e)).sort();
+    const want = ['Auth Respond 503[0] -> Auth Alarm', 'Renew Endpoint[0] -> Renew Prepare', 'Renew Prepare[0] -> Renew Read Epoch', 'Renew Read Epoch[0] -> Renew Evaluate', 'Renew Evaluate[0] -> Renew Outcome', 'Renew Outcome[0] -> Renew Sign JWT', 'Renew Outcome[1] -> Renew Respond Refused', 'Renew Sign JWT[0] -> Renew Shape Token', 'Renew Shape Token[0] -> Renew Token Ok?', 'Renew Token Ok?[0] -> Renew Respond OK', 'Renew Token Ok?[1] -> Renew Respond Refused', 'Renew Respond Refused[0] -> Renew Alarm', 'Job - Route Op[8] -> Job - Claim', 'Job - Claim[0] -> Job - Claim Reply'].sort();
+    ok(JSON.stringify(newEdges) === JSON.stringify(want), 'new connections are exactly the renew branch, the claim branch and the two alarms', newEdges.filter((e) => !want.includes(e)).concat(want.filter((e) => !newEdges.includes(e))));
+    // webhooks: five; Renew Endpoint = JWT, responseNode, POST, the app origin, the STH JWT credential
+    const wh = wf.nodes.filter((n) => n.type === 'n8n-nodes-base.webhook');
+    ok(wh.length === 5, 'v8 has five webhooks (JWT, auth, job start, job, renew)');
+    const re = by.get('Renew Endpoint');
+    ok(re.parameters.httpMethod === 'POST' && re.parameters.path === 'student-tools-renew' && re.parameters.authentication === 'jwtAuth' && re.parameters.responseMode === 'responseNode' && re.parameters.options.allowedOrigins === 'https://jay-leigh.github.io' && JSON.stringify(re.credentials) === JSON.stringify({ jwtAuth: { id: 'SELECT-STH-JWT', name: 'STH JWT' } }) && re.webhookId, 'Renew Endpoint: POST student-tools-renew, JWT Auth with the STH JWT credential, responseNode, the app origin');
+    ok(wh.filter((w) => w.parameters.options && w.parameters.options.allowedOrigins === 'https://jay-leigh.github.io').length === 5 || !!process.env.STH_EXTRA_ORIGIN, 'all five webhooks carry the app origin (the extra-origin step must find five)');
+    ok(by.get('Renew Sign JWT').onError === 'continueRegularOutput' && JSON.stringify(by.get('Renew Sign JWT').credentials) === JSON.stringify(by.get('Auth Sign JWT').credentials), 'Renew Sign JWT: same credential as Auth Sign JWT, signing failure is handled (continueRegularOutput)');
+    // every renew path ends in a Respond node (a response-node webhook that never reaches one hangs until the time-out)
+    const respond = new Set(wf.nodes.filter((n) => n.type === 'n8n-nodes-base.respondToWebhook').map((n) => n.name));
+    const ends = [];
+    (function walk(nm, seen) {
+      if (seen.has(nm)) return; seen.add(nm);
+      const outs = (wf.connections[nm] ? wf.connections[nm].main : []).flatMap((a) => a || []).map((c) => c.node);
+      if (respond.has(nm)) { ends.push(nm); return; }
+      if (!outs.length) { ends.push('DEAD-END:' + nm); return; }
+      for (const o of outs) walk(o, new Set(seen));
+    })('Renew Endpoint', new Set());
+    ok(ends.length > 0 && ends.every((e) => e === 'Renew Respond OK' || e === 'Renew Respond Refused'), 'every path of Renew Endpoint reaches Renew Respond OK or Renew Respond Refused before it ends', ends);
+    ok(wf.connections['Renew Respond Refused'].main[0].length === 1 && wf.connections['Renew Respond Refused'].main[0][0].node === 'Renew Alarm' && wf.connections['Auth Respond 503'].main[0][0].node === 'Auth Alarm', 'the alarms come AFTER the answer (a Respond node has already sent it)');
+    for (const nm of ['Renew Respond OK', 'Renew Respond Refused']) ok(by.get(nm).parameters.options.responseHeaders.entries.some((e) => e.name === 'Cache-Control' && e.value === 'no-store') && by.get(nm).parameters.options.responseCode === 200, `${nm}: 200 with Cache-Control no-store`);
+    // Redis: renew is ONE EVAL (breaker + epoch), time-out, fail-closed handling, expiry on the breaker key; sign-in reads auth:ep in the same call
+    const rr = by.get('Renew Read Epoch');
+    ok(/EVAL/.test(rr.parameters.jsonBody) && /INCR/.test(rr.parameters.jsonBody) && /EXPIRE/.test(rr.parameters.jsonBody) && /auth:ep/.test(rr.parameters.jsonBody) && /"7200"/.test(rr.parameters.jsonBody) && rr.parameters.options.timeout === 5000 && rr.onError === 'continueRegularOutput' && JSON.stringify(rr.credentials) === JSON.stringify(by.get('Auth Redis Attempt').credentials), 'Renew Read Epoch: one EVAL with INCR + EXPIRE (breaker auth:rn:<hour>) + GET auth:ep, 5 s, Upstash credential');
+    ok(/"3", "auth:code", \$json\.failKey, "auth:ep", "600"/.test(by.get('Auth Redis Attempt').parameters.jsonBody) && /redis\.call\('GET', KEYS\[3\]\)/.test(by.get('Auth Redis Attempt').parameters.jsonBody), 'Auth Redis Attempt: GET auth:ep is the third element of the same EVAL');
+    ok(!/'(DEL|UNLINK|FLUSH)/.test(by.get('Renew Read Epoch').parameters.jsonBody) && !wf.nodes.some((n) => /redis\.call\('(DEL|UNLINK)',\s*'auth:ep'|\["DEL", *"auth:ep"/.test(JSON.stringify(n.parameters))), 'nothing in the workflow ever deletes or writes auth:ep (only the owner bumps it)');
+    // Lua: claim and ack embedded verbatim; no cjson / KEYS / SCAN; claim writes only cl / cla; ack leaves an expiry
+    const luaSrc = (f) => fs.readFileSync(path.join(__dirname, 'src', f), 'utf8').replace(/\n+$/, '');
+    ok(by.get('Job - Claim').parameters.jsonBody.includes(JSON.stringify(luaSrc('job-claim.lua'))) && by.get('Job - Ack').parameters.jsonBody.includes(JSON.stringify(luaSrc('job8-ack.lua'))), 'Job - Claim and Job - Ack embed job-claim.lua and job8-ack.lua verbatim');
+    for (const f of ['job-claim.lua', 'job8-ack.lua']) ok(!/cjson|redis\.call\('(EVAL|KEYS|FLUSH|SCAN)/i.test(luaSrc(f)), `${f}: no cjson / KEYS / SCAN / EVAL`);
+    ok(/EXPIRE',KEYS\[1\],ARGV\[4\]/.test(luaSrc('job8-ack.lua')) && !/EXPIRE|SET',KEYS\[2\]|'DEL'/.test(luaSrc('job-claim.lua')), 'ack sets the 72 h expiry on the collected record; claim writes only cl / cla on an existing record');
+    ok(by.get('Job - Claim').parameters.options.timeout === 5000 && by.get('Job - Claim').onError === 'continueRegularOutput' && by.get('Job - Claim').parameters.url.endsWith('/pipeline'), 'Job - Claim: /pipeline, 5 s, fail soft (the reply node answers STH-SRV-503)');
+    // nothing throws except the two alarms
+    const throwers = wf.nodes.filter((n) => n.type === 'n8n-nodes-base.code' && /\bthrow\b/.test(n.parameters.jsCode) && !v7by.has(n.name)).map((n) => n.name).sort();
+    ok(JSON.stringify(throwers) === JSON.stringify(['Auth Alarm', 'Renew Alarm']), 'only the two alarm nodes throw (after the answer); no other new node throws', throwers);
+    for (const nm of ['Auth Evaluate', 'Auth Build Claims', 'Renew Prepare', 'Renew Evaluate', 'Renew Shape Token', 'Job - Read Request', 'Job - Plan', 'Job - Result Reply', 'Job - Ack Reply', 'Job - Claim Reply']) ok(!/\bthrow\b/.test(by.get(nm).parameters.jsCode), `${nm} never throws`);
+    for (const nm of ['Auth Evaluate', 'Auth Build Claims', 'Renew Prepare', 'Renew Evaluate']) ok(!/require\(|process\.|fetch\(|new URL/.test(by.get(nm).parameters.jsCode.replace(/\/\/.*$/gm, '')) && !/typeof module/.test(by.get(nm).parameters.jsCode), `${nm}: library inlined, no require / process / fetch / module export`);
+    // hello
+    const jr = by.get('Job - Read Request').parameters.jsCode;
+    ok(/const SERVER_V = 8;/.test(jr) && /const CLAIM_LEASE_S = 600;/.test(jr) && /const COLLECTED_TTL_S = 259200;/.test(jr) && /const JOB_CAP_TOTAL = 4;/.test(jr) && /const JOB_CAP_BULK = 2;/.test(jr) && /const JOB_RESERVE = 2;/.test(jr) && /const RESULT_TTL_S = 259200;/.test(jr), 'job gateway constants: v 8, claim lease 600 s, collected 72 h, caps as v7 (4 / 2 / 2)');
+    ok(jr.replace(/SERVER_V = 8[^\n]*/, 'SERVER_V = 7').length > 0 && /JOB_MODES = \{/.test(jr) && [...jr.matchAll(/deadlineS: (\d+)/g)].every((m) => Number(m[1]) <= 600), 'every job deadline <= 600 s');
+    const rd = (f) => fs.readFileSync(path.join(__dirname, 'src', f), 'utf8');
+    ok(rd('job8-read-request.js').replace(/SERVER_V = 8[^\n]*/, 'X').includes("const JOB_MODES = {") && rd('job7-read-request.js').match(/const JOB_MODES = \{[^]*?\n\};/)[0] === rd('job8-read-request.js').match(/const JOB_MODES = \{[^]*?\n\};/)[0], 'v8 job modes and deadlines are the v7 ones');
+    // v1..v7 files are not touched (checked against the committed copies when run from the repo checkout)
+    const repoDir = process.env.REPO_N8N || path.join(__dirname, '..');
+    if (fs.existsSync(repoDir)) for (const f of ['sth-workflow-v1-additive.json', 'sth-workflow-v2-enforce.json', 'sth-workflow-v3-studio.json', 'sth-workflow-v4-jobs.json', 'sth-workflow-v5-flashcards.json', 'sth-workflow-v6-quiz.json', 'sth-workflow-v7-bundle.json']) ok(fs.readFileSync(path.join(repoDir, f), 'utf8') === fs.readFileSync(path.join(__dirname, f), 'utf8'), `${f} is byte-identical to the committed copy`);
+    ok(wf.id === v7.id && wf.name === v7.name && JSON.stringify(wf.tags) === JSON.stringify(v7.tags), 'same workflow id and name as v7 (an import replaces it)');
+    void added;
+  },
+});
 console.log(`\n${checks} checks, ${failures} failures`);
 process.exit(failures ? 1 : 0);
