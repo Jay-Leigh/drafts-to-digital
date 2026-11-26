@@ -2,7 +2,7 @@
 // The v8 server contract as the browser sees it (fake n8n = the real renewal rules from n8n/tools/src/auth.lib.js + the claim / collected rules):
 // POST student-tools-renew (answers, codes, the 30-day cap, v1 tokens, the epoch, fail closed, n8n's JWT layer), hello v 8, claim, collected after ack, result 409,
 // the rollback shape (v7 answers STH-INPUT-400 to claim), and the CURRENT page against a v8 server (sign-in token shape, a normal job still works, nothing resent).
-// The client side of renewal and pickup (renewIfDue, claim in the jobs engine) is a later PR: what it must do is written down as KNOWN tests, which flip when it lands.
+// The client side of pickup (claim in the jobs engine, `collected` = done elsewhere, never a resend) is covered here and in 18-job-pickup.
 const crypto = require('crypto');
 const { suite, assert } = require('../lib/harness');
 const { HOST } = require('../lib/fake-n8n');
@@ -246,7 +246,7 @@ t.test('the page against a v8 server: the sign-in answer is a v2 token and the a
   assert.equal(await app.ev('serverHas(8)'), true);
 });
 
-t.test('the page against a v8 server: a normal job runs once (status, result, ack) and ends collected, nothing resent', async (h) => {
+t.test('the page against a v8 server: a normal job runs once (status, claim, ack) and ends collected, nothing resent', async (h) => {
   const app = await h.newApp({ v: 8, clock: true });
   // a job from the page
   app.n8n.plan(null, { type: 'hold' });
@@ -259,14 +259,14 @@ t.test('the page against a v8 server: a normal job runs once (status, result, ac
   app.n8n.release();
   await app.advanceUntil(`jobs.recs.get('${id}').state === 'done'`, { what: 'done', step: 1000 });
   const ops = app.n8n.log.filter((r) => r.kind === 'job' && r.ids && r.ids.includes(id)).map((r) => r.op);
-  assert.equal(ops.filter((o) => o === 'result').length, 1);
+  assert.equal(ops.filter((o) => o === 'claim').length, 1, 'from v8 the answer is taken with claim');
+  assert.equal(ops.filter((o) => o === 'result').length, 0, 'and not with result');
   assert.equal(ops.filter((o) => o === 'ack').length, 1);
-  assert.equal(ops.filter((o) => o === 'claim').length, 0, 'the current client does not claim (PR-D)');
   assert.equal(app.n8n.job(id).state, 'collected');
   assert.equal(app.n8n.creates().length, 1);
 });
 
-t.known('a client that sees `collected` (another device collected the answer) must treat it as done elsewhere and NEVER resend (review D2) - PR-D', async (h) => {
+t.test('a client that sees `collected` (another device collected the answer) treats it as done elsewhere and NEVER resends (review D2)', async (h) => {
   const app = await h.newApp({ v: 8, clock: true });
   app.n8n.plan(null, { type: 'hold' });
   await app.seedKb([h.fx.kbItem('a.txt', { tokens: 100, id: 'k_a' })]);
