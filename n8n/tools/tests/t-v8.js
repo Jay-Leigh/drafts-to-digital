@@ -184,6 +184,8 @@ const done = async (n, o = {}) => { await admit(n, o); await store(n, o); };
     const norm = (x) => JSON.stringify(x.map((i) => { const j = { ...i.json }; if (j.cfg) { const { claimLeaseMs, collectedTtlS, ...c } = j.cfg; j.cfg = c; } delete j.nonce; return j; }));
     t(norm(a) === norm(b), `Job - Read Request: v7 and v8 agree on ${env.op} ${env.jobs ? env.jobs.length : '-'} jobs`);
   }
+  // rollback (review D8): the v7 workflow does not know `claim` and answers STH-INPUT-400 (a v8 client must then fall back to result + ack for its own jobs)
+  { const r7 = (await server({ v: 1, op: 'claim', jobs: [{ ...job(1), nonce: NONCE(1) }] }, { wf: v7 })).reply; t(r7.ok === false && r7.error.code === 'STH-INPUT-400', 'a v7 workflow answers claim with STH-INPUT-400 (the rollback shape the fake also has)', r7); }
   // create path (Job Start): unchanged
   { const cj = { v: 1, op: 'create', id: ID(1), key: KEY(1), attempt: 1, mode: 'transcribe' };
     const a = await runCode(codeOf(v7, 'Job - Read Request'), { input: [J({ env: { job: cj } })], nodes: { 'Job Start Endpoint': [J({})] } }), b = await runCode(codeOf(v8, 'Job - Read Request'), { input: [J({ env: { job: cj } })], nodes: { 'Job Start Endpoint': [J({})] } });

@@ -10,7 +10,8 @@ Files (in the `n8n/` folder of the repo):
 | `sth-workflow-v4-jobs.json` | Import INSTEAD of v3 (step 19) for background jobs (tutor and mind map keep running after the app is closed). It is v3 plus the job webhooks; never import both. |
 | `sth-workflow-v5-flashcards.json` | Import INSTEAD of v4 (step 20) for Study Studio flashcards (also as a background job). It is v4 plus the `studio_flashcards` mode; never import both. |
 | `sth-workflow-v6-quiz.json` | Import INSTEAD of v5 (step 21) for Study Studio quiz (also as a background job). It is v5 plus the `studio_quiz` mode; never import both. |
-| `sth-workflow-v7-bundle.json` | Import INSTEAD of v6 (step 22) for the Study Studio infographic and slides, transcribe / template / reviewer as background jobs, and big runs in parts. It is v6 plus those modes and the version gate; never import both. |
+| `sth-workflow-v7-bundle.json` | Import INSTEAD of v6 (step 22) for the Study Studio infographic and slides, transcribe / template / reviewer as background jobs, and big runs in parts. It is v6 plus those modes and the version gate; never import both. Keep it: it is the rollback copy of v8. |
+| `sth-workflow-v8-bundle.json` | Import INSTEAD of v7 (step 23) for token renewal (stay signed in up to 30 days), the access-code epoch `auth:ep`, and picking up a background result on another device. It is v7 plus those things; never import both. |
 
 Tested against n8n 2.29.7 (the version you run). Nothing below needs n8n server environment variables.
 
@@ -30,8 +31,8 @@ Use `curl.exe` (not `curl`) so PowerShell does not substitute its own alias. Eve
 - New public path `/webhook/student-tools-auth`: the browser sends `{"code": "..."}`; n8n compares with the code stored in Upstash (`auth:code`, plain text) and answers with a 7-day token. 10 attempts per IP per 10 minutes; the 11th is answered `429`.
 - New path `/webhook/student-tools-v2`: n8n itself checks the token (Webhook node, JWT Auth). Same behaviour as the old path once the token is valid.
 - Old path `/webhook/student-tools` keeps working in v1, and every call is counted in Upstash (`stats:legacy:YYYYMMDD`, UTC date, kept 7 days).
-- Rotating the access code (`SET auth:code ...`) does NOT end tokens already issued (they live up to 7 days). Rotating the JWT secret (step 2) logs everybody out at once.
-- Each token carries `{sub:'sth', sid, ac:'sth', v:1, jti, iat, exp}` (`sid` equals `jti`: one id per issued token). Sign-ins are capped at 20 successful issuances per IP per hour (`429 {"error":"rate_limited"}`, even with the right code); that counter is never cleared by a success. The wrong-code counter (10 wrong in 10 minutes blocks) is separate; a success clears only that one.
+- Rotating the access code does NOT end tokens already issued (they live up to 7 days). Rotating the JWT secret (step 2) logs everybody out at once. **From v8 (step 23) rotate the access code ONLY with the combined command of step 3 (it sets the code and bumps `auth:ep`): tokens can then be renewed for up to 30 days, and only that command stops the renewals.** Never use a plain `SET auth:code` from v8 on.
+- Each token carries `{sub:'sth', sid, ac:'sth', v:1, jti, iat, exp}` (`sid` equals `jti`: one id per issued token). From v8 the claims also hold `auth_time` and `ep` and `v` is 2 (step 23). Sign-ins are capped at 20 successful issuances per IP per hour (`429 {"error":"rate_limited"}`, even with the right code); that counter is never cleared by a success. The wrong-code counter (10 wrong in 10 minutes blocks) is separate; a success clears only that one.
 - On the new path the tutor ignores the browser's `systemPrompt`: the persona is held in the workflow (`Prep — Tutor`). Gemini output is capped (tutor 16384 tokens, thinking budget 2048 for tutor, transcribe, template, reviewer). The old path is unchanged until v2.
 - Every Gemini answer adds its weighted usage to a daily counter (`usage:YYYYMMDD`). If you set `cfg:daily_units`, new-path Gemini requests stop with `STH-QUOTA-430` once the counter reaches it.
 - The stored tutor session keeps at most the last 30 entries (each cut at 8000 characters), still for 3 hours.
@@ -65,11 +66,11 @@ Use `curl.exe` (not `curl`) so PowerShell does not substitute its own alias. Eve
 Upstash console > your database > CLI tab:
 
 ```
-SET auth:code "THE-CURRENT-ACCESS-CODE"
+EVAL "redis.call('SET','auth:code',ARGV[1]) return redis.call('INCR','auth:ep')" 0 "THE-CURRENT-ACCESS-CODE"
 GET auth:code
 ```
 
-Plain text, case sensitive, leading/trailing spaces ignored. Anyone with Upstash console access can read it.
+This ONE command is how you set AND every later rotate the access code: it stores the code and raises the epoch `auth:ep` by one in the same step (it answers the new epoch number). Before v8 the epoch is not read by anything (harmless); from v8 (step 23) raising it is what stops existing sign-ins from being renewed after a code change. **Do not use a plain `SET auth:code` any more** (from v8 it would leave every sign-in renewable for up to 30 days). The code is plain text, case sensitive, leading/trailing spaces ignored. Anyone with Upstash console access can read it.
 
 ## 4. Import v1
 
@@ -261,6 +262,7 @@ With Study Studio (the mind map) you import `sth-workflow-v3-studio.json` here i
 
 - Back to before PR-B: import `backup-before-prb.json` (step 1) over the workflow, redo step 6, publish; also revert index.html (the new client would call paths that no longer exist).
 - v2 back to v1: import `sth-workflow-v1-additive.json` again (re-select `STH JWT`).
+- v8 back to v7: import `sth-workflow-v7-bundle.json` again (re-select `STH JWT`); details and what happens to tokens already issued: step 23.
 - v3 back to v2: import `sth-workflow-v2-enforce.json` again (re-select `STH JWT`). The mind map then answers like an unknown mode, so switch the Studio flag off in the client first.
 - All existing tokens die immediately if you change the secret in the `STH JWT` credential.
 
@@ -289,13 +291,15 @@ Leave `gemini-file:*` (47-hour expiry) and `session:*` (3-hour expiry) alone.
 - Remaining limit: n8n resolves the host name again when it connects, so an attacker who controls a DNS server and flips answers between the two lookups could still slip through (DNS rebinding). Pinning the IP is not possible inside the Code node.
 - Error mails: at most 50 per UTC day in total, client error reports and workflow errors sharing one counter (Upstash key `err:YYYYMMDD`, 2-day expiry). Extra mails are dropped silently; the app still gets `200` for client reports. If Redis cannot be read the mail is dropped (fail-closed).
 - Execution data is not stored (settings), so failed executions are visible only through the e-mail.
-- Rotating the JWT secret (edit the `STH JWT` credential) invalidates every issued token at once: all users see the gate again and sign in with the code. Changing `auth:code` does not end existing tokens (they live up to 7 days).
+- Rotating the JWT secret (edit the `STH JWT` credential) invalidates every issued token at once: all users see the gate again and sign in with the code. Changing `auth:code` does not end existing tokens (they live up to 7 days; from v8 the combined command of step 3 stops them being renewed, so they end at their own expiry).
 
 ## 16. Upstash keys written or read by this workflow
 
 | Key | Who sets it | Expiry | Meaning |
 |---|---|---|---|
-| `auth:code` | you (step 3) | none | the access code, plain text |
+| `auth:code` | you (step 3: the combined command, never a plain `SET` from v8) | none | the access code, plain text |
+| `auth:ep` | you, only through `INCR` (inside the combined command of step 3) | **never expires, never delete it** (v8) | revocation epoch: a whole number, absent = 0. Every token carries the value it was issued under; a renewal is refused (`STH-AUTH-441`) when the token's number differs. `DEL auth:ep` (or an eviction) would turn it back to 0: it would revive chains revoked by an earlier bump and refuse every chain issued since. Keep Upstash **eviction OFF**. A value that is not a whole number (`abc`, ` 1`) makes sign-in and renewal answer 503 and mails you |
+| `auth:rn:YYYYMMDDHH` | workflow (v8) | 2 hours | renewals counted in this UTC hour (global breaker, 2000 an hour: above it renewals answer `STH-AUTH-503` for the rest of the hour). A number, no personal data |
 | `cfg:daily_units` | you (optional) | none | daily ceiling in weighted units; unset, empty or not a number = no ceiling; `0` blocks all new-path Gemini calls |
 | `cfg:studio_max_tokens` | you (optional) | none | Studio input cap (every tool) in estimated tokens; unset, junk or negative = 400000; values are clamped to 50000..900000 (higher values risk timeouts and Gemini 429s). From v7 it also limits one part of a big run and the digests of its reduce run (further limited to 200000 and 300000) |
 | `usage:YYYYMMDD` | workflow (after each Gemini answer, both paths; v3: Study Studio answers too) | 3 days | weighted units used on that UTC day |
@@ -307,7 +311,7 @@ Leave `gemini-file:*` (47-hour expiry) and `session:*` (3-hour expiry) alone.
 | `ocr:*` | workflow | 30 days (new), none (legacy: purge, step 14) | OCR cache |
 | `gemini-file:*` | workflow | 47 h | Gemini file handles |
 | `cfg:jobs_max_running` | you (optional, v4) | none | total cap of background jobs running at once, 0..12 (default 4); `0` = jobs off at once (step 19); junk = default |
-| `sth:job:<jobId>` | workflow (v4) | 72 h from start and from finish; 1 h when refused or cancelled; deleted when the app collects the result | job record: key hash, mode, state, attempt, times, error code, n8n execution id, result size. No text of the request |
+| `sth:job:<jobId>` | workflow (v4) | 72 h from start and from finish; 1 h when refused or cancelled; v8: after the app collects a finished answer the record stays 72 h as a contentless note (`st` = `collected`, so the device that started the job never runs it again), failed / cancelled records are deleted at once | job record: key hash, mode, state, attempt, times, error code, n8n execution id, result size. v8: while an answer is claimed also the claim (a random 43-character nonce and its time). No text of the request |
 | `sth:jobr:<jobId>` | workflow (v4) | 72 h from finish; deleted on pickup or cancel | the finished answer (at most 512 KB), exactly what the direct request would have returned |
 | `sth:jobx:<executionId>` | workflow (v4) | deadline + 1 h | maps a failed n8n execution to its job (`jobId\|attempt\|mode`) |
 | `sth:jobs:run:tutor`, `sth:jobs:run:studio_mindmap` | workflow (v4) | 1 d | jobs currently running (sorted set); entries free themselves after deadline + 60 s |
@@ -643,7 +647,7 @@ Expect, after 15 to 60 seconds, `{"ok":true,"artifact":{"envelope":"sth.studio/1
 - A mode that no rule knows now gets `{"ok":false,"error":{"code":"STH-INPUT-400","retryable":false,"reason":"mode"}}` (new fallback output of `Route by Mode`).
 - Tutor: the whole document is sent for a "summarise the whole book" question only up to 400,000 estimated tokens; above that the tutor searches excerpts and adds one sentence that Study Studio can make the overview.
 - The three upload calls to Gemini (`Gemini Init Upload`, `Gemini Upload Bytes`, each in three copies) now time out after 60 seconds.
-- App origin (`allowedOrigins` on the four webhook nodes `Student Hub Endpoint (JWT)`, `Auth Endpoint`, `Job Start Endpoint`, `Job Endpoint`): the shipped bundle allows only `https://jay-leigh.github.io`. Before the app moves to a custom domain, rebuild the bundle with BOTH origins (`cd n8n/tools`, then `STH_EXTRA_ORIGIN=https://<your-domain> node build.js`; the setting becomes a comma-separated list `https://jay-leigh.github.io,https://<your-domain>`) and re-import it, or edit those four nodes by hand the same way. Do it BEFORE the domain goes live, or the browser blocks every answer. The default build (no variable) is unchanged.
+- App origin (`allowedOrigins` on the four webhook nodes `Student Hub Endpoint (JWT)`, `Auth Endpoint`, `Job Start Endpoint`, `Job Endpoint`; v8 has a fifth, `Renew Endpoint`, see step 23): the shipped bundle allows only `https://jay-leigh.github.io`. Before the app moves to a custom domain, rebuild the bundle with BOTH origins (`cd n8n/tools`, then `STH_EXTRA_ORIGIN=https://<your-domain> node build.js`; the setting becomes a comma-separated list `https://jay-leigh.github.io,https://<your-domain>`) and re-import it, or edit those four nodes by hand the same way. Do it BEFORE the domain goes live, or the browser blocks every answer. The default build (no variable) is unchanged.
 
 **Procedure** (same as step 21, with v7)
 
@@ -731,3 +735,77 @@ All take effect on the next request.
 **Limits you should know:** a job of the new modes counts about 46 Upstash commands (ADMIT is 24, was 15, because it now counts 11 running sets); `budget` is 1. The app asks `budget` before a big run and may cache the answer for a minute. A restart or crash of the n8n service loses running jobs (the app starts them again after the deadline plus a minute). Gemini calls of a big run are billed at once and the shared ceiling `cfg:daily_units` is the only hard stop; the per-run limit `cfg:mr_max_units` is checked by the app, not by n8n.
 
 **If something goes wrong:** rollback = import `sth-workflow-v6-quiz.json` again (step 13; re-select `STH JWT`), after the app update that uses the v7 modes is reverted or while it is still switched off: a v6 `hello` has no `v`, so an app that follows the gate then behaves as before (10 sources, no infographic or slides, jobs only for the v6 modes). Answers still stored for v7 modes expire by themselves within 72 hours.
+
+## 23. Stay signed in, auth epoch, pick up a result on another device: import v8 INSTEAD of v7
+
+`sth-workflow-v8-bundle.json` = v7 + three things. It replaces v7: import v8 in place of v7, never both. The answers of every v7 path stay exactly as they were (211 nodes in all: 14 new, 9 changed; every other node is byte for byte v7). Keep `sth-workflow-v7-bundle.json`: it is the rollback copy.
+
+**What is new**
+
+- **Token renewal.** A new JWT webhook `/webhook/student-tools-renew` (node `Renew Endpoint`). The app sends only its current token (never the access code); n8n checks signature and expiry first, then the workflow answers `{"ok":true,"token":"...","expiresAt":"...","authExpiresAt":"...","now":...}` or `{"ok":false,"error":{"code":"STH-AUTH-...","retryable":...,"reason":"..."}}` (always HTTP 200 for these, so the browser can read them). Nothing is stored per user: the new token expires at the earlier of 7 days from now and 30 days after the access code was last entered (`auth_time`, carried in the token). The app will ask about once a day (when it opens), for a token older than 24 hours; the server itself refuses a token younger than 1 hour. Every renewal costs one Upstash request.
+- **Claims v2.** Every token from a sign-in or renewal carries `{sub:"sth", sid, ac:"sth", v:2, jti, iat, exp, auth_time, ep}`: `sid` is one id for the whole chain, `auth_time` the moment the code was entered, `ep` the epoch (below). Tokens from v7 (`v:1`) still work everywhere and renew into v2 (their own `iat` counts as the code entry: the 30 days do not restart).
+- **The epoch `auth:ep` (new optional key, nothing to create).** Absent means 0. When you change the access code with the combined command (step 3) the epoch goes up by one; a renewal of a token from an older epoch is refused (`STH-AUTH-441`), so that token simply ends at its own expiry (at most 7 days) and the user is asked for the new code then. **A code change no longer ends anything by itself without that command.** For an instant logout of everybody rotate the JWT secret (step 2).
+- **Fail closed and a breaker.** If Upstash cannot be read, renewals answer `STH-AUTH-503` (the app keeps its token and tries later). Renewals are counted per UTC hour (`auth:rn:<yyyymmddhh>`, 2 hour expiry); above 2000 in an hour every renewal answers `STH-AUTH-503` (reason `busy`) until the next hour. That is a constant in the node `Renew Evaluate` (`RENEW_MAX_PER_HOUR`); changing it needs a rebuilt bundle. There is no per-IP limit on purpose (a school network renews many tokens from one address).
+- **Job pickup by another device.** Hello now answers `"v":8`. New job op `claim` (one job, a 43-character nonce of the caller's own): the holder of the key takes a finished answer for a 10 minute lease (the same nonce renews it; another nonce gets `STH-JOB-409`). After `ack` a finished job leaves a contentless `collected` note for 72 hours instead of vanishing, so the device that started the job never runs it again (a repeated create is refused as a duplicate while the note exists). `result` refuses an answer somebody holds a live claim on (`STH-JOB-409`). `ack` carries the nonce; an ack with another nonce is left alone (listed in `notYours`). Failed and cancelled jobs are deleted by `ack` as before.
+- Two alarms: if `auth:ep` holds something that is not a whole number, sign-in with the right code and every renewal answer 503 and one error mail "[STH Workflow Error] ... Auth Alarm / Renew Alarm" reaches you (counted in the 50 a day). Fix the key (below).
+
+**Rules for you**
+
+1. **Rotate the access code only with the combined command** of step 3 (`EVAL "redis.call('SET','auth:code',ARGV[1]) return redis.call('INCR','auth:ep')" 0 "NEW-CODE"`). A plain `SET auth:code` does not stop renewals.
+2. **Never `DEL auth:ep`, never `SET` it to a smaller number; only `INCR`.** Deleting it (or an eviction) resets it to 0: chains revoked by an earlier bump could renew again, and every chain issued since would be refused. If you ever must fix a hand-typed bad value, `SET auth:ep` to the number it should have (`GET auth:ep` shows it; if it is `abc` and you never bumped before, `SET auth:ep 0` is right).
+3. Check once that **eviction is OFF** on the Upstash database (console > your database > its settings; I could not check the menu name here). A key without an expiry is the first one a "delete when full" policy removes.
+4. Until the app has its own domain, every page on `https://jay-leigh.github.io` (every repository of your user site) shares the browser storage in which the sign-in token lives: keep other pages there free of third-party scripts. A custom domain removes this.
+
+**Procedure** (same as step 22, with v8; do it when no job is running, a restart loses running jobs and the app starts them again)
+
+1. Back up (step 1). Keep `sth-workflow-v7-bundle.json`. 2. Import `sth-workflow-v8-bundle.json` in place (step 4). 3. Credentials (step 5): `STH JWT` on **six** nodes: `Student Hub Endpoint (JWT)`, `Job Start Endpoint`, `Job Endpoint`, **`Renew Endpoint`**, `Auth Sign JWT` and **`Renew Sign JWT`**; `Upstash Redis REST` on `Renew Read Epoch`, `Job - Claim` and the other Redis nodes (a red triangle means not selected); the Gemini nodes as in step 22. 4. Settings (6 and 6b): Do not save for successful and failed executions, error workflow = this workflow, `Timeout Workflow` 720 seconds. 5. Publish (step 7). 6. Run the tests below. Nothing to create in Upstash.
+
+**Tests (cmd.exe; `%N8N%`, `%ORIGIN%`, `%TOKEN%` as in 8.2; the PowerShell lines are pasted into a PowerShell window)**
+
+23.1 Hello (free, no Upstash call):
+
+```
+curl.exe -s -X POST "%N8N%/webhook/sth-job" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary "{\"v\":1,\"op\":\"status\",\"jobs\":[]}"
+```
+Expect the same answer as 22.1 but `"v":8` and `"claimLeaseS":600` inside `caps`.
+
+23.2 Claims v2. Sign in again as in 8.2 (new `%TOKEN%`) and look inside the token (the PowerShell line of 8.2). Expect `{"sub":"sth","sid":"<id>","ac":"sth","v":2,"jti":"<same id>","iat":...,"exp":...,"auth_time":<same as iat>,"ep":<GET auth:ep, 0 when absent>}` with `exp - iat = 604800`.
+
+23.3 A fresh token is refused (free):
+
+```
+curl.exe -s -X POST "%N8N%/webhook/student-tools-renew" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary "{\"v\":1}"
+```
+Expect `{"ok":false,"error":{"code":"STH-AUTH-425","retryable":false,"reason":"too_early"}}` (the token is under an hour old).
+
+23.4 Without a token and with a garbage token (free): same command with no `Authorization` header: `HTTP 401`, body `No token provided`; with `Bearer garbage`: `HTTP 403`. (Use `curl.exe -i`.)
+
+23.5 A real renewal. Easiest: use the token of 23.2 after it is more than one hour old (run 23.3 again then). Expect `{"ok":true,"token":"eyJ...","expiresAt":"<7 days from now>","authExpiresAt":"<30 days after the sign-in>","now":...}`. Look inside the NEW token (8.2): the same `sid` and `auth_time` as before, a new `jti`, `iat` = now, `exp - iat = 604800`, and `/webhook/sth-job` (23.1) accepts it. To test without waiting, forge a token as in 8.6 but with `{"sub":"sth","sid":"11111111-2222-4333-8444-555555555555","ac":"sth","v":2,"jti":"x","iat":<now-7200>,"exp":<now+500000>,"auth_time":<now-7200>,"ep":0}` (the PowerShell lines of 8.6 with that payload); it renews the same way.
+
+23.6 (optional, a quiet minute: while the epoch is 1, every real renewal in that minute is refused) The epoch. Only if `GET auth:ep` is empty or `0` (you never changed the code since v8): with a forged token of epoch 0 (23.5): `INCR auth:ep` in the Upstash CLI, send the renewal: expect `STH-AUTH-441` (`revoked`), and the same token still works on `/webhook/sth-job` (only renewal stops). Restore: `SET auth:ep 0`. Then with `SET auth:ep abc` a renewal answers `STH-AUTH-503` (reason `unavailable`), a sign-in with the right code answers `503 {"error":"unavailable"}` and one error mail "Renew Alarm" / "Auth Alarm" reaches you; fix with `SET auth:ep 0` again.
+
+23.7 The cap (free, forged tokens): a token with `auth_time` = now minus 29 days 23 hours 30 minutes (and `exp` = `auth_time` + 30 days) answers `STH-AUTH-440` (`max_age`). With `auth_time` = now minus 25 days and `exp` = `auth_time` + 30 days a renewal works and the new `exp` is `auth_time` + 30 days (5 days away), not 7.
+
+23.8 The new answers are not secret-bearing: the answers above contain only the token you sent or its renewal; nothing of the access code.
+
+23.9 CORS preflight:
+
+```
+curl.exe -i -X OPTIONS "%N8N%/webhook/student-tools-renew" -H "Origin: %ORIGIN%" -H "Access-Control-Request-Method: POST" -H "Access-Control-Request-Headers: authorization,content-type"
+```
+Expect `204` with `Access-Control-Allow-Origin: https://jay-leigh.github.io` and `authorization` in `Access-Control-Allow-Headers`.
+
+23.10 (optional, costs a few cents, run it ONCE) Claim, collect. Make a finished job as in 22.7 (create, wait ten seconds), then, with two nonces of your own (43 letters, digits, `-` or `_`; any made-up strings):
+
+```
+curl.exe -s -X POST "%N8N%/webhook/sth-job" -H "Content-Type: application/json" -H "Authorization: Bearer %TOKEN%" --data-binary "{\"v\":1,\"op\":\"claim\",\"jobs\":[{\"id\":\"%JID%\",\"key\":\"%JKEY%\",\"nonce\":\"%NONCE1%\"}]}"
+```
+Expect `{"ok":true,"id":"j_...","mode":"transcribe","result":{"text":"..."}}`. The same command with `%NONCE2%`: `{"ok":false,"error":{"code":"STH-JOB-409","retryable":false,"reason":"claimed"}}`; the `result` op of 22.7 now also answers `STH-JOB-409`. Then `ack` with the first nonce (add `\"nonce\":\"%NONCE1%\"` to the job entry): `{"ok":true,"acked":["j_..."],"notYours":[]}`; with the second nonce first it would have answered `"acked":[],"notYours":["j_..."]`. Finally `status` answers `"state":"collected"`, and in the Upstash CLI `HGETALL sth:job:<your id>` shows `st` `collected`, no `cl`, and `TTL` about 259200.
+
+**Moving to a custom domain (the origin build step).** The shipped bundle allows `https://jay-leigh.github.io` only. Build with both origins as the FINAL step over every webhook of the bundle: `cd n8n/tools`, then `STH_EXTRA_ORIGIN=https://<your-domain> node build.js` (the build stops with an error unless exactly **five** v8 webhook nodes (**four** in the v7 file) carry the app origin: `Student Hub Endpoint (JWT)`, `Auth Endpoint`, `Job Start Endpoint`, `Job Endpoint` and `Renew Endpoint`; so a webhook added later cannot be forgotten). Import the v8 file it writes. If you import without `Renew Endpoint` carrying the new origin, renewals from the new domain would fail silently and every user would meet the access gate 7 days after the last code entry. Check after the import: the preflight of 23.9 with `Origin: https://<your-domain>` answers its own origin (also for `student-tools-auth`, `sth-job`, `sth-job-start`, `student-tools-v2`). Do it BEFORE the domain goes live, and rebuild the v7 rollback file the same way (the same command writes both).
+
+**Rollback v8 to v7, with v2 tokens already issued.** Import `sth-workflow-v7-bundle.json` again (step 13; re-select `STH JWT`). What happens: tokens issued by v8 (`v:2`) keep working on v7 (n8n checks only signature and expiry; the extra claims are ignored), nobody is logged out; `/webhook/student-tools-renew` answers 404 and the hello answers `"v":7`, so the app stops renewing and everybody falls back to the 7-day rule (asked for the code 7 days after the last renewal, at the latest 7 days after the rollback); `auth:ep` and `auth:rn:*` are ignored (nothing to clean up, they expire or stay harmless); sign-in mints `v:1` tokens again, which a later v8 renews with epoch 0 (refused once you have bumped the epoch: the safe direction). Job notes: a `collected` note (up to 72 hours old) is also refused by v7 as a duplicate, so nothing is run twice; the `claim` op does not exist on v7 (`STH-INPUT-400`: an app that wants to claim must fall back to `result` and `ack` for its own jobs); `ack` on v7 deletes a finished answer as before. No import of the app is needed for the rollback.
+
+**Limits you should know:** a renewal is one Upstash EVAL (one request); the app renews about once a day per open browser, so a few hundred active browsers mean a few hundred requests a day, well below the 2000 an hour breaker. A claim replaces the `result` call one for one (one Upstash request). The 30-day cap counts from the last time the access code was typed, never from a renewal; a stolen token can therefore be renewed for at most 30 days after the code was entered, or until you bump the epoch (then at most 7 more days) or rotate the JWT secret (at once).
+
+**If something goes wrong:** rollback as above. If real users are locked out of renewals (`STH-AUTH-503` everywhere), look at `GET auth:ep` (a hand-typed value makes it 503), at Upstash (down = fail closed) and at `GET auth:rn:<yyyymmddhh>` (above 2000 = the breaker); sign-in itself keeps working in all those cases except an invalid `auth:ep`.

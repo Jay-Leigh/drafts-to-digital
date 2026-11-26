@@ -85,7 +85,7 @@ t.test('renew: the 30-day cap (exp = auth_time + 30 d), STH-AUTH-440 in the last
   const ok = await renew(app, near.token);
   assert.equal(ok.json.ok, true);
   assert.equal(app.n8n.claimsOf(ok.json.token).exp, near.claims.auth_time + 30 * 86400, 'the cap wins over now + 7 d');
-  const last = old(app, 2, 30 - 1 / 48, {});
+  const last = old(app, 2, 30 - 1 / 48, { claims: { exp: Math.floor((Date.now() - (30 - 1 / 48) * DAY) / 1000) + 30 * 86400 } }); // exp as a real chain has it: auth_time + 30 d
   const r = await renew(app, last.token);
   assert.deepEqual(err(r), { code: 'STH-AUTH-440', retryable: false, reason: 'max_age' });
   // a daily chain from day 0: every token has auth_time = day 0, nothing is issued past day 30
@@ -233,7 +233,7 @@ t.test('rollback: a v7 server does not know claim (STH-INPUT-400) and its ack ke
 
 t.test('the page against a v8 server: the sign-in answer is a v2 token and the app works with it', async (h) => {
   const app = await h.newApp({ v: 8, clock: true, signedIn: false, wait: false });
-  await app.until('authInitDone');
+  await app.page.waitForSelector('#loginInput', { state: 'visible' });
   await app.page.fill('#loginInput', app.n8n.code);
   await app.page.check('#loginConsent');
   await app.page.click('#loginBtn');
@@ -281,8 +281,9 @@ t.known('a client that sees `collected` (another device collected the answer) mu
   const tok = app.n8n.issueToken().token; const n = nonce();
   assert.equal((await op(app, tok, 'claim', [{ id, key: j.key, nonce: n }])).json.ok, true);
   assert.deepEqual((await op(app, tok, 'ack', [{ id, key: j.key, nonce: n }])).json.acked, [id]);
-  await app.advance(20000);
+  await app.advance(180000);
   assert.equal(app.n8n.creates().length, 1, 'no resend: the job must not run (and be billed) twice');
+  assert.notEqual(await app.ev(`jobs.recs.get('${id}') && jobs.recs.get('${id}').waitKind`), 'retry');
 });
 
 t.run();
