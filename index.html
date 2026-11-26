@@ -4032,6 +4032,7 @@
     // Public values only: the access code is checked by the server (authUrl), never in this page.
     const CONFIG = {
       authUrl: 'https://n8n-67295956827.africa-south1.run.app/webhook/student-tools-auth',
+      renewUrl: 'https://n8n-67295956827.africa-south1.run.app/webhook/student-tools-renew',
       n8nWebhookUrl: 'https://n8n-67295956827.africa-south1.run.app/webhook/student-tools-v2',
       jobStartUrl: 'https://n8n-67295956827.africa-south1.run.app/webhook/sth-job-start',
       jobUrl: 'https://n8n-67295956827.africa-south1.run.app/webhook/sth-job',
@@ -4084,11 +4085,29 @@
       return !!tok && typeof tok.t === 'string' && !!tok.t && Number.isFinite(tok.exp) && tok.exp - TOKEN_MARGIN_MS > Date.now();
     }
 
-    function loadStoredToken() {
+    // What the app reads from a token (no secret is in it): the chain id, when it was issued, when it ends and when the code was last typed (seconds).
+    // A token of the first kind (v1) has no auth_time: the code was typed when it was issued. null when the token is not readable.
+    function tokenClaims(token) {
+      try {
+        const p = JSON.parse(atob(String(token).split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+        if (!p || typeof p !== 'object' || !Number.isFinite(p.exp)) return null;
+        const iat = Number.isFinite(p.iat) ? p.iat : null;
+        return { sid: typeof p.sid === 'string' ? p.sid : (typeof p.jti === 'string' ? p.jti : ''), iat, exp: p.exp, authTime: Number.isFinite(p.auth_time) ? p.auth_time : iat };
+      } catch { return null; }
+    }
+
+    // The stored token if it is still usable, without removing anything
+    function peekStoredToken() {
       try {
         const tok = JSON.parse(storageGet(TOKEN_KEY));
         if (tokenUsable(tok)) return { t: tok.t, exp: tok.exp };
       } catch { /* damaged entry */ }
+      return null;
+    }
+
+    function loadStoredToken() {
+      const tok = peekStoredToken();
+      if (tok) return tok;
       storageRemove(TOKEN_KEY);
       return null;
     }
@@ -4096,6 +4115,7 @@
     function saveToken(token, expiresAt) {
       authToken = { t: token, exp: tokenExpiry(token, expiresAt) };
       if (!storageSet(TOKEN_KEY, JSON.stringify(authToken))) showStorageNote();
+      renew.noteToken();
     }
 
     // Authorization header for the webhook, or nothing when there is no usable token
@@ -4105,7 +4125,13 @@
 
     // POST the code to the sign-in endpoint. Resolves when a token is stored; otherwise throws an AppError:
     // AUTH-401 wrong code, AUTH-429 too many attempts, SRV-404/NET-*/SRV-500 sign-in unavailable.
-    async function signIn(code) {
+    // Takes the same lock as a renewal (the answer of a renewal must not overwrite a sign-in made meanwhile)
+    function signIn(code) {
+      const locks = navigator.locks;
+      return locks && locks.request ? locks.request(RENEW_LOCK, () => signInRequest(code)) : signInRequest(code);
+    }
+
+    async function signInRequest(code) {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
       let res, text;
@@ -4148,6 +4174,184 @@
         await signIn(atob(session.p));
       } catch { /* the gate asks for the code instead */ }
     }
+
+    // ─── Staying signed in: renewal of the sign-in token ──
+    // A token lasts 7 days. Once it is more than a day old, the app sends only the token to the server and gets a new 7-day token back, when the app opens
+    // and about once a day while it stays open, for up to 30 days after the code was last typed (the server holds that limit). Nothing is shown: a
+    // renewal that fails or is refused leaves the token as it is, and the access-code gate comes only when the token has really run out.
+    // Needs a server that says v 8 in its hello (it is asked here, not through the background-jobs engine, so storage limits and the jobs switch do not matter).
+    // Everything below lives in memory; the only thing stored is the token itself (sth_token), replaced by the new one.
+    const RENEW_LOCK = 'sth-auth-renew';
+    const RENEW_DUE_MS = 24 * 60 * 60 * 1000;        // renew a token older than this
+    const RENEW_FLOOR_MS = 60 * 60 * 1000;          // never ask for a token younger than this (the server refuses it)
+    const RENEW_CAP_MS = 30 * 24 * 60 * 60 * 1000;  // the server stops renewing this long after the code was typed
+    const RENEW_RETRY_MS = 15 * 60 * 1000;          // after a failure: at least this long, then longer
+    const RENEW_RETRY_MAX_MS = 4 * 60 * 60 * 1000;
+    const RENEW_HELLO_MS = 30 * 60 * 1000;          // a server that said "not v 8" is asked again after this
+    const RENEW_ARM_MAX_MS = 6 * 60 * 60 * 1000;
+    const RENEW_OPEN_WAIT_MS = 400;                  // when the app opens, the other tabs may say that a renewal failed a moment ago
+    const renew = {
+      v: null,        // the server version from its hello (null: not asked yet)
+      helloAt: 0,
+      skew: 0,        // the server's time minus this device's time (ms), from the last answer that carried it
+      fails: 0,
+      nextAt: 0,      // no attempt before this (device time)
+      blocked: '',    // the token the server said it will not renew (capped, changed code, invalid): it is left to run out
+      rescued: '',    // the rejected token that has had its one extra try
+      inflight: null,
+      timer: 0,
+      wired: false,
+      opened: false,  // the first look of this visit has been made
+
+      now() { return Date.now() + this.skew; },
+      noteServerTime(ms) { if (Number.isFinite(ms) && Math.abs(ms - Date.now()) < 30 * 24 * 60 * 60 * 1000) this.skew = ms - Date.now(); },
+      noteServerV(v) { this.v = v; this.helloAt = Date.now(); if (v >= 8) this.arm(); },
+      noteToken() { this.blocked = ''; this.rescued = ''; this.fails = 0; this.nextAt = 0; this.arm(); }, // a new token (sign-in or renewal)
+
+      // The newest usable token of this browser: another tab may have renewed or signed in
+      adoptStored() {
+        const s = peekStoredToken();
+        if (s && authToken && s.t !== authToken.t && s.exp > authToken.exp) { authToken = s; this.blocked = ''; this.fails = 0; this.nextAt = 0; }
+      },
+
+      // Whether the server would take this token now (what the app can know without asking)
+      due(tok, force) {
+        if (!tokenUsable(tok) || this.blocked === tok.t) return false;
+        const c = tokenClaims(tok.t);
+        if (!c || !c.iat || !c.authTime) return false;
+        const now = this.now(), age = now - c.iat * 1000;
+        if (age < (force ? RENEW_FLOOR_MS : RENEW_DUE_MS)) return false;
+        if (c.authTime * 1000 + RENEW_CAP_MS - now < RENEW_FLOOR_MS) return false;
+        return force || Date.now() >= this.nextAt;
+      },
+
+      // The next time to look: when the token is a day old, never sooner than the retry time, with a little jitter so tabs and devices do not arrive together
+      arm() {
+        clearTimeout(this.timer);
+        this.timer = 0;
+        if (!this.wired || !authToken || this.blocked === authToken.t) return;
+        const c = tokenClaims(authToken.t);
+        if (!c || !c.iat) return;
+        const at = Math.max(c.iat * 1000 + RENEW_DUE_MS - this.skew, this.nextAt);
+        const wait = Math.min(Math.max(at - Date.now(), 60 * 1000) + Math.random() * 10 * 60 * 1000, RENEW_ARM_MAX_MS);
+        this.timer = setTimeout(() => { this.timer = 0; this.maybe('timer'); }, wait);
+      },
+
+      fail(minMs) {
+        this.fails++;
+        const wait = Math.min(RENEW_RETRY_MS * 2 ** (this.fails - 1), RENEW_RETRY_MAX_MS);
+        this.nextAt = Date.now() + Math.max(wait, minMs || 0);
+        tabSync.post('renewfail'); // the other tabs wait too
+      },
+      otherTabFailed() { this.nextAt = Math.max(this.nextAt, Date.now() + RENEW_RETRY_MS); },
+      // A tab that opens asks the other tabs first: one that failed a moment ago says so (a tab closed meanwhile cannot, which is harmless)
+      answerAsk() { if (this.fails > 0 && Date.now() < this.nextAt) tabSync.post('renewfail'); },
+
+      // One renewal at a time in this tab; the lock keeps the other tabs from asking too
+      maybe(reason) {
+        if (this.inflight) return this.inflight;
+        this.adoptStored();
+        if (!this.due(authToken, false)) { this.arm(); return Promise.resolve('notdue'); }
+        if (navigator.onLine === false) return Promise.resolve('offline');
+        this.inflight = this.run(false).catch(err => { console.warn('[STH] Renewal skipped:', err && err.name); return 'error'; }).finally(() => { this.inflight = null; this.arm(); });
+        return this.inflight;
+      },
+
+      async run(force) {
+        if (!(this.v >= 8) && (this.v === null || Date.now() - this.helloAt >= RENEW_HELLO_MS)) await this.hello();
+        if (!(this.v >= 8)) { this.nextAt = Math.max(this.nextAt, Date.now() + RENEW_HELLO_MS); return 'noserver'; } // a v7 server (or none): no renewal calls at all
+        const locks = navigator.locks;
+        if (locks && locks.request) return locks.request(RENEW_LOCK, { ifAvailable: true }, (lock) => (lock ? this.attempt(force) : 'other-tab'));
+        return this.attempt(force);
+      },
+
+      // The server's hello (the job endpoint's status answer with no jobs): its version and its time. Asked here so renewal does not depend on the jobs engine.
+      async hello() {
+        this.helloAt = Date.now();
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 15000);
+        try {
+          const res = await fetch(CONFIG.jobUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', ...authHeaders() }, body: JSON.stringify({ v: 1, op: 'status', jobs: [] }), cache: 'no-store', signal: controller.signal });
+          const d = res.ok ? await res.json() : null;
+          if (d && typeof d === 'object') { this.v = Number.isInteger(d.v) && d.v > 0 ? d.v : 0; this.noteServerTime(d.now); }
+          else this.fail();
+        } catch { this.fail(); } finally { clearTimeout(timer); }
+      },
+
+      async post(token) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), AUTH_TIMEOUT_MS);
+        try {
+          const res = await fetch(CONFIG.renewUrl, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ v: 1 }), cache: 'no-store', signal: controller.signal });
+          const text = await res.text();
+          let data = null;
+          try { data = JSON.parse(text); } catch { /* not JSON */ }
+          return { status: res.status, data };
+        } catch { return { status: 0, data: null }; } finally { clearTimeout(timer); }
+      },
+
+      // Inside the lock. Resolves to a short word for what happened (the tests read it); never throws to the user.
+      async attempt(force) {
+        this.adoptStored();
+        const tok = authToken;
+        if (!this.due(tok, force)) return 'notdue';
+        const sent = tok.t;
+        const { status, data } = await this.post(sent);
+        const err = data && data.ok === false && data.error && typeof data.error === 'object' ? data.error : null;
+        const code = err ? String(err.code || '') : '';
+        if (status === 200 && data && data.ok === true && typeof data.token === 'string' && data.token) return this.accept(sent, data);
+        if (status === 200 && code === 'STH-AUTH-425') { this.nextAt = Date.now() + RENEW_FLOOR_MS; return 'early'; } // too fresh: nothing to do
+        if (status === 200 && (code === 'STH-AUTH-440' || code === 'STH-AUTH-441' || code === 'STH-INPUT-400')) { this.blocked = sent; return 'stopped'; } // capped, code changed, invalid: let it run out
+        if (status === 401 || status === 403) { this.blocked = sent; return 'rejected'; } // the server does not take this token (the gate comes with the next real request)
+        if (status === 404) { this.v = 0; this.helloAt = Date.now(); this.fail(); return 'absent'; } // the server has no renewal (rolled back): wait like after any failure
+        this.fail(err && Number.isFinite(err.retryAfterMs) ? Math.min(err.retryAfterMs, RENEW_RETRY_MAX_MS) : 0); // 503, busy, network, anything else: keep the token and try later
+        return 'later';
+      },
+
+      // The new token replaces the old one only if the stored token is still the one that was sent (or an older token of the same chain): a sign-in made in
+      // another tab meanwhile, or a renewal by another tab, is never overwritten.
+      accept(sent, data) {
+        this.noteServerTime(data.now);
+        const was = tokenClaims(sent), now = tokenClaims(data.token);
+        if (!was || !now || !now.iat || now.exp * 1000 - Date.now() < RENEW_FLOOR_MS || (was.sid && now.sid !== was.sid) || now.exp <= was.exp) { this.fail(); return 'badanswer'; }
+        const cur = peekStoredToken() || (authToken && authToken.t === sent ? authToken : null); // the stored one; storage blocked: this tab's own
+        const curClaims = cur ? tokenClaims(cur.t) : null;
+        const same = !!cur && (cur.t === sent || (!!curClaims && curClaims.sid === now.sid && cur.exp < now.exp * 1000));
+        if (!same) {
+          if (cur && tokenUsable(cur)) { authToken = cur; this.noteToken(); }
+          return 'dropped';
+        }
+        saveToken(data.token, data.expiresAt);
+        jobs.resumeAuth();
+        return 'renewed';
+      },
+
+      // A server answer 401/403 for a token the app thought valid: when its renewal had already failed once, ask once more before the gate
+      rescuable(rejected) {
+        return !!rejected && this.fails > 0 && this.rescued !== rejected && !!authToken && authToken.t === rejected && tokenUsable(authToken) && this.v >= 8;
+      },
+      async rescue(rejected) {
+        this.rescued = rejected;
+        if (this.inflight) { try { await this.inflight; } catch { /* handled inside */ } }
+        if (!authToken || authToken.t !== rejected) return !!tokenUsable(authToken);
+        let out = 'error';
+        try {
+          const locks = navigator.locks;
+          out = locks && locks.request ? await locks.request(RENEW_LOCK, () => this.attempt(true)) : await this.attempt(true);
+        } catch { /* gate */ }
+        return out === 'renewed' || (out === 'dropped' && !!authToken && authToken.t !== rejected);
+      },
+
+      start() {
+        if (this.wired) return;
+        this.wired = true;
+        document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') this.maybe('visible'); });
+        window.addEventListener('online', () => this.maybe('online'));
+        window.addEventListener('storage', (e) => { if (e.key === TOKEN_KEY) { this.adoptStored(); this.arm(); } });
+        tabSync.post('renewask');
+        setTimeout(() => { this.opened = true; this.maybe('open'); }, RENEW_OPEN_WAIT_MS);
+      },
+    };
 
     function hasValidConsent() {
       try {
@@ -4506,6 +4710,7 @@
         await _historyStore.setItem('entries', all).catch(() => {});
         setHistoryButton(all.length);
         tabSync.post('history');
+        scheduleDrivePush(); // with sync connected the entry goes to the user's Drive too
         return entry;
       });
     }
@@ -4550,6 +4755,9 @@
       const kept = all.filter(e => e.timestamp >= cutoff);
       if (kept.length !== all.length) {
         await _historyStore.setItem('entries', kept).catch(() => {});
+        // an entry that expires takes its hidden Drive file with it (the next sync deletes it)
+        await historyRec.addRemoved(all.filter(e => e.timestamp < cutoff && e.driveFileId));
+        scheduleDrivePush();
       }
       for (const k of await _historyStore.keys().catch(() => [])) {
         if (k.startsWith('kbSaved:') && !((await _historyStore.getItem(k).catch(() => 0)) >= cutoff)) await _historyStore.removeItem(k).catch(() => {});
@@ -4560,16 +4768,21 @@
       const all = await getHistory();
       const updated = all.filter(e => e.id !== id);
       await _historyStore.setItem('entries', updated).catch(() => {});
+      await historyRec.addRemoved(all.filter(e => e.id === id), true); // with sync connected, the id is listed as deleted so every device follows
       setHistoryButton(updated.length);
       renderHistoryList();
       tabSync.post('history');
+      scheduleDrivePush();
     }
 
     async function clearAllHistory() {
+      const all = await getHistory();
       await _historyStore.setItem('entries', []).catch(() => {});
+      await historyRec.addRemoved(all, true);
       setHistoryButton(0);
       renderHistoryList();
       tabSync.post('history');
+      scheduleDrivePush();
     }
 
     // ─── History Panel UI ───────────────────────────
@@ -4660,10 +4873,10 @@
     function historyDocRow(e) {
       return historyRowEl({
         id: e.id, kind: 'document', at: e.timestamp, deleteLabel: 'Delete',
-        badge: `<span class="history-mode-badge badge-${e.mode}">${e.mode}</span>`,
+        badge: `<span class="history-mode-badge badge-${escapeHtml(e.mode)}">${escapeHtml(e.mode)}</span>`,
         preview: escapeHtml(e.preview),
-        meta: `${e.wordCount.toLocaleString()} words${e.fileNames?.length ? ' &middot; ' + e.fileNames.slice(0,2).map(escapeHtml).join(', ') + (e.fileNames.length > 2 ? ' +' + (e.fileNames.length-2) + ' more' : '') : ''}`,
-        onOpen: () => openHistoryResult(e),
+        meta: `${(Number(e.wordCount) || 0).toLocaleString()} words${e.fileNames?.length ? ' &middot; ' + e.fileNames.slice(0,2).map(escapeHtml).join(', ') + (e.fileNames.length > 2 ? ' +' + (e.fileNames.length-2) + ' more' : '') : ''}`,
+        onOpen: () => openHistoryEntry(e),
         onDelete: () => deleteHistoryEntry(e.id),
       });
     }
@@ -4681,6 +4894,31 @@
     }
 
     let _historyCurrentEntry = null;
+
+    // An entry made on another device has its summary here and its text in a hidden Drive file: read it the first time it is opened, then keep it on this device
+    const historyLoading = new Set();
+    async function openHistoryEntry(entry) {
+      if (typeof entry.resultText !== 'string') entry = (await getHistory()).find(e => e.id === entry.id) || entry; // the row may be older than the text this device has read since
+      if (typeof entry.resultText === 'string') { openHistoryResult(entry); return; }
+      if (historyLoading.has(entry.id)) return;
+      if (!state.driveSyncToken) { showToast('This entry was made on another device. Connect Google sync to open it here.'); return; }
+      historyLoading.add(entry.id);
+      showToast('Loading from your Google Drive\u2026');
+      try {
+        const text = await historySync.fetchBody(entry);
+        if (text === null) { showToast('The file for this entry is no longer in your Google Drive. Delete the entry.', 'error'); return; }
+        await withStoreLock('history', async () => {
+          const all = (await _historyStore.getItem('entries').catch(() => null)) || [];
+          const mine = all.find(e => e.id === entry.id);
+          if (mine) { mine.resultText = text; await _historyStore.setItem('entries', all).catch(() => {}); }
+        });
+        openHistoryResult({ ...entry, resultText: text });
+      } catch (err) {
+        console.warn('[Sync] History entry could not be read from Drive:', err);
+        handleDriveTokenError(err);
+        showToast(withCode('Could not load this entry from your Google Drive. Try again.', err), 'error');
+      } finally { historyLoading.delete(entry.id); }
+    }
 
     function openHistoryResult(entry) {
       _historyCurrentEntry = entry;
@@ -5656,6 +5894,8 @@
           reduceMax: Number.isInteger(c.reduceMaxTokens) && c.reduceMaxTokens >= STUDIO_CAP_MIN && c.reduceMaxTokens <= STUDIO_MR_REDUCE_MAX ? c.reduceMaxTokens : STUDIO_MR_REDUCE_MAX };
         const before = studioMaxSources(), live = studioV7Live();
         service.server = next;
+        renew.noteServerV(v);
+        if (hello) renew.noteServerTime(d.now);
         if ((studioMaxSources() !== before || studioV7Live() !== live) && studio.wired) studio.syncSelectionViews();
       },
       noteHello(d, hello) {
@@ -9400,6 +9640,7 @@
       syncRemoteVersion = null;
       syncPullWrites = [];
       syncBase.clear().catch(() => {});
+      historyRec.clearBase().catch(() => {});
       state.driveSyncFileId = null;
       state.driveSyncUser = null;
       convertedDocs.clear();
@@ -9832,6 +10073,267 @@
       },
     };
 
+    // ── History in the sync file (field `history`, version 1) ──────
+    // Documents (transcriptions, templates, reviews) sync like study aids: a summary of each in the sync file, its text in one hidden file per entry
+    // (`sth-history-<id>.json`, written once: an entry never changes), the ids of deleted entries for 31 days, and an expiry that every device works out
+    // from the entry's own date (30 days). Study aids keep their own field and are never copied here. Merged with the same three-way rules as Knowledge Bay.
+    const HISTORY_SYNC_VERSION = 1;
+    const HISTORY_SYNC_MAX = 200;                         // no new entry goes to Drive once the file lists this many
+    const HISTORY_SYNC_READ_MAX = 400;
+    const HISTORY_TOMB_TTL = 31 * 24 * 60 * 60 * 1000;
+    const HISTORY_TOMB_MAX = 400;
+    const HISTORY_FILE_VERSION = 1;
+    const HISTORY_ID_RE = /^[\w-]{1,64}$/;
+    const HISTORY_DRIVE_ID_RE = /^[\w-]{8,200}$/;
+    const historyFileName = (id) => `sth-history-${id}.json`;
+    const historyTs = (n) => typeof n === 'number' && isFinite(n) && n > 0 && n < 4e12 ? Math.floor(n) : 0;
+    const historyExpired = (e, now = Date.now()) => now - e.timestamp > HISTORY_TTL;
+    const historyKnownMode = (m) => typeof m === 'string' && Object.prototype.hasOwnProperty.call(MODE_META, m);
+    // Only while sync is connected (or a hidden file already exists) do deletions need to be remembered
+    const historySyncOn = () => !!(state.driveSyncToken || syncKnownUser || state.driveSyncUser);
+
+    // Pure. The summary that goes into the sync file
+    function historySyncSummary(e) {
+      return {
+        id: e.id, mode: e.mode,
+        fileNames: (Array.isArray(e.fileNames) ? e.fileNames : []).filter(n => typeof n === 'string').slice(0, 20).map(n => n.slice(0, 200)),
+        wordCount: Number.isFinite(e.wordCount) && e.wordCount > 0 ? Math.floor(e.wordCount) : 0,
+        preview: typeof e.preview === 'string' ? e.preview.slice(0, 200) : '',
+        timestamp: e.timestamp, driveFileId: e.driveFileId, bytes: Number.isFinite(e.bytes) && e.bytes > 0 ? Math.floor(e.bytes) : 0,
+      };
+    }
+
+    // Pure. One summary from the sync file as a local entry (without its text), or null when it is unusable (the file may come from another device or be edited by hand)
+    function historySyncCleanSummary(raw) {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw) || typeof raw.id !== 'string' || !HISTORY_ID_RE.test(raw.id) || !historyKnownMode(raw.mode)) return null;
+      if (typeof raw.driveFileId !== 'string' || !HISTORY_DRIVE_ID_RE.test(raw.driveFileId)) return null;
+      const timestamp = historyTs(raw.timestamp);
+      if (!timestamp) return null;
+      return historySyncSummary({ id: raw.id, mode: raw.mode, fileNames: raw.fileNames, wordCount: raw.wordCount, preview: raw.preview, timestamp, driveFileId: raw.driveFileId, bytes: raw.bytes });
+    }
+
+    // Pure: deleted ids as a Map id -> { at, driveFileId? }; entries older than 31 days are dropped
+    function historySyncReadTombs(list, now = Date.now()) {
+      const out = new Map();
+      const arr = Array.isArray(list) ? list : (list && typeof list === 'object' ? Object.entries(list).map(([id, t]) => ({ id, ...(t && typeof t === 'object' ? t : {}) })) : []);
+      for (const t of arr.slice(0, HISTORY_TOMB_MAX * 2)) {
+        const at = t && typeof t === 'object' && typeof t.id === 'string' && HISTORY_ID_RE.test(t.id) ? historyTs(t.at) : 0;
+        if (!at || now - at > HISTORY_TOMB_TTL) continue;
+        const keep = out.get(t.id);
+        if (keep && keep.at >= at) continue;
+        out.set(t.id, typeof t.driveFileId === 'string' && HISTORY_DRIVE_ID_RE.test(t.driveFileId) ? { at, driveFileId: t.driveFileId } : { at });
+      }
+      return out;
+    }
+
+    // Pure: the newest deletion time wins; the Drive file id stays only while both sides still have it (a side without it has deleted the file already)
+    function historySyncMergeTombs(a, b, now = Date.now()) {
+      const out = new Map();
+      for (const id of new Set([...a.keys(), ...b.keys()])) {
+        const x = a.get(id), y = b.get(id);
+        const at = Math.max(x ? x.at : 0, y ? y.at : 0);
+        if (!at || now - at > HISTORY_TOMB_TTL) continue;
+        const file = x && y ? (x.driveFileId && y.driveFileId ? x.driveFileId : '') : (x || y).driveFileId || '';
+        out.set(id, file ? { at, driveFileId: file } : { at });
+      }
+      return new Map([...out].sort((p, q) => q[1].at - p[1].at).slice(0, HISTORY_TOMB_MAX));
+    }
+    const historySyncTombList = (tombs) => [...tombs].map(([id, t]) => ({ id, ...t })).sort((p, q) => (p.id < q.id ? -1 : 1));
+
+    // Pure: the `history` field of the sync file. A newer version is left alone (future); summaries of a mode this version does not know are kept as they are (foreign);
+    // `present` says the field is a version-1 field (an absent or unreadable field is no proof that anything was deleted)
+    function historySyncRead(raw, now = Date.now()) {
+      const out = { future: false, present: false, items: new Map(), foreign: [], expired: [], tombs: new Map() };
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+      if (Number.isInteger(raw.v) && raw.v > HISTORY_SYNC_VERSION) { out.future = true; return out; }
+      if (raw.v !== HISTORY_SYNC_VERSION) return out;
+      out.present = true;
+      for (const s of (Array.isArray(raw.items) ? raw.items.slice(0, HISTORY_SYNC_READ_MAX) : [])) {
+        if (!s || typeof s !== 'object' || typeof s.id !== 'string' || !HISTORY_ID_RE.test(s.id)) continue;
+        const ts = historyTs(s.timestamp);
+        const driveOk = typeof s.driveFileId === 'string' && HISTORY_DRIVE_ID_RE.test(s.driveFileId);
+        if (ts && now - ts > HISTORY_TTL) { if (driveOk) out.expired.push({ id: s.id, driveFileId: s.driveFileId }); continue; }
+        if (typeof s.mode === 'string' && !historyKnownMode(s.mode)) {
+          if (driveOk && ts && JSON.stringify(s).length < 4000) out.foreign.push(s);
+          continue;
+        }
+        const e = historySyncCleanSummary(s);
+        if (e && !out.items.has(e.id)) out.items.set(e.id, e);
+      }
+      out.tombs = historySyncReadTombs(raw.deleted, now);
+      return out;
+    }
+
+    // Same id on both sides: this device's copy stays; a file id the other side has is taken when this side has none
+    function historySyncPair(local, remote) {
+      if (!local.driveFileId && remote.driveFileId) { local.driveFileId = remote.driveFileId; local.bytes = remote.bytes; }
+      return local;
+    }
+
+    // The local record of history syncing, inside the History store under the key `sync_base` (the same key Knowledge Bay and tutor chats use for theirs):
+    // { fid, ids: {id: time} of the entries the sync file listed when it was last written or read here, removed: {id: {at, driveFileId?}} deleted ids for 31 days }
+    const historyRec = {
+      mem: null,
+      async load() {
+        let r = null;
+        try { r = await _historyStore.getItem(SYNC_BASE_KEY); } catch { r = null; }
+        r = r || this.mem || {};
+        return { fid: typeof r.fid === 'string' ? r.fid : '', ids: r.ids && typeof r.ids === 'object' ? r.ids : {}, removed: r.removed && typeof r.removed === 'object' ? r.removed : {} };
+      },
+      async save(rec) {
+        this.mem = rec;
+        try { await _historyStore.setItem(SYNC_BASE_KEY, rec); } catch { /* storage blocked: this visit keeps it in memory */ }
+      },
+      update(fn) {
+        return withStoreLock('history-rec', async () => { const rec = await this.load(); const next = fn(rec) || rec; await this.save(next); return next; });
+      },
+      // entries just deleted or expired here: kept as deleted ids (with the hidden file's id, so the file is deleted at the next sync) while sync is connected or the entry is in Drive
+      async addRemoved(entries) {
+        const list = entries.filter(e => e && typeof e.id === 'string' && HISTORY_ID_RE.test(e.id) && (e.driveFileId || historySyncOn()));
+        if (!list.length) return;
+        const at = Date.now();
+        await this.update(rec => {
+          const removed = { ...rec.removed };
+          for (const e of list) removed[e.id] = { at, ...(e.driveFileId && HISTORY_DRIVE_ID_RE.test(e.driveFileId) ? { driveFileId: e.driveFileId } : {}) };
+          rec.removed = Object.fromEntries(historySyncTombList(historySyncReadTombs(removed, at)).map(t => [t.id, t.driveFileId ? { at: t.at, driveFileId: t.driveFileId } : { at: t.at }]));
+          return rec;
+        });
+      },
+      async setBase(fileId, ids) {
+        if (!fileId) return;
+        await this.update(rec => { rec.fid = fileId; rec.ids = ids; return rec; });
+      },
+      // Signing out: the list of listed entries goes (it belongs to one file); the deleted ids stay so a hidden file is still deleted when sync is connected again
+      async clearBase() {
+        this.mem = null;
+        try { await this.update(rec => { rec.fid = ''; rec.ids = {}; return rec; }); } catch { /* nothing stored */ }
+      },
+    };
+
+    const historySync = {
+      // The text of an entry made on another device, from its hidden file. null when the file is gone.
+      async fetchBody(entry) {
+        const token = state.driveSyncToken;
+        let blob;
+        try { blob = await driveDownloadFile(token, entry.driveFileId); }
+        catch (err) {
+          if (err.status !== 404) throw err;
+          const found = await driveListSyncFile(token, historyFileName(entry.id)); // the stored id may be stale: look the file up by its name
+          if (!found || found === entry.driveFileId) return null;
+          blob = await driveDownloadFile(token, found);
+        }
+        if (blob.size > STUDIO_FILE_MAX_BYTES) throw Object.assign(new Error('History file too large'), { status: 0 });
+        let data = null;
+        try { data = JSON.parse(await blob.text()); } catch { /* damaged */ }
+        if (!data || data.v !== HISTORY_FILE_VERSION || data.id !== entry.id || data.mode !== entry.mode || typeof data.resultText !== 'string') throw Object.assign(new Error('History file damaged'), { status: 0 });
+        return data.resultText;
+      },
+
+      // One round with the sync file. Resolves to { field, ids, remoteIds }: the field to write (null = leave it out; an unreadable or newer field is returned as it was),
+      // the entries it lists, and what the file listed when it was read.
+      async round(token, fileId, remoteRaw, signedOut) {
+        try { return await this.roundNow(token, fileId, remoteRaw, signedOut); }
+        catch (err) {
+          if (err && err.status) throw err;
+          console.warn('[Sync] History skipped:', err);
+          return { field: remoteRaw && typeof remoteRaw === 'object' ? remoteRaw : null, ids: null, remoteIds: null };
+        }
+      },
+
+      async roundNow(token, fileId, remoteRaw, signedOut) {
+        const now = Date.now();
+        const remote = historySyncRead(remoteRaw, now);
+        if (remote.future) return { field: remoteRaw, ids: null, remoteIds: null };
+        const rec = await historyRec.load();
+        const tombs = historySyncMergeTombs(historySyncReadTombs(rec.removed, now), remote.tombs, now);
+        const stored = ((await _historyStore.getItem('entries').catch(() => null)) || []).filter(e => e && typeof e.id === 'string' && HISTORY_ID_RE.test(e.id) && historyKnownMode(e.mode) && historyTs(e.timestamp));
+        const before = new Map(stored.map(e => [e.id, e.driveFileId || '']));
+
+        // 1 - what must go: expired entries (their file too), entries deleted anywhere
+        const filesGone = new Map(); // id -> hidden file id ('' when not known)
+        const gone = new Set();
+        for (const e of stored) {
+          if (historyExpired(e, now)) { gone.add(e.id); if (e.driveFileId) { filesGone.set(e.id, e.driveFileId); if (!tombs.has(e.id)) tombs.set(e.id, { at: now, driveFileId: e.driveFileId }); } }
+          else if (tombs.has(e.id)) { gone.add(e.id); if (e.driveFileId) filesGone.set(e.id, e.driveFileId); }
+        }
+        for (const x of remote.expired) filesGone.set(x.id, x.driveFileId);
+        for (const [id, t] of tombs) {
+          const r = remote.items.get(id);
+          if (!filesGone.has(id) && (t.driveFileId || (r && r.driveFileId))) filesGone.set(id, t.driveFileId || r.driveFileId);
+        }
+        const live = stored.filter(e => !gone.has(e.id));
+        const remoteLive = [...remote.items.values()].filter(r => !tombs.has(r.id));
+
+        // 2 - three-way merge by id (an entry never changes, so "newer wins" never matters): both sides' entries are kept; one deleted elsewhere goes
+        const base = rec.fid && rec.fid === fileId ? rec.ids : null;
+        const out = syncThreeWay(live, remoteLive, { base, reliable: remote.present, removed: {}, t: (e) => e.timestamp, pair: historySyncPair });
+        for (const id of out.dropped) gone.add(id);
+
+        // 3 - delete the hidden files of what went (a file that is already gone counts as deleted)
+        const failedFiles = new Set();
+        for (const [id, fid] of filesGone) {
+          try {
+            try { await driveDeleteFile(token, fid); }
+            catch (err) {
+              if (err.status !== 404) throw err;
+              const found = await driveListSyncFile(token, historyFileName(id));
+              if (found && found !== fid) await driveDeleteFile(token, found).catch(e => { if (e.status !== 404) throw e; });
+            }
+          } catch (err) {
+            console.warn('[Sync] History file not deleted (will retry next sync):', err);
+            failedFiles.add(id);
+            if (!tombs.has(id)) tombs.set(id, { at: now, driveFileId: fid }); // an expired summary is dropped: keep its file id as a deleted id so the delete is tried again
+            handleDriveTokenError(err);
+            if (signedOut()) return { field: null, ids: null, remoteIds: null };
+          }
+        }
+        for (const [id, t] of tombs) if (t.driveFileId && !failedFiles.has(id) && filesGone.has(id)) delete t.driveFileId; // deleted once; kept as an id only
+
+        // 4 - upload what is not in Drive yet (entries over the size ceiling stay on this device)
+        const changed = new Map(); // id -> fields to store on the local entry
+        let listed = out.list.filter(e => e.driveFileId && !e.localOnly).length;
+        for (const e of [...out.list].sort((a, b) => b.timestamp - a.timestamp)) {
+          if (e.driveFileId || e.localOnly || typeof e.resultText !== 'string' || listed >= HISTORY_SYNC_MAX) continue;
+          const blob = new Blob([JSON.stringify({ v: HISTORY_FILE_VERSION, id: e.id, mode: e.mode, resultText: e.resultText })], { type: 'application/json' });
+          if (blob.size > STUDIO_FILE_MAX_BYTES) { e.localOnly = true; changed.set(e.id, { localOnly: true }); continue; }
+          try {
+            const fid = await driveUploadRawFile(token, blob, historyFileName(e.id));
+            if (signedOut()) return { field: null, ids: null, remoteIds: null };
+            e.driveFileId = fid; e.bytes = blob.size; listed++;
+            changed.set(e.id, { driveFileId: fid, bytes: blob.size });
+          } catch (err) {
+            console.warn('[Sync] History upload failed (will retry next sync):', err);
+            handleDriveTokenError(err);
+            if (signedOut()) return { field: null, ids: null, remoteIds: null };
+          }
+        }
+        for (const e of out.list) if ((e.driveFileId || '') !== (before.get(e.id) || '') && !changed.has(e.id) && before.has(e.id)) changed.set(e.id, { driveFileId: e.driveFileId, bytes: e.bytes });
+
+        // 5 - keep the result on this device (by id, under the lock, so an entry another tab saved meanwhile is untouched; no push is scheduled)
+        const inList = new Set(out.list.map(e => e.id));
+        const adds = out.list.filter(e => !before.has(e.id)).map(e => ({ id: e.id, mode: e.mode, fileNames: e.fileNames, wordCount: e.wordCount, preview: e.preview, timestamp: e.timestamp, driveFileId: e.driveFileId, bytes: e.bytes }));
+        const removeIds = new Set([...gone].filter(id => before.has(id) && !inList.has(id)));
+        if (adds.length || removeIds.size || changed.size) {
+          await withStoreLock('history', async () => {
+            const cur = (await _historyStore.getItem('entries').catch(() => null)) || [];
+            const have = new Set(cur.map(e => e && e.id));
+            const next = cur.filter(e => e && !removeIds.has(e.id)).map(e => (changed.has(e.id) ? { ...e, ...changed.get(e.id) } : e));
+            for (const a of adds) if (!have.has(a.id) && !gone.has(a.id)) next.push(a);
+            next.sort((p, q) => (q.timestamp || 0) - (p.timestamp || 0));
+            await _historyStore.setItem('entries', next).catch(() => {});
+          });
+          if (adds.length || removeIds.size) { await refreshHistoryUi(); tabSync.post('history'); }
+        }
+        await historyRec.update(r => { r.removed = Object.fromEntries(historySyncTombList(tombs).map(t => [t.id, t.driveFileId ? { at: t.at, driveFileId: t.driveFileId } : { at: t.at }])); return r; });
+
+        // 6 - the field: the entries that are in Drive, the foreign ones as they were, the deleted ids
+        const items = out.list.filter(e => e.driveFileId && !e.localOnly && !historyExpired(e, now)).map(historySyncSummary).sort((a, b) => b.timestamp - a.timestamp || (a.id < b.id ? -1 : 1));
+        const foreign = remote.foreign.filter(f => !tombs.has(f.id));
+        const field = items.length || foreign.length || tombs.size ? { v: HISTORY_SYNC_VERSION, items: [...items, ...foreign], deleted: historySyncTombList(tombs) } : null;
+        return { field, ids: Object.fromEntries(items.map(i => [i.id, i.timestamp])), remoteIds: remote.present ? Object.fromEntries([...remoteLive].map(r => [r.id, r.timestamp])) : null };
+      },
+    };
+
     // ── Rounds with the sync file (first sync, push, pull) ─────
     // One round at a time in this tab (a chain), and one across tabs (Web Lock where there is one). A pull never asks Google for anything: with no
     // fresh token it does nothing. A pull only writes the file when the merged content differs from what it read.
@@ -9973,6 +10475,8 @@
           }
           const studioField = await studio.syncRound(token, remote && remote.studio, signedOut);
           if (signedOut()) return null;
+          const historyOut = await historySync.round(token, fileId, remote && remote.history, signedOut);
+          if (signedOut()) return null;
 
           // 5 — Write only when the merged content differs from what the file holds
           const differs = !reliable
@@ -9980,7 +10484,8 @@
             || syncListsDiffer(chatOut.list, remoteChats, syncChatSig)
             || syncCanon(docs) !== syncCanon(mergeCreatedDocs(remote && remote.createdDocs))
             || syncCanon(removedDocs) !== syncCanon(mergeRemovedDocs(remote && remote.removedDocIds))
-            || syncCanon(studioField || null) !== syncCanon((remote && remote.studio) || null);
+            || syncCanon(studioField || null) !== syncCanon((remote && remote.studio) || null)
+            || syncCanon(historyOut.field || null) !== syncCanon((remote && remote.history) || null);
           syncPullWrites = syncPullWrites.filter(at => Date.now() - at < SYNC_PULL_WRITES_WINDOW_MS);
           // A pull leaves a file it cannot read alone, and stops writing after a few writes in a row (two devices that disagree must not trade the file forever)
           const mayWrite = !pull || (reliable && syncPullWrites.length < SYNC_PULL_WRITES_MAX);
@@ -9994,7 +10499,7 @@
             }
             const meta = {};
             const newId = await driveWriteSyncFile(token, fileId, {
-              kbItems: kbItemsForDriveSync(kbOut.list), tutorChats: chatOut.list, createdDocs: docs, removedDocIds: removedDocs, ...(studioField ? { studio: studioField } : {}), syncedAt: Date.now()
+              kbItems: kbItemsForDriveSync(kbOut.list), tutorChats: chatOut.list, createdDocs: docs, removedDocIds: removedDocs, ...(studioField ? { studio: studioField } : {}), ...(historyOut.field ? { history: historyOut.field } : {}), syncedAt: Date.now()
             }, meta);
             if (signedOut()) return null;
             if (newId !== fileId) setSyncFileId(newId);
@@ -10010,9 +10515,11 @@
           if (wrote || !differs) {
             await syncBase.write('kb', fileId, kbOut.list, syncKbTime);
             await syncBase.write('tutor', fileId, chatOut.list, syncChatTime);
+            if (historyOut.ids) await historyRec.setBase(fileId, historyOut.ids);
           } else if (reliable) {
             await syncBase.write('kb', fileId, remoteKb, syncKbTime);
             await syncBase.write('tutor', fileId, remoteChats, syncChatTime);
+            if (historyOut.remoteIds) await historyRec.setBase(fileId, historyOut.remoteIds);
           }
           if (signedOut()) return null;
           if (initial) {
@@ -18101,6 +18608,12 @@
     // so drafts, results and Knowledge Bay stay as they are. Resolves once the user has signed in again.
     // Several waiting requests share one gate.
     function requireSignIn(rejectedToken) {
+      // A token that the server refused although the app still thought it good, after a renewal had failed once: one more renewal before the gate
+      if (renew.rescuable(rejectedToken)) return renew.rescue(rejectedToken).then(ok => (ok ? undefined : showSignInGate(rejectedToken)));
+      return showSignInGate(rejectedToken);
+    }
+
+    function showSignInGate(rejectedToken) {
       const other = loadStoredToken(); // another tab may have signed in already
       if (other && other.t !== rejectedToken) { authToken = other; return Promise.resolve(); }
       if (signInWaiter) return signInWaiter.promise;
@@ -18201,8 +18714,9 @@
       askOtherTabsForToken();
 
       // Init KB + Tutor stores
-      tabSync.handlers = { kb: () => kb.reload(), tutor: () => tutor.reload(), history: refreshHistoryUi, studio: () => studio.reload(), jobs: () => jobs.reload(), gsignout: () => signOutSync({ remote: true }) };
+      tabSync.handlers = { kb: () => kb.reload(), tutor: () => tutor.reload(), history: refreshHistoryUi, studio: () => studio.reload(), jobs: () => jobs.reload(), gsignout: () => signOutSync({ remote: true }), renewfail: () => renew.otherTabFailed(), renewask: () => renew.answerAsk() };
       tabSync.init();
+      renew.start();
       renderKbGrid();
       tutor.renderSidebarList();
       tutor.renderChat();

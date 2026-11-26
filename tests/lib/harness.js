@@ -117,7 +117,7 @@ async function createHarness(opts = {}) {
   const apps = [];
 
   // opts: page ('new'|'base'), v, fake (FakeN8n options), width, height, now (ms, fake clock), signedIn, consent, seed {key: value}, hash, jobs (false: flag off),
-  //       storageBlocked, wait (false: do not wait for the app to start), locale
+  //       storageBlocked, idbBlocked (only IndexedDB), wait (false: do not wait for the app to start), locale
   async function newApp(o = {}) {
     const pg = await getPage(o.page || 'new');
     if (!pg) throw new Error(`page "${o.page || 'new'}" is not available`);
@@ -152,6 +152,11 @@ async function createHarness(opts = {}) {
       const boom = () => { throw new DOMException('blocked', 'SecurityError'); };
       Storage.prototype.getItem = boom; Storage.prototype.setItem = boom; Storage.prototype.removeItem = boom;
     });
+    // only IndexedDB is blocked (localStorage works): the jobs engine, Knowledge Bay and the other stores fall back to memory
+    if (o.idbBlocked) await context.addInitScript(() => {
+      Object.defineProperty(window, 'indexedDB', { configurable: true, get() { throw new DOMException('blocked', 'SecurityError'); } });
+    });
+    if (o.initScript) await context.addInitScript(o.initScript); // any script that must run before the page's own (a function or a string)
     if (o.recordStorage) await context.addInitScript(() => {
       window.__sk = new Set(); window.__sess = new Set();
       const set = Storage.prototype.setItem;

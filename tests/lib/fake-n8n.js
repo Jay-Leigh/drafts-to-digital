@@ -57,6 +57,10 @@ class FakeN8n {
     this.checkExp = false; // true: n8n's own exp check on every route (an expired token is refused: 403 on renew, 401 elsewhere like before); needs `clock`
     this.clock = null; // () => ms: the server's time (default Date.now); tests with a fake page clock set it to the page's time
     this.claimLeaseMs = 600000;
+    // renewal faults (client tests): renewDelay = ms the answer is held back; renewFailures = the next n renew requests are cut (network error); renewStatus = every renew
+    // request is answered with this HTTP status and no JSON (a gateway, or 404 after a rollback); renewAnswer = a 200 JSON body sent instead of the real answer
+    this.renewDelay = 0; this.renewFailures = 0; this.renewStatus = 0; this.renewAnswer = null;
+    this.rejectNext = 0; // the next n requests with a valid token (not renew) are answered 401, once each (a refused token)
     this.log = [];
     this.jobs = new Map();
     this.handlers = {}; // mode -> (body, req) => json | { status, json }
@@ -181,8 +185,15 @@ class FakeN8n {
       if (rec.payload && rec.payload.code === this.code) { const t = this.issueToken(this.now()); return send(200, { token: t.token, expiresAt: new Date(t.exp).toISOString() }); }
       return send(401, { ok: false, error: 'bad_code' });
     }
-    if (rec.kind === 'renew') return this.renew(rec, req, send);
+    if (rec.kind === 'renew') {
+      if (this.renewDelay) await sleep(this.renewDelay);
+      if (this.renewFailures > 0) { this.renewFailures--; rec.status = -1; return route.abort('failed'); }
+      if (this.renewStatus) return send(this.renewStatus, 'x');
+      if (this.renewAnswer) { rec.outcome = 'forced'; return send(200, this.renewAnswer); }
+      return this.renew(rec, req, send);
+    }
     if (!rec.auth) return send(401, { message: 'Unauthorized' });
+    if (this.rejectNext > 0) { this.rejectNext--; return send(401, { message: 'Unauthorized' }); }
     if (this.networkFailures > 0) { this.networkFailures--; rec.status = -1; return route.abort('failed'); }
     const body = rec.payload || {};
     rec.mode = body.mode || (rec.jobHead && rec.jobHead.mode) || (body.job && body.job.mode);
