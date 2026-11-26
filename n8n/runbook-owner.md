@@ -643,6 +643,7 @@ Expect, after 15 to 60 seconds, `{"ok":true,"artifact":{"envelope":"sth.studio/1
 - A mode that no rule knows now gets `{"ok":false,"error":{"code":"STH-INPUT-400","retryable":false,"reason":"mode"}}` (new fallback output of `Route by Mode`).
 - Tutor: the whole document is sent for a "summarise the whole book" question only up to 400,000 estimated tokens; above that the tutor searches excerpts and adds one sentence that Study Studio can make the overview.
 - The three upload calls to Gemini (`Gemini Init Upload`, `Gemini Upload Bytes`, each in three copies) now time out after 60 seconds.
+- App origin (`allowedOrigins` on the four webhook nodes `Student Hub Endpoint (JWT)`, `Auth Endpoint`, `Job Start Endpoint`, `Job Endpoint`): the shipped bundle allows only `https://jay-leigh.github.io`. Before the app moves to a custom domain, rebuild the bundle with BOTH origins (`cd n8n/tools`, then `STH_EXTRA_ORIGIN=https://<your-domain> node build.js`; the setting becomes a comma-separated list `https://jay-leigh.github.io,https://<your-domain>`) and re-import it, or edit those four nodes by hand the same way. Do it BEFORE the domain goes live, or the browser blocks every answer. The default build (no variable) is unchanged.
 
 **Procedure** (same as step 21, with v7)
 

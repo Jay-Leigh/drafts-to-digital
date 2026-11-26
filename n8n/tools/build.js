@@ -1335,6 +1335,16 @@ function buildV7(v6, v6Lib) {
   pt.parameters.jsCode = mustReplace(pt.parameters.jsCode, 'const sendWholeDocuments = totalTokens <= RETRIEVAL_BUDGET_TOKENS || WHOLE_DOCUMENT_PATTERN.test(latestQuestion);', 'const wholeAsked = WHOLE_DOCUMENT_PATTERN.test(latestQuestion);\n  const sendWholeDocuments = totalTokens <= RETRIEVAL_BUDGET_TOKENS || (wholeAsked && totalTokens <= WHOLE_DOCUMENT_MAX_TOKENS);\n  const tooBigForWhole = wholeAsked && totalTokens > WHOLE_DOCUMENT_MAX_TOKENS;');
   pt.parameters.jsCode = mustReplace(pt.parameters.jsCode, "These are excerpts, not the full documents. Treat them as the source of truth.\n", "These are excerpts, not the full documents. Treat them as the source of truth.\n${tooBigForWhole ? 'The student asked about the whole of material that is too large to read at once. Answer from the excerpts and add one sentence: for a summary or outline of a whole book, Study Studio can make it.\\n' : ''}");
 
+  // ── i. App origins: the webhook nodes answer only the app origin(s). Default = the single current origin (nothing changes). To allow a second
+  // origin (a future custom domain) build with STH_EXTRA_ORIGIN=https://example.org node build.js; n8n takes a comma-separated list. v1..v6 never change.
+  const extra = (process.env.STH_EXTRA_ORIGIN || '').trim();
+  if (extra) {
+    if (!/^https:\/\/[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:\d{1,5})?$/i.test(extra)) throw new Error('STH_EXTRA_ORIGIN must be an https origin without path (https://host[:port]), got: ' + extra);
+    let n = 0;
+    for (const nd of wf.nodes) if (nd.type === 'n8n-nodes-base.webhook' && nd.parameters.options && nd.parameters.options.allowedOrigins === 'https://jay-leigh.github.io') { nd.parameters.options.allowedOrigins = 'https://jay-leigh.github.io,' + extra; n++; }
+    if (n !== 4) throw new Error('expected 4 webhook nodes with the app origin, found ' + n);
+  }
+
   return { wf, libAll };
 }
 
