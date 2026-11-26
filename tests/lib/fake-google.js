@@ -30,7 +30,9 @@ const PICKER = 'window.gapi = { load(name, cb) { if (typeof cb === "function") c
 
 class FakeDrive {
   constructor() { this.files = new Map(); this.n = 0; this.log = []; this.userinfo = { name: 'Test User', email: 'tester@example.test', picture: '' }; this.failNext = 0; this.token = 'fake-drive-token'; this.others = { 'fake-other-token': { name: 'Other Person', email: 'other@example.test', picture: '' } }; }
-  add(name, body, mime = 'application/json') { const id = `fid${String(++this.n).padStart(6, '0')}x`; this.files.set(id, { id, name, mime, body: typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body) }); return id; }
+  add(name, body, mime = 'application/json') { const id = `fid${String(++this.n).padStart(6, '0')}x`; this.files.set(id, { id, name, mime, version: 1, body: typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body) }); return id; }
+  version(id) { const f = this.files.get(id); return f ? f.version : null; } // every write (PATCH or a test's own change) raises it, as Drive's `version` does
+  put(id, body) { const f = this.files.get(id); f.body = typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body); f.version++; }
   byName(name) { return [...this.files.values()].filter(f => f.name === name); }
   json(id) { const f = this.files.get(id); return f ? JSON.parse(String(f.body)) : null; }
   count(method, re) { return this.log.filter(l => l.method === method && (!re || re.test(l.url))).length; }
@@ -60,8 +62,9 @@ class FakeDrive {
     if (one) {
       const f = this.files.get(decodeURIComponent(one[1]));
       if (!f) return out(404, { error: { code: 404 } });
+      if (method === 'GET' && url.searchParams.get('alt') !== 'media' && /version/.test(url.searchParams.get('fields') || '')) return out(200, { version: String(f.version) });
       if (method === 'GET') return out(200, null, f.body);
-      if (method === 'PATCH') { f.body = req.postDataBuffer() || ''; return out(200, { id: f.id }); }
+      if (method === 'PATCH') { f.body = req.postDataBuffer() || ''; f.version++; return out(200, { id: f.id, version: String(f.version) }); }
       if (method === 'DELETE') { this.files.delete(f.id); return out(204, null, ''); }
     }
     if (p === '/upload/drive/v3/files' && method === 'POST') {
@@ -71,7 +74,7 @@ class FakeDrive {
       const meta = parts.find(x => x.name === 'metadata');
       const file = parts.find(x => x.name === 'file');
       const name = meta ? JSON.parse(meta.data.toString()).name : 'unnamed';
-      return out(200, { id: this.add(name, file ? file.data : '') });
+      const nid = this.add(name, file ? file.data : ''); return out(200, { id: nid, version: String(this.files.get(nid).version) });
     }
     return out(404, { error: { code: 404 } });
   }

@@ -9308,7 +9308,9 @@
         if (document.visibilityState !== 'visible') return;
         askOtherTabsForToken();
         trySilentRenew();
+        autoPull('visible');
       });
+      window.addEventListener('online', () => autoPull('online'));
       if (SHARE_SYNC_TOKEN) gtokenOpen();
     }
 
@@ -9393,6 +9395,11 @@
       state.googleTokenExpiresAt = 0;
       state.driveSyncClient = null;
       clearTimeout(state.driveSyncTimer);
+      clearTimeout(syncPullTimer);
+      syncPullTimer = 0;
+      syncRemoteVersion = null;
+      syncPullWrites = [];
+      syncBase.clear().catch(() => {});
       state.driveSyncFileId = null;
       state.driveSyncUser = null;
       convertedDocs.clear();
@@ -9440,6 +9447,17 @@
       return files[0]?.id || null;
     }
 
+    // One small request: the file's version, which changes with every write (nothing is downloaded)
+    async function driveFileVersion(token, fileId) {
+      const res = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?fields=version`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!res.ok) throw driveHttpError('Drive version', res.status);
+      const { version } = await res.json();
+      return version == null ? null : String(version);
+    }
+
     async function driveReadSyncFile(token, fileId) {
       const res = await fetch(
         `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
@@ -9449,15 +9467,20 @@
       return res.json();
     }
 
-    async function driveWriteSyncFile(token, fileId, data) {
+    // meta (optional) receives the version the write produced
+    async function driveWriteSyncFile(token, fileId, data, meta) {
       const bodyJson = JSON.stringify(data);
+      const noteVersion = async (res) => {
+        if (!meta) return;
+        try { const j = await res.json(); meta.version = j && j.version != null ? String(j.version) : null; } catch { meta.version = null; }
+      };
       const patchFile = (id) => fetch(
-        `https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media`,
+        `https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media&fields=id,version`,
         { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: bodyJson }
       );
       if (fileId) {
         const res = await patchFile(fileId);
-        if (res.ok) return fileId;
+        if (res.ok) { await noteVersion(res); return fileId; }
         // 404 = the stored id is stale (file deleted / other account)
         if (res.status !== 404) throw driveHttpError('Drive update', res.status);
         // Look the file up by name first so a recovery never creates a duplicate
@@ -9465,7 +9488,7 @@
         if (state.driveSyncToken !== token) throw new Error('Signed out during Drive write'); // no write after sign-out
         if (foundId && foundId !== fileId) {
           const foundRes = await patchFile(foundId);
-          if (foundRes.ok) return foundId;
+          if (foundRes.ok) { await noteVersion(foundRes); return foundId; }
           if (foundRes.status !== 404) throw driveHttpError('Drive update', foundRes.status);
         }
         // nothing usable: fall through and create a new file
@@ -9477,11 +9500,12 @@
       ));
       form.append('file', new Blob([bodyJson], { type: 'application/json' }));
       const res = await fetch(
-        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,version',
         { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }
       );
       if (!res.ok) throw driveHttpError('Drive create', res.status);
       const file = await res.json();
+      if (meta) meta.version = file.version != null ? String(file.version) : null;
       return file.id;
     }
 
@@ -9685,208 +9709,389 @@
     }
 
     // ── Merge logic ──────────────────────────────────
-    function mergeKbItems(local, remote) {
-      const map = new Map();
-      for (const item of remote) map.set(item.id, item);
-      for (const item of local) {
-        const existing = map.get(item.id);
-        if (!existing) { map.set(item.id, item); continue; }
-        const localTs  = item.updatedAt  || item.timestamp  || 0;
-        const remoteTs = existing.updatedAt || existing.timestamp || 0;
-        const winner = localTs >= remoteTs ? item : existing;
-        const loser  = localTs >= remoteTs ? existing : item;
-        const isBlobBacked = t => t === 'scanned_pdf' || t === 'doc';
-        if (isBlobBacked(winner.type) || isBlobBacked(loser.type)) {
-          // Drive sync never carries the local Blob (see kbItemsForDriveSync),
-          // so a whole-item timestamp win can otherwise drop it or an
-          // already-uploaded driveFileId — carry forward whichever side has
-          // them instead of losing access to the document.
-          map.set(item.id, {
-            ...winner,
-            originalFile: (winner.originalFile instanceof Blob) ? winner.originalFile : loser.originalFile,
-            driveFileId: winner.driveFileId || loser.driveFileId,
-            contentHash: winner.contentHash || loser.contentHash,
-            originalSize: winner.originalSize ?? loser.originalSize,
-            originalMime: winner.originalMime ?? loser.originalMime,
-            pageCount: winner.pageCount ?? loser.pageCount,
-            schemaVersion: winner.schemaVersion ?? loser.schemaVersion,
-            ocrText: winner.ocrText || loser.ocrText,
-            ocrStatus: winner.ocrStatus || loser.ocrStatus,
-          });
-        } else {
-          map.set(item.id, winner);
-        }
-      }
-      return [...map.values()];
+    // Knowledge Bay items and tutor chats are merged three ways: this device's list, the sync file's list, and a local "base" (the ids and
+    // times of the file as this device last wrote or read it, kept in the IndexedDB store of each list under the key `sync_base`).
+    //   in the base, gone from the file, not edited here since  -> deleted on another device: delete here too
+    //   in the base, gone from this device                      -> deleted here: do not take the file's copy back (unless it was edited since)
+    //   edited here after the base, gone from the file          -> keep (an edit wins over a delete)
+    //   on both sides                                            -> the newer copy wins (chats: the messages of both are kept)
+    // Without a usable base (first visit after the upgrade, another file, an unreadable file) the lists are only joined, never shortened.
+    const SYNC_BASE_KEY = 'sync_base';
+    const SYNC_LOCK = 'sth-drive-sync';
+    const SYNC_PULL_MS = 5 * 60 * 1000;            // while the tab is visible and connected (+-20 %)
+    const SYNC_PULL_VISIBLE_GAP_MS = 60 * 1000;    // coming back to the tab pulls only if the last round is older than this
+    const SYNC_PULL_WRITES_MAX = 3;                // loop guard: pulls that wrote the file ...
+    const SYNC_PULL_WRITES_WINDOW_MS = 10 * 60 * 1000; // ... within this time; then pulls only read until it passes
+    const SYNC_ATTEMPTS = 3;
+
+    const syncKbTime = (x) => x.updatedAt || x.timestamp || 0;
+    const syncChatTime = (x) => x.updated || x.timestamp || 0;
+    // What makes two copies of an item "the same" when deciding whether anything changed (not a full comparison, so big texts are not compared)
+    const syncKbSig = (x) => [x.id, syncKbTime(x), x.type || '', x.name || '', x.driveFileId || '', x.ocrStatus || '', x.ocrText ? x.ocrText.length : 0, x.content ? x.content.length : 0].join('\u0001');
+    function syncChatSig(c) {
+      const m = Array.isArray(c.messages) ? c.messages : [];
+      const last = m[m.length - 1];
+      return [c.id, syncChatTime(c), c.title || '', m.length, last ? (last.id || last.ts || '') : ''].join('\u0001');
+    }
+    const syncValidItems = (list) => (Array.isArray(list) ? list.filter(x => x && typeof x === 'object' && typeof x.id === 'string' && x.id) : []);
+    const syncOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+
+    // Order-free text of any JSON value (arrays sorted), to tell "the same content" from "changed"
+    function syncCanon(v) {
+      if (Array.isArray(v)) return `[${v.map(syncCanon).sort().join(',')}]`;
+      if (v && typeof v === 'object') return `{${Object.keys(v).sort().filter(k => v[k] !== undefined).map(k => `${JSON.stringify(k)}:${syncCanon(v[k])}`).join(',')}}`;
+      const s = JSON.stringify(v);
+      return s === undefined ? 'null' : s;
     }
 
-    function mergeTutorChats(local, remote) {
-      const map = new Map();
-      for (const chat of remote) map.set(chat.id, chat);
-      for (const chat of local) {
-        const existing = map.get(chat.id);
-        if (!existing) { map.set(chat.id, chat); continue; }
-        const localTs  = chat.updated  || chat.timestamp  || 0;
-        const remoteTs = existing.updated || existing.timestamp || 0;
-        if (localTs >= remoteTs) map.set(chat.id, chat);
-      }
-      return [...map.values()];
+    function syncListsDiffer(a, b, sig) {
+      if (a.length !== b.length) return true;
+      const m = new Map(b.map(x => [x.id, sig(x)]));
+      return a.some(x => m.get(x.id) !== sig(x));
     }
 
-    // ── Initial sync (merge + write) ─────────────────
-    async function runInitialSync() {
+    // Two copies of one Knowledge Bay item: the newer wins; on equal times the same one wins on every device (so two devices never swap copies forever)
+    function syncKbPair(local, remote) {
+      const localWins = syncKbTime(local) > syncKbTime(remote) || (syncKbTime(local) === syncKbTime(remote) && syncKbSig(local) >= syncKbSig(remote));
+      const winner = localWins ? local : remote;
+      const loser  = localWins ? remote : local;
+      const isBlobBacked = t => t === 'scanned_pdf' || t === 'doc';
+      if (!isBlobBacked(winner.type) && !isBlobBacked(loser.type)) return winner;
+      // Drive sync never carries the local Blob (see kbItemsForDriveSync), so a whole-item win can otherwise drop it or an
+      // already-uploaded driveFileId: carry forward whichever side has them instead of losing access to the document.
+      return {
+        ...winner,
+        originalFile: (winner.originalFile instanceof Blob) ? winner.originalFile : loser.originalFile,
+        driveFileId: winner.driveFileId || loser.driveFileId,
+        contentHash: winner.contentHash || loser.contentHash,
+        originalSize: winner.originalSize ?? loser.originalSize,
+        originalMime: winner.originalMime ?? loser.originalMime,
+        pageCount: winner.pageCount ?? loser.pageCount,
+        schemaVersion: winner.schemaVersion ?? loser.schemaVersion,
+        ocrText: winner.ocrText || loser.ocrText,
+        ocrStatus: winner.ocrStatus || loser.ocrStatus,
+      };
+    }
+
+    // Two copies of one chat: the messages of both are kept (in place, so the open chat stays valid)
+    function syncChatPair(local, remote) {
+      if ((remote.updated || 0) === (local.updated || 0) && String(remote.title || '') > String(local.title || '')) local.title = remote.title;
+      mergeChatInto(local, remote);
+      return local;
+    }
+
+    // Pure. o = { base: {id: time} | null, reliable, removed: {id: time}, t: item -> time, pair, keep?: item -> true to never delete it }
+    // Returns the merged list (this device's objects where they are kept) and the ids deleted here because they were deleted elsewhere.
+    function syncThreeWay(local, remote, o) {
+      const base = o.reliable && o.base ? o.base : null;
+      const removed = o.removed || {};
+      const remoteById = new Map(remote.map(x => [x.id, x]));
+      const localIds = new Set(local.map(x => x.id));
+      const list = [], dropped = [], seen = new Set();
+      for (const l of local) {
+        if (seen.has(l.id)) continue;
+        seen.add(l.id);
+        const r = remoteById.get(l.id);
+        if (r) { list.push(o.pair(l, r)); continue; }
+        if (base && syncOwn(base, l.id) && o.t(l) <= base[l.id] && !(o.keep && o.keep(l))) { dropped.push(l.id); continue; }
+        list.push(l);
+      }
+      for (const r of remoteById.values()) {
+        if (localIds.has(r.id)) continue;
+        const gone = syncOwn(removed, r.id) ? removed[r.id] : (base && syncOwn(base, r.id) ? base[r.id] : undefined);
+        if (gone !== undefined && o.t(r) <= gone) continue; // deleted here and not edited since: it stays deleted (and leaves the file)
+        list.push(r);
+      }
+      return { list, dropped };
+    }
+
+    // The base of each list: the ids and times of the sync file as this device last wrote or read it. Local only; memory when storage is blocked.
+    const syncBase = {
+      mem: { kb: null, tutor: null },
+      store(name) { return name === 'kb' ? kb.store : tutor.store; },
+      async read(name, fileId) {
+        let rec = null;
+        try { rec = await this.store(name).getItem(SYNC_BASE_KEY); } catch { rec = null; }
+        if (!rec) rec = this.mem[name];
+        return rec && fileId && rec.fid === fileId && rec.ids && typeof rec.ids === 'object' ? rec.ids : null;
+      },
+      async write(name, fileId, list, timeOf) {
+        if (!fileId) return;
+        const ids = {};
+        for (const x of list) ids[x.id] = timeOf(x);
+        const rec = { fid: fileId, ids };
+        this.mem[name] = rec;
+        try { await this.store(name).setItem(SYNC_BASE_KEY, rec); } catch { /* storage blocked: this visit keeps it in memory */ }
+      },
+      async clear() {
+        this.mem = { kb: null, tutor: null };
+        for (const name of ['kb', 'tutor']) { try { await this.store(name).removeItem(SYNC_BASE_KEY); } catch { /* nothing stored */ } }
+      },
+      async removedOf(name) {
+        try { return (await this.store(name).getItem(name === 'kb' ? 'knowledge_bay_removed' : 'tutor_chats_removed')) || {}; } catch { return {}; }
+      },
+    };
+
+    // ── Rounds with the sync file (first sync, push, pull) ─────
+    // One round at a time in this tab (a chain), and one across tabs (Web Lock where there is one). A pull never asks Google for anything: with no
+    // fresh token it does nothing. A pull only writes the file when the merged content differs from what it read.
+    let syncActive = null;                 // the round that is running or waiting for the lock
+    const syncSlots = { push: null, pull: null }; // rounds waiting their turn (one of each kind)
+    let syncTail = Promise.resolve();
+    let syncRemoteVersion = null;          // the file's `version` as this tab last read or wrote it (memory only)
+    let syncLastRound = 0;
+    let syncPullTimer = 0;
+    let syncPullWrites = [];
+
+    function syncEnqueue(kind) {
+      if (kind === 'pull') {
+        const busy = syncSlots.push || syncSlots.pull || syncActive; // a round that is queued or running merges the file anyway
+        if (busy) return busy.promise;
+      }
+      const slot = kind === 'pull' ? 'pull' : 'push';
+      const queued = syncSlots[slot];
+      if (queued) { if (kind === 'initial') queued.initial = true; return queued.promise; }
+      const job = { initial: kind === 'initial' };
+      syncSlots[slot] = job;
+      job.promise = syncTail.then(async () => {
+        syncSlots[slot] = null;
+        syncActive = job;
+        const k = job.initial ? 'initial' : slot;
+        try { return await withSyncLock(k, () => syncRound(k)); }
+        finally { syncActive = null; }
+      }).catch(err => { console.warn('[Sync] round failed:', err); return null; });
+      syncTail = job.promise;
+      return job.promise;
+    }
+
+    function withSyncLock(kind, fn) {
+      const locks = typeof navigator !== 'undefined' ? navigator.locks : null;
+      if (!locks || !locks.request) return fn();
+      if (kind === 'pull') return locks.request(SYNC_LOCK, { ifAvailable: true }, (lock) => (lock ? fn() : { skipped: 'locked' })); // another tab is syncing: it posts what changed
+      return locks.request(SYNC_LOCK, fn);
+    }
+
+    // The file's version (one small request), then its content
+    async function syncReadRemote(token, fileId, pull) {
+      const version = await driveFileVersion(token, fileId);
+      if (pull && version && version === syncRemoteVersion) return { unchanged: true };
+      let remote = null;
+      try { remote = await driveReadSyncFile(token, fileId); }
+      catch (err) { if (!(err instanceof SyntaxError)) throw err; } // an unreadable file starts fresh; any other failure aborts so it is never overwritten
+      return { version, remote };
+    }
+
+    async function syncStoresLoaded() {
+      for (let i = 0; (kb.loading || tutor.loading) && i < 100; i++) await new Promise(r => setTimeout(r, 100));
+      if (kb.loading || tutor.loading) throw new Error('Local data is still loading');
+    }
+
+    async function syncRound(kind) {
       const token = state.driveSyncToken;
+      const initial = kind === 'initial', pull = kind === 'pull';
+      if (!token || (pull && !hasFreshSyncToken())) return { skipped: 'no-token' };
       const signedOut = () => state.driveSyncToken !== token; // signed out while a request was in flight
-      updateSyncUI('syncing');
-      try {
-        // 1 — Fetch user info
-        const user = await driveFetchUserInfo(token);
-        if (signedOut()) return;
-        if (user) {
-          state.driveSyncUser = user;
-          storageSet(SYNC_USER_KEY, JSON.stringify(user));
-        }
-
-        // 2 — Locate / read the Drive file
-        let fileId = getSyncFileId();
-        let remote = { kbItems: [], tutorChats: [] };
-
-        if (!fileId) {
-          fileId = await driveListSyncFile(token);
-          if (signedOut()) return;
-          if (fileId) setSyncFileId(fileId);
-        }
-        if (fileId) {
-          // A corrupt (unparseable) file starts fresh; any other failure aborts the sync so a
-          // failed read can never lead to the remote data being overwritten
-          const readRemote = async (id) => {
-            try { return await driveReadSyncFile(token, id); }
-            catch (err) { if (err instanceof SyntaxError) return null; throw err; }
-          };
-          let read = null;
-          try { read = await readRemote(fileId); }
-          catch (err) {
-            if (err.status !== 404) throw err;
-            if (signedOut()) return;
-            // Stored id is stale (file deleted / other account): forget it and look the file up by name
-            state.driveSyncFileId = null;
-            storageRemove(SYNC_FILE_KEY);
-            fileId = await driveListSyncFile(token);
-            if (signedOut()) return;
-            if (fileId) {
-              setSyncFileId(fileId);
-              read = await readRemote(fileId);
-            }
-          }
-          if (signedOut()) return;
-          if (read) remote = read;
-        }
-
-        // 3 — Merge local + remote
-        const mergedKb    = mergeKbItems(kb.cache,       remote.kbItems     || []);
-        const mergedChats = mergeTutorChats(tutor.chats, remote.tutorChats  || []);
-        const { docs: mergedDocs, removed: mergedRemoved } = mergeSyncedDocs(remote);
-
-        // 4 — Persist merged data locally
-        kb.cache = mergedKb;
-        await kb.persist();
-        if (signedOut()) return;
-        renderKbGrid();
-
-        tutor.chats = mergedChats;
-        setRemovedDocs(mergedRemoved);
-        setCreatedDocs(mergedDocs);
-        if (signedOut()) return;
-        await tutor.persist();
-        if (signedOut()) return;
-        tutor.renderSidebarList();
-        if (tutor.currentId) tutor.renderChat?.();
-
-        // 5 — Push any not-yet-uploaded scanned PDFs to Drive, then write
-        // merged metadata back
-        await ensureScannedPdfsUploadedToDrive();
-        if (signedOut()) return;
-        const studioField = await studio.syncRound(token, remote.studio, signedOut);
-        if (signedOut()) return;
-        const newFileId = await driveWriteSyncFile(token, fileId, {
-          kbItems: kbItemsForDriveSync(kb.cache), tutorChats: mergedChats, createdDocs: mergedDocs, removedDocIds: mergedRemoved, ...(studioField ? { studio: studioField } : {}), syncedAt: Date.now()
-        });
-        if (signedOut()) return;
-        if (newFileId !== fileId) setSyncFileId(newFileId);
-
-        syncInitDone = true;
-        updateSyncUI('synced', user);
-        showToast('✓ Synced — your data is up to date across all devices');
-
-      } catch (err) {
-        if (signedOut()) return;
-        console.error('[Sync]', err);
-        // Token expired / rejected → clear so the button prompts re-auth (same as pushToDrive)
-        if (err.status === 401 || err.status === 403) {
-          // A token that was just issued and is refused: ask the user, not another automatic try
-          state.driveSyncToken = null;
-          state.driveSyncTokenExpiresAt = 0;
-          state.syncAuto = false;
-          showToast(withCode('Google sign-in expired — please re-connect to sync', err), 'error');
-          updateSyncUI('expired');
-        } else {
-          showToast(withCode('Sync failed — will retry on next save', err), 'error');
-          updateSyncUI('error');
-        }
-      }
-    }
-
-    // ── Push current data to Drive (debounced) ────────
-    async function pushToDrive() {
-      if (!state.driveSyncToken || state.driveSyncing) return;
-      const token = state.driveSyncToken;
-      const signedOut = () => state.driveSyncToken !== token;
       state.driveSyncing = true;
-      updateSyncUI('syncing');
+      let user = null;
       try {
-        await ensureScannedPdfsUploadedToDrive();
-        if (signedOut()) return;
-        let fileId = getSyncFileId();
-        // Docs created on another device must not be dropped: merge the file's lists before writing
-        let remote = null;
-        if (fileId) {
-          try { remote = await driveReadSyncFile(token, fileId); }
-          catch (err) { if (!(err instanceof SyntaxError) && err.status !== 404) throw err; }
-          if (signedOut()) return;
+        if (!pull) updateSyncUI('syncing');
+        if (initial) {
+          user = await driveFetchUserInfo(token);
+          if (signedOut()) return null;
+          if (user) { state.driveSyncUser = user; storageSet(SYNC_USER_KEY, JSON.stringify(user)); }
         }
-        const { docs, removed } = mergeSyncedDocs(remote);
-        setRemovedDocs(removed);
-        setCreatedDocs(docs);
-        const studioField = await studio.syncRound(token, remote && remote.studio, signedOut);
-        if (signedOut()) return;
-        const data = { kbItems: kbItemsForDriveSync(kb.cache), tutorChats: tutor.chats, createdDocs: docs, removedDocIds: removed, ...(studioField ? { studio: studioField } : {}), syncedAt: Date.now() };
-        const newId = await driveWriteSyncFile(token, fileId, data);
-        if (signedOut()) return;
-        if (newId !== fileId) setSyncFileId(newId);
-        updateSyncUI('synced');
+        await syncStoresLoaded();
+        for (let attempt = 0; attempt < SYNC_ATTEMPTS; attempt++) {
+          if (signedOut()) return null;
+          // 1 — Locate and read the Drive file
+          let fileId = getSyncFileId();
+          if (!fileId) {
+            fileId = await driveListSyncFile(token);
+            if (signedOut()) return null;
+            if (fileId) setSyncFileId(fileId);
+          }
+          if (!fileId && pull) return { skipped: 'no-file' };
+          let read = { version: null, remote: null };
+          if (fileId) {
+            try { read = await syncReadRemote(token, fileId, pull); }
+            catch (err) {
+              if (err.status !== 404) throw err;
+              if (signedOut()) return null;
+              // Stored id is stale (file deleted / other account): forget it and look the file up by name
+              state.driveSyncFileId = null;
+              storageRemove(SYNC_FILE_KEY);
+              fileId = await driveListSyncFile(token);
+              if (signedOut()) return null;
+              if (!fileId && pull) return { skipped: 'no-file' };
+              if (fileId) { setSyncFileId(fileId); read = await syncReadRemote(token, fileId, pull); }
+            }
+            if (signedOut()) return null;
+            if (read.unchanged) { syncLastRound = Date.now(); updateSyncUI('synced', user); return { unchanged: true }; }
+          }
+          if (pull) updateSyncUI('syncing');
+          await ensureScannedPdfsUploadedToDrive();
+          if (signedOut()) return null;
+
+          // 2 — Everything the merge needs from storage, read before it so that merging and applying happen without a gap
+          const kbBase = await syncBase.read('kb', fileId), chatBase = await syncBase.read('tutor', fileId);
+          const kbRemoved = await syncBase.removedOf('kb'), chatRemoved = await syncBase.removedOf('tutor');
+          if (signedOut()) return null;
+
+          // 3 — Merge (synchronous from here to the assignments)
+          const remote = read.remote && typeof read.remote === 'object' ? read.remote : null;
+          const reliable = !!remote && Array.isArray(remote.kbItems) && Array.isArray(remote.tutorChats);
+          const remoteKb = syncValidItems(remote && remote.kbItems), remoteChats = syncValidItems(remote && remote.tutorChats);
+          const kbBefore = new Map(kb.cache.map(i => [i.id, syncKbSig(i)]));
+          const chatBefore = new Map(tutor.chats.map(c => [c.id, syncChatSig(c)]));
+          const cur = tutor.current();
+          const curBefore = cur ? `${cur.messages.length}:${cur.updated}` : '';
+          const kbOut = syncThreeWay(kb.cache, remoteKb, { base: kbBase, reliable, removed: kbRemoved, t: syncKbTime, pair: syncKbPair });
+          const chatOut = syncThreeWay(tutor.chats, remoteChats, { base: chatBase, reliable, removed: chatRemoved, t: syncChatTime, pair: syncChatPair, keep: (c) => tutor.answering(c.id) || tutor.prep.has(c.id) });
+          const kbChanged = kbOut.dropped.length > 0 || kbOut.list.length !== kb.cache.length || kbOut.list.some(i => kbBefore.get(i.id) !== syncKbSig(i));
+          const chatsChanged = chatOut.dropped.length > 0 || chatOut.list.length !== tutor.chats.length || chatOut.list.some(c => chatBefore.get(c.id) !== syncChatSig(c));
+          if (kbChanged) kb.cache = kbOut.list;
+          if (chatsChanged) tutor.chats = chatOut.list;
+          const { docs, removed: removedDocs } = mergeSyncedDocs(remote);
+
+          // 4 — Keep the merged data on this device (no push is scheduled: what came from the file is already in it)
+          if (kbChanged) {
+            await kb.persist(kbOut.dropped);
+            if (signedOut()) return null;
+            renderKbGrid();
+            if (state.currentRoute === 'studio') studio.renderSources();
+          }
+          setRemovedDocs(removedDocs);
+          setCreatedDocs(docs);
+          if (chatsChanged) {
+            await tutor.persist(chatOut.dropped);
+            if (signedOut()) return null;
+            tutor.renderSidebarList();
+            if (tutor.currentId && !tutor.current()) { tutor.currentId = null; if (state.currentRoute === 'tutor') location.hash = '#tutor'; }
+            if (state.currentRoute === 'tutor' && !tutor.currentId) renderTutorLanding('');
+            const open = tutor.current();
+            if (open && `${open.messages.length}:${open.updated}` !== curBefore) { tutor._view = null; tutor.renderChat(); }
+          }
+          const studioField = await studio.syncRound(token, remote && remote.studio, signedOut);
+          if (signedOut()) return null;
+
+          // 5 — Write only when the merged content differs from what the file holds
+          const differs = !reliable
+            || syncListsDiffer(kbOut.list, remoteKb, syncKbSig)
+            || syncListsDiffer(chatOut.list, remoteChats, syncChatSig)
+            || syncCanon(docs) !== syncCanon(mergeCreatedDocs(remote && remote.createdDocs))
+            || syncCanon(removedDocs) !== syncCanon(mergeRemovedDocs(remote && remote.removedDocIds))
+            || syncCanon(studioField || null) !== syncCanon((remote && remote.studio) || null);
+          syncPullWrites = syncPullWrites.filter(at => Date.now() - at < SYNC_PULL_WRITES_WINDOW_MS);
+          // A pull leaves a file it cannot read alone, and stops writing after a few writes in a row (two devices that disagree must not trade the file forever)
+          const mayWrite = !pull || (reliable && syncPullWrites.length < SYNC_PULL_WRITES_MAX);
+          let wrote = false;
+          if (differs && mayWrite) {
+            if (fileId && read.version) {
+              // Another device wrote since this round read the file: read and merge again instead of overwriting it
+              const latest = await driveFileVersion(token, fileId);
+              if (signedOut()) return null;
+              if (latest !== read.version) continue;
+            }
+            const meta = {};
+            const newId = await driveWriteSyncFile(token, fileId, {
+              kbItems: kbItemsForDriveSync(kbOut.list), tutorChats: chatOut.list, createdDocs: docs, removedDocIds: removedDocs, ...(studioField ? { studio: studioField } : {}), syncedAt: Date.now()
+            }, meta);
+            if (signedOut()) return null;
+            if (newId !== fileId) setSyncFileId(newId);
+            fileId = newId;
+            syncRemoteVersion = meta.version || null;
+            wrote = true;
+            if (pull) syncPullWrites.push(Date.now());
+          } else {
+            syncRemoteVersion = read.version || null;
+          }
+
+          // 6 — The base is the file as it is now: what was written, or what was read
+          if (wrote || !differs) {
+            await syncBase.write('kb', fileId, kbOut.list, syncKbTime);
+            await syncBase.write('tutor', fileId, chatOut.list, syncChatTime);
+          } else if (reliable) {
+            await syncBase.write('kb', fileId, remoteKb, syncKbTime);
+            await syncBase.write('tutor', fileId, remoteChats, syncChatTime);
+          }
+          if (signedOut()) return null;
+          if (initial) {
+            syncInitDone = true;
+            updateSyncUI('synced', user);
+            showToast('✓ Synced — your data is up to date across all devices');
+            armAutoPull();
+          } else {
+            updateSyncUI('synced');
+          }
+          return { wrote, merged: kbChanged || chatsChanged };
+        }
+        // Another device kept writing: try again soon
+        scheduleDrivePush();
+        return { skipped: 'busy' };
       } catch (err) {
-        if (signedOut()) return;
-        console.error('[Sync push]', err);
-        // 401: the token ended, the next tap renews it. 403: Google refuses, so the button asks the user
-        if (err.status === 401) {
-          onSyncTokenEnded();
-        } else if (err.status === 403) {
-          state.driveSyncToken = null;
-          state.driveSyncTokenExpiresAt = 0;
-          state.syncAuto = false;
-          updateSyncUI('expired');
+        if (signedOut()) return null;
+        if (pull) { // a pull is quiet: a failed check is simply tried again at the next trigger
+          console.warn('[Sync pull]', err);
+          if (err.status === 401) onSyncTokenEnded();
+          return { error: true };
+        }
+        console.error(initial ? '[Sync]' : '[Sync push]', err);
+        if (err.status === 401 || err.status === 403) {
+          if (initial) {
+            // A token that was just issued and is refused: ask the user, not another automatic try
+            state.driveSyncToken = null;
+            state.driveSyncTokenExpiresAt = 0;
+            state.syncAuto = false;
+            showToast(withCode('Google sign-in expired — please re-connect to sync', err), 'error');
+            updateSyncUI('expired');
+          } else if (err.status === 401) {
+            onSyncTokenEnded(); // the token ended, the next tap renews it
+          } else {
+            state.driveSyncToken = null; // Google refuses, so the button asks the user
+            state.driveSyncTokenExpiresAt = 0;
+            state.syncAuto = false;
+            updateSyncUI('expired');
+          }
         } else {
+          if (initial) showToast(withCode('Sync failed — will retry on next save', err), 'error');
           updateSyncUI('error');
         }
+        return { error: true };
       } finally {
         state.driveSyncing = false;
+        syncLastRound = Date.now();
       }
     }
+
+    function runInitialSync() { return syncEnqueue('initial'); }
+
+    // ── Push current data to Drive (debounced): reads the file, merges, writes if anything differs ────────
+    function pushToDrive() { return syncEnqueue('push'); }
 
     function scheduleDrivePush() {
       if (!state.driveSyncToken) return;
       clearTimeout(state.driveSyncTimer);
       state.driveSyncTimer = setTimeout(pushToDrive, 3000);
+    }
+
+    // ── Auto-pull ────────────────────────────────────
+    // When the tab becomes visible again (if the last round is older than a minute), when the network comes back, and every 5 minutes while the
+    // tab is visible and connected. Never with a hidden tab, never without a fresh token (it does not ask Google), never before the first sync.
+    function autoPull(reason) {
+      if (!state.syncAuto || !syncInitDone || !hasFreshSyncToken()) return;
+      if (document.visibilityState !== 'visible' || navigator.onLine === false) return;
+      if (reason === 'visible' && Date.now() - syncLastRound < SYNC_PULL_VISIBLE_GAP_MS) return;
+      syncEnqueue('pull');
+    }
+
+    function armAutoPull() {
+      clearTimeout(syncPullTimer);
+      syncPullTimer = setTimeout(() => {
+        syncPullTimer = 0;
+        if (!syncInitDone) return;
+        autoPull('timer');
+        armAutoPull();
+      }, SYNC_PULL_MS * (0.8 + Math.random() * 0.4));
     }
 
     // ── UI updates ───────────────────────────────────
