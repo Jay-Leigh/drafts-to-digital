@@ -2330,6 +2330,20 @@
       overflow: hidden;
     }
     .history-entry-meta { font-size: 11px; color: rgba(26,46,28,0.35); margin-top: 5px; }
+    .history-entry-preview, .history-entry-meta { overflow-wrap: anywhere; }
+    .badge-studio { display: inline-flex; align-items: center; gap: 4px; background: rgba(176,125,22,0.12); color: #7a5410; }
+    .history-filterbar { padding: 10px 12px 0; flex-shrink: 0; }
+    .history-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+    .history-chip {
+      min-height: 44px; padding: 0 16px; border-radius: 999px;
+      font-family: 'Outfit', sans-serif; font-size: 13px; font-weight: 500;
+      background: white; border: 1px solid rgba(212,201,168,0.7); color: rgba(26,46,28,0.6);
+      cursor: pointer; transition: all 0.15s ease;
+    }
+    .history-chip:hover { border-color: rgba(44,95,45,0.45); color: #2c5f2d; }
+    .history-chip[aria-pressed="true"] { background: #2c5f2d; border-color: #2c5f2d; color: #fff; }
+    .history-chip:focus-visible { outline: 2px solid #2c5f2d; outline-offset: 2px; }
+    .history-count { font-size: 12px; color: rgba(26,46,28,0.55); margin: 6px 4px 0; min-height: 16px; }
 
     /* History result modal */
     .history-result-modal {
@@ -3887,9 +3901,17 @@
     <div class="history-panel-head">
       <h3>Generation History</h3>
       <div class="history-panel-head-actions">
-        <button id="historyClearAll" class="hist-clear-btn">Clear All</button>
+        <button id="historyClearAll" class="hist-clear-btn" title="Removes the saved documents. Study aids stay in Study Studio.">Clear documents</button>
         <button id="historyClose" class="history-panel-close" aria-label="Close">&times;</button>
       </div>
+    </div>
+    <div class="history-filterbar">
+      <div class="history-filters" role="group" aria-label="Show in history">
+        <button type="button" class="history-chip" data-history-filter="all" aria-pressed="true">All</button>
+        <button type="button" class="history-chip" data-history-filter="documents" aria-pressed="false">Documents</button>
+        <button type="button" class="history-chip" data-history-filter="studio" aria-pressed="false">Study aids</button>
+      </div>
+      <p id="historyCount" class="history-count" role="status" aria-live="polite"></p>
     </div>
     <div id="historyList" class="history-list"></div>
   </aside>
@@ -4384,6 +4406,9 @@
     // ─── Draft + History Persistence ──────────────────────────
     // ═══════════════════════════════════════════════════════════
     const HISTORY_TTL = 30 * 24 * 60 * 60 * 1000;
+    const HISTORY_FILTER_KEY = 'sth_history_filter';
+    const HISTORY_FILTERS = ['all', 'documents', 'studio'];
+    let _historyFilter = HISTORY_FILTERS.includes(storageGet(HISTORY_FILTER_KEY)) ? storageGet(HISTORY_FILTER_KEY) : 'all';
 
     const _draftStore   = localforage.createInstance({ name: 'sth_cache', storeName: 'drafts' });
     const _historyStore = localforage.createInstance({ name: 'sth_cache', storeName: 'history' });
@@ -4467,18 +4492,40 @@
         if (have) return have;
         all.unshift(entry);
         await _historyStore.setItem('entries', all).catch(() => {});
-        const btn = document.getElementById('historyBtn');
-        if (btn) btn.classList.add('has-entries');
+        setHistoryButton(all.length);
         tabSync.post('history');
         return entry;
       });
     }
 
     async function refreshHistoryUi() {
-      const entries = await getHistory();
-      const btn = document.getElementById('historyBtn');
-      if (btn) btn.classList.toggle('has-entries', entries.length > 0);
+      setHistoryButton((await getHistory()).length);
       if (document.getElementById('historyPanel').classList.contains('open')) renderHistoryList();
+    }
+
+    // The History button shows a dot when there are saved documents or study aids
+    function setHistoryButton(documentCount) {
+      const btn = document.getElementById('historyBtn');
+      if (btn) btn.classList.toggle('has-entries', documentCount > 0 || historyStudioItems().length > 0);
+    }
+
+    // Ready study aids, read live from Study Studio (never copied into the History store, so never stale and never expired)
+    function historyStudioItems() {
+      return studio.items.filter(i => i.status === 'ready' && STUDIO_TOOLS[i.tool]);
+    }
+
+    const HISTORY_STUDIO_COUNTS = {
+      mindmap: [(i) => { const m = studioMapModel(i.artifact); return m.ok ? m.nodes.length : 0; }, 'idea'],
+      flashcards: [(i) => studioFcCount(i), 'card'],
+      quiz: [(i) => studioQzCount(i), 'question'],
+      slides: [(i) => studioSlCount(i), 'slide'],
+    };
+    // "18 cards", "12 slides"; the source count when the size is not known without the big file (infographics, aids not opened yet on this device)
+    function historyStudioSize(item) {
+      const [count, noun] = HISTORY_STUDIO_COUNTS[item.tool] || [];
+      const n = count ? count(item) : 0;
+      if (n) return `${n} ${noun}${n === 1 ? '' : 's'}`;
+      return `${item.sourceIds.length} source${item.sourceIds.length === 1 ? '' : 's'}`;
     }
 
     async function getHistory() {
@@ -4501,16 +4548,14 @@
       const all = await getHistory();
       const updated = all.filter(e => e.id !== id);
       await _historyStore.setItem('entries', updated).catch(() => {});
-      const btn = document.getElementById('historyBtn');
-      if (btn) btn.classList.toggle('has-entries', updated.length > 0);
+      setHistoryButton(updated.length);
       renderHistoryList();
       tabSync.post('history');
     }
 
     async function clearAllHistory() {
       await _historyStore.setItem('entries', []).catch(() => {});
-      const btn = document.getElementById('historyBtn');
-      if (btn) btn.classList.remove('has-entries');
+      setHistoryButton(0);
       renderHistoryList();
       tabSync.post('history');
     }
@@ -4529,48 +4574,98 @@
       }
     }
 
+    const historyDate = (ts) => new Date(ts).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    // Documents and study aids as one list, newest first; the filter picks which kinds are in it
+    function historyRows(docs, aids, filter) {
+      const rows = [];
+      if (filter !== 'studio') rows.push(...docs.map(doc => ({ doc, at: doc.timestamp })));
+      if (filter !== 'documents') rows.push(...aids.map(aid => ({ aid, at: aid.createdAt })));
+      return rows.sort((a, b) => b.at - a.at);
+    }
+
+    function historyEmptyHtml(filter) {
+      const text = filter === 'documents' ? 'No saved documents yet.<br>Results from Transcribe, Template and Reviewer appear here.'
+        : filter === 'studio' ? 'No study aids yet.<br>Make one in Study Studio and it will be listed here.'
+        : 'No saved generations yet.<br>Your results will appear here after processing.';
+      return `<div class="history-empty"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><p>${text}</p></div>`;
+    }
+
+    // Chips (pressed state) and the live count
+    function syncHistoryFilterUi(count) {
+      document.querySelectorAll('[data-history-filter]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.historyFilter === _historyFilter)));
+      const text = `${count} ${count === 1 ? 'item' : 'items'}`, el = document.getElementById('historyCount');
+      if (el && el.textContent !== text) el.textContent = text;
+    }
+
+    function setHistoryFilter(filter) {
+      if (!HISTORY_FILTERS.includes(filter) || filter === _historyFilter) return;
+      _historyFilter = filter;
+      storageSet(HISTORY_FILTER_KEY, filter);
+      renderHistoryList();
+    }
+
     async function renderHistoryList(showSkeleton = false) {
       const list = document.getElementById('historyList');
       if (!list) return;
       if (showSkeleton) renderSkeleton(list, 'skeleton-history-row', 4);
-      const entries = await getHistory();
+      const rows = historyRows(await getHistory(), historyStudioItems(), _historyFilter);
       list.removeAttribute('aria-busy');
-      if (!entries.length) {
-        list.innerHTML = `<div class="history-empty"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><p>No saved generations yet.<br>Your results will appear here after processing.</p></div>`;
-        return;
-      }
+      syncHistoryFilterUi(rows.length);
+      if (!rows.length) { list.innerHTML = historyEmptyHtml(_historyFilter); return; }
       list.innerHTML = '';
-      for (const e of entries) {
-        const badgeClass = `badge-${e.mode}`;
-        const label = MODE_META[e.mode]?.resultTitle || e.mode;
-        const date  = new Date(e.timestamp).toLocaleDateString('en-ZA', { day:'numeric', month:'short', year:'numeric' });
-        const div = document.createElement('div');
-        div.className = 'history-entry';
-        div.dataset.id = e.id;
-        div.innerHTML = `
-          <button class="history-entry-del" title="Delete entry" aria-label="Delete">&times;</button>
-          <div class="history-entry-head">
-            <span class="history-mode-badge ${badgeClass}">${e.mode}</span>
-            <span class="history-entry-date">${date}</span>
-          </div>
-          <div class="history-entry-preview">${escapeHtml(e.preview)}</div>
-          <div class="history-entry-meta">${e.wordCount.toLocaleString()} words${e.fileNames?.length ? ' &middot; ' + e.fileNames.slice(0,2).map(escapeHtml).join(', ') + (e.fileNames.length > 2 ? ' +' + (e.fileNames.length-2) + ' more' : '') : ''}</div>`;
-        div.querySelector('.history-entry-del').addEventListener('click', async (ev) => {
-          ev.stopPropagation();
-          await deleteHistoryEntry(e.id);
-        });
-        div.addEventListener('click', () => {
-          if (div.classList.contains('longpress-active')) { div.classList.remove('longpress-active'); return; }
-          openHistoryResult(e);
-        });
-        let _lpTimer = null;
-        div.addEventListener('touchstart', () => {
-          _lpTimer = setTimeout(() => { div.classList.add('longpress-active'); _lpTimer = null; }, 500);
-        }, { passive: true });
-        div.addEventListener('touchend', () => { clearTimeout(_lpTimer); _lpTimer = null; });
-        div.addEventListener('touchmove', () => { clearTimeout(_lpTimer); _lpTimer = null; });
-        list.appendChild(div);
-      }
+      for (const r of rows) list.appendChild(r.aid ? historyStudioRow(r.aid) : historyDocRow(r.doc));
+    }
+
+    // One row: the badge, date, preview and meta line are ready-made HTML (escaped by the caller)
+    function historyRowEl({ id, kind, badge, at, preview, meta, deleteLabel, onOpen, onDelete }) {
+      const div = document.createElement('div');
+      div.className = 'history-entry';
+      div.dataset.id = id;
+      div.dataset.kind = kind;
+      div.innerHTML = `
+        <button class="history-entry-del" title="Delete entry" aria-label="${escapeHtml(deleteLabel)}">&times;</button>
+        <div class="history-entry-head">${badge}<span class="history-entry-date">${historyDate(at)}</span></div>
+        <div class="history-entry-preview">${preview}</div>
+        <div class="history-entry-meta">${meta}</div>`;
+      div.querySelector('.history-entry-del').addEventListener('click', async (ev) => {
+        ev.stopPropagation();
+        await onDelete();
+      });
+      div.addEventListener('click', () => {
+        if (div.classList.contains('longpress-active')) { div.classList.remove('longpress-active'); return; }
+        onOpen();
+      });
+      let _lpTimer = null;
+      div.addEventListener('touchstart', () => {
+        _lpTimer = setTimeout(() => { div.classList.add('longpress-active'); _lpTimer = null; }, 500);
+      }, { passive: true });
+      div.addEventListener('touchend', () => { clearTimeout(_lpTimer); _lpTimer = null; });
+      div.addEventListener('touchmove', () => { clearTimeout(_lpTimer); _lpTimer = null; });
+      return div;
+    }
+
+    function historyDocRow(e) {
+      return historyRowEl({
+        id: e.id, kind: 'document', at: e.timestamp, deleteLabel: 'Delete',
+        badge: `<span class="history-mode-badge badge-${e.mode}">${e.mode}</span>`,
+        preview: escapeHtml(e.preview),
+        meta: `${e.wordCount.toLocaleString()} words${e.fileNames?.length ? ' &middot; ' + e.fileNames.slice(0,2).map(escapeHtml).join(', ') + (e.fileNames.length > 2 ? ' +' + (e.fileNames.length-2) + ' more' : '') : ''}`,
+        onOpen: () => openHistoryResult(e),
+        onDelete: () => deleteHistoryEntry(e.id),
+      });
+    }
+
+    // A study aid opens in Study Studio and is deleted there (same confirmation, Drive file and tombstone)
+    function historyStudioRow(item) {
+      return historyRowEl({
+        id: item.id, kind: 'studio', at: item.createdAt, deleteLabel: `Delete ${item.title}`,
+        badge: `<span class="history-mode-badge badge-studio">${studioSvg(item.tool, 11)}${escapeHtml(STUDIO_TOOLS[item.tool].label)}</span>`,
+        preview: escapeHtml(item.title),
+        meta: escapeHtml(historyStudioSize(item)),
+        onOpen: () => { toggleHistoryPanel(false); location.hash = `#studio/${item.id}`; },
+        onDelete: () => studio.remove(item.id),
+      });
     }
 
     let _historyCurrentEntry = null;
@@ -14033,6 +14128,7 @@
         if (!this.wired) return;
         this.renderItems();
         this.updateNavDot();
+        refreshHistoryUi(); // the History list and its button show the study aids too
         if (this.viewerId && this.active()) this.renderViewer();
       },
 
@@ -17421,6 +17517,7 @@
     document.getElementById('historyClose').addEventListener('click', () => toggleHistoryPanel(false));
     document.getElementById('historyOverlay').addEventListener('click', () => toggleHistoryPanel(false));
     document.getElementById('historyClearAll').addEventListener('click', () => clearAllHistory());
+    document.querySelector('.history-filters').addEventListener('click', (e) => { const chip = e.target.closest('[data-history-filter]'); if (chip) setHistoryFilter(chip.dataset.historyFilter); });
     document.getElementById('historyResultClose').addEventListener('click', () => {
       document.getElementById('historyResultModal').classList.remove('open');
     });
@@ -17631,10 +17728,7 @@
 
       // History: purge expired entries and light up the button if any exist
       purgeExpiredHistory();
-      getHistory().then(entries => {
-        const btn = document.getElementById('historyBtn');
-        if (btn) btn.classList.toggle('has-entries', entries.length > 0);
-      });
+      getHistory().then(entries => setHistoryButton(entries.length));
 
       // Draft: show resume toast if a draft was saved
       const _draft = await loadDraft();
