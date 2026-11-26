@@ -66,7 +66,7 @@ Use `curl.exe` (not `curl`) so PowerShell does not substitute its own alias. Eve
 Upstash console > your database > CLI tab:
 
 ```
-EVAL "redis.call('SET','auth:code',ARGV[1]) return redis.call('INCR','auth:ep')" 0 "THE-CURRENT-ACCESS-CODE"
+EVAL "local e=redis.call('INCR',KEYS[2]) redis.call('SET',KEYS[1],ARGV[1]) return e" 2 auth:code auth:ep "THE-CURRENT-ACCESS-CODE"
 GET auth:code
 ```
 
@@ -751,7 +751,7 @@ All take effect on the next request.
 
 **Rules for you**
 
-1. **Rotate the access code only with the combined command** of step 3 (`EVAL "redis.call('SET','auth:code',ARGV[1]) return redis.call('INCR','auth:ep')" 0 "NEW-CODE"`). A plain `SET auth:code` does not stop renewals.
+1. **Rotate the access code only with the combined command** of step 3 (`EVAL "local e=redis.call('INCR',KEYS[2]) redis.call('SET',KEYS[1],ARGV[1]) return e" 2 auth:code auth:ep "NEW-CODE"`). A plain `SET auth:code` does not stop renewals.
 2. **Never `DEL auth:ep`, never `SET` it to a smaller number; only `INCR`.** Deleting it (or an eviction) resets it to 0: chains revoked by an earlier bump could renew again, and every chain issued since would be refused. If you ever must fix a hand-typed bad value, `SET auth:ep` to the number it should have (`GET auth:ep` shows it; if it is `abc` and you never bumped before, `SET auth:ep 0` is right).
 3. Check once that **eviction is OFF** on the Upstash database (console > your database > its settings; I could not check the menu name here). A key without an expiry is the first one a "delete when full" policy removes.
 4. Until the app has its own domain, every page on `https://jay-leigh.github.io` (every repository of your user site) shares the browser storage in which the sign-in token lives: keep other pages there free of third-party scripts. A custom domain removes this.
