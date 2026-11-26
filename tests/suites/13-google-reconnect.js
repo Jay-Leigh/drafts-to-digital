@@ -40,12 +40,16 @@ async function openTab(app) {
   await until(page, '!kb.loading && !tutor.loading && studio.ready', { what: 'tab ready' });
   return page;
 }
+// The page under test runs in Chromium, which is not Safari: the existing tests describe the Safari (tap only) behaviour, so they run with a Safari
+// user agent; the silent (no tap) tests ask for the Chromium default with { chrome: true }.
+const SAFARI_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15';
+const newApp = (h, o = {}) => { const { chrome, ...rest } = o; return h.newApp(chrome ? rest : { ...rest, contextOptions: { userAgent: SAFARI_UA, ...(rest.contextOptions || {}) } }); };
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 // token sharing between tabs is off in the page until the custom domain; these tests switch it on in the page's own scope
 const share = (page) => ev(page, 'SHARE_SYNC_TOKEN = true; gtokenOpen(); true');
 
 t.test('a stored account shows a quiet status, not the button, and nothing is requested without a tap', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`, { what: 'sync client' });
   await sleep(800);
   assert.equal((await reqs(app.page)).length, 0, 'no request without a gesture');
@@ -59,7 +63,7 @@ t.test('a stored account shows a quiet status, not the button, and nothing is re
 });
 
 t.test('first tap: one silent request with prompt "" and login_hint, then synced; later taps ask nothing', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`);
   await tap(app.page);
   await app.until(SYNCED, { what: 'synced after the tap', timeout: 20000 });
@@ -78,7 +82,7 @@ t.test('first tap: one silent request with prompt "" and login_hint, then synced
 });
 
 t.test('a second tap while a request is open does not send another (gesture, button and tap share it)', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`);
   await app.page.evaluate(() => { window.__gis.mode = 'hold'; });
   await tap(app.page); await tap(app.page);
@@ -94,7 +98,7 @@ t.test('a second tap while a request is open does not send another (gesture, but
 });
 
 t.test('typing in a text field is no trigger; the next tap is', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`);
   await app.newChat('Typing');
   await app.until(`document.getElementById('tutorInput').offsetParent !== null`);
@@ -114,7 +118,7 @@ t.test('typing in a text field is no trigger; the next tap is', async (h) => {
 });
 
 t.test('Enter or Space outside text fields triggers the request', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`);
   await app.page.evaluate(() => document.activeElement && document.activeElement.blur());
   await app.page.keyboard.press('Enter');
@@ -123,12 +127,12 @@ t.test('Enter or Space outside text fields triggers the request', async (h) => {
 });
 
 t.test('the sign-in gate triggers nothing, and neither does a first-time visit without a stored account', async (h) => {
-  const gate = await h.newApp({ now: AFTER, seed: SEED, signedIn: false, wait: false });
+  const gate = await newApp(h, { now: AFTER, seed: SEED, signedIn: false, wait: false });
   await gate.page.waitForSelector('#loginOverlay');
   await gate.page.click('#loginOverlay', { position: { x: 4, y: 4 }, force: true });
   await sleep(300);
   assert.equal((await reqs(gate.page)).length, 0, 'nothing on the gate');
-  const fresh = await h.newApp({ now: AFTER });
+  const fresh = await newApp(h, { now: AFTER });
   await fresh.until(`!!state.driveSyncClient`);
   await tap(fresh.page);
   await sleep(200);
@@ -138,7 +142,7 @@ t.test('the sign-in gate triggers nothing, and neither does a first-time visit w
 });
 
 t.test('the token ends after expires_in: the next tap renews, a tap before does not', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`);
   await app.page.evaluate(() => { window.__gis.expiresIn = 1800; });
   await tap(app.page);
@@ -161,7 +165,7 @@ t.test('the token ends after expires_in: the next tap renews, a tap before does 
 
 for (const [mode, text] of [['blocked', /blocked/i], ['closed', /closed/i], ['cancel', /cancel/i]]) {
   t.test(`window ${mode}: one toast, the Re-connect button and Sign out link, and no retry on later taps`, async (h) => {
-    const app = await h.newApp({ now: AFTER, seed: SEED });
+    const app = await newApp(h, { now: AFTER, seed: SEED });
     await app.until(`!!state.driveSyncClient`);
     await app.page.evaluate((m) => { window.__gis.mode = m; }, mode);
     await tap(app.page);
@@ -187,7 +191,7 @@ for (const [mode, text] of [['blocked', /blocked/i], ['closed', /closed/i], ['ca
 }
 
 t.test('a stored account without an e-mail cannot be renewed by itself: the button shows from the start', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: { sth_sync_user: JSON.stringify({ name: 'No Mail' }) } });
+  const app = await newApp(h, { now: AFTER, seed: { sth_sync_user: JSON.stringify({ name: 'No Mail' }) } });
   await app.until(`!!state.driveSyncClient`);
   assert.equal(await btnText(app.page), 'Re-connect Google');
   assert.equal(await linkShown(app.page), true);
@@ -197,7 +201,7 @@ t.test('a stored account without an e-mail cannot be renewed by itself: the butt
 });
 
 t.test('a second tab gets the token without a popup (open before and after the first tap)', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   const p2 = await openTab(app);
   await until(p2, `!!state.driveSyncClient`);
   await share(app.page); await share(p2);
@@ -221,7 +225,7 @@ t.test('a second tab gets the token without a popup (open before and after the f
 });
 
 t.test('a token shared by a tab of another account is not taken', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`);
   await share(app.page);
   const before = await app.ev('state.driveSyncToken');
@@ -237,7 +241,7 @@ t.test('a token shared by a tab of another account is not taken', async (h) => {
 });
 
 t.test('wrong account: nothing is merged, the token is dropped and revoked, Re-connect and Sign out are shown', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   app.drive.add('sth-userdata-v1.json', { kbItems: [], tutorChats: [], createdDocs: [], removedDocIds: [], syncedAt: 1 });
   await app.until(`!!state.driveSyncClient`);
   await app.page.evaluate(() => { window.__gis.mode = 'otherAccount'; });
@@ -266,7 +270,7 @@ t.test('wrong account: nothing is merged, the token is dropped and revoked, Re-c
 });
 
 t.test('export reuses the sync token: no second window, and one request when both are open at once', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`);
   await tap(app.page);
   await app.until(SYNCED, { timeout: 20000 });
@@ -294,7 +298,7 @@ t.test('export reuses the sync token: no second window, and one request when bot
 });
 
 t.test('someone who never connected still exports with the export client', async (h) => {
-  const app = await h.newApp({ now: AFTER });
+  const app = await newApp(h, { now: AFTER });
   await app.until(`!!state.googleTokenClient`);
   assert.equal(await app.ev('ensureGoogleToken()'), 'fake-drive-token');
   const r = await reqs(app.page);
@@ -303,7 +307,7 @@ t.test('someone who never connected still exports with the export client', async
 });
 
 t.test('401 from background sync is quiet ("Paused"), the next tap renews; a token Google refuses is not retried by itself', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`);
   await tap(app.page);
   await app.until(SYNCED, { timeout: 20000 });
@@ -336,7 +340,7 @@ t.test('401 from background sync is quiet ("Paused"), the next tap renews; a tok
 });
 
 t.test('sign-out in one tab reaches the others: token dropped, stored e-mail cleared, no further requests', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   const p2 = await openTab(app);
   await until(p2, `!!state.driveSyncClient`);
   await share(app.page); await share(p2);
@@ -364,7 +368,7 @@ t.test('sign-out in one tab reaches the others: token dropped, stored e-mail cle
 });
 
 t.test('"Sign out" in the Re-connect view clears the account and the link goes away', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`);
   await app.page.evaluate(() => { window.__gis.mode = 'blocked'; });
   await tap(app.page);
@@ -384,7 +388,7 @@ t.test('"Sign out" in the Re-connect view clears the account and the link goes a
 });
 
 t.test('no Google token is ever written to localStorage, sessionStorage or IndexedDB', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   const p2 = await openTab(app);
   await until(p2, `!!state.driveSyncClient`);
   await share(app.page); await share(p2);
@@ -416,7 +420,7 @@ t.test('no Google token is ever written to localStorage, sessionStorage or Index
 });
 
 t.test('the Re-connect button and a second press share one request', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`);
   await app.page.evaluate(() => { window.__gis.mode = 'blocked'; });
   await tap(app.page);
@@ -431,7 +435,7 @@ t.test('the Re-connect button and a second press share one request', async (h) =
 });
 
 t.test('default: tabs never post a token on the channel and nobody answers an ask; each tab renews on its own tap', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   const p2 = await openTab(app);
   await until(p2, `!!state.driveSyncClient`);
   assert.equal(await app.ev('SHARE_SYNC_TOKEN'), false);
@@ -455,7 +459,7 @@ t.test('default: tabs never post a token on the channel and nobody answers an as
 });
 
 t.test('sign-out news travels even with token sharing off', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   const p2 = await openTab(app);
   await tap(app.page); await app.until(SYNCED, { timeout: 20000 });
   await tap(p2); await until(p2, SYNCED, { timeout: 20000 });
@@ -465,7 +469,7 @@ t.test('sign-out news travels even with token sharing off', async (h) => {
 });
 
 t.test('a synthetic click does not trigger; a real one does', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`);
   await app.page.evaluate(() => { document.body.click(); document.body.dispatchEvent(new MouseEvent('click', { bubbles: true })); document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); });
   await sleep(200);
@@ -476,7 +480,7 @@ t.test('a synthetic click does not trigger; a real one does', async (h) => {
 });
 
 t.test('a tap whose activation is already spent does not trigger', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`);
   await app.page.evaluate(() => Object.defineProperty(navigator, 'userActivation', { value: { isActive: false, hasBeenActive: true }, configurable: true }));
   await tap(app.page);
@@ -489,7 +493,7 @@ t.test('a tap whose activation is already spent does not trigger', async (h) => 
 });
 
 t.test('file pickers, labels, links and fullscreen keep their own tap: no request', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`);
   await app.page.evaluate(() => {
     document.body.insertAdjacentHTML('beforeend', `<div style="position:fixed;left:10px;top:10px;z-index:99999;background:#fff;padding:8px">
@@ -513,7 +517,7 @@ t.test('file pickers, labels, links and fullscreen keep their own tap: no reques
 });
 
 t.test('keys: Enter and Space fire; Tab, arrows and shortcuts do not', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`);
   await app.page.evaluate(() => document.activeElement && document.activeElement.blur());
   for (const k of ['Tab', 'ArrowDown', 'ArrowLeft', 'a', 'Control+k', 'Meta+k', 'Alt+x']) await app.page.keyboard.press(k);
@@ -526,7 +530,7 @@ t.test('keys: Enter and Space fire; Tab, arrows and shortcuts do not', async (h)
 });
 
 t.test('nothing is requested while a fullscreen view is open', async (h) => {
-  const app = await h.newApp({ now: AFTER, seed: SEED });
+  const app = await newApp(h, { now: AFTER, seed: SEED });
   await app.until(`!!state.driveSyncClient`);
   await app.page.evaluate(() => { const d = document.createElement('div'); d.id = 't_fs'; d.className = 'studio-pseudo-fullscreen'; document.body.appendChild(d); });
   await tap(app.page);
@@ -537,6 +541,251 @@ t.test('nothing is requested while a fullscreen view is open', async (h) => {
   await tap(app.page);
   await app.until(`state.driveSyncToken`);
   assert.equal((await reqs(app.page)).length, 1);
+});
+
+// ── Renewing without a tap (not Safari) ──
+const noneReqs = async (page) => (await reqs(page)).filter(r => r.prompt === 'none');
+const toastShown = (page) => page.evaluate(() => document.getElementById('toast').classList.contains('show'));
+const waitReqs = (page, n) => page.waitForFunction((k) => window.__gis && window.__gis.requests.length >= k, n, { timeout: 15000 });
+const visit = (page) => page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+
+t.test('isSafariFamily: iOS browsers and desktop Safari are Safari; Chrome, Edge, Opera, Firefox and Android are not', async (h) => {
+  const app = await newApp(h, { now: AFTER, chrome: true });
+  const UA = {
+    iphoneSafari: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+    iphoneChrome: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/126.0.6478.153 Mobile/15E148 Safari/604.1',
+    iphoneFirefox: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) FxiOS/127.0 Mobile/15E148 Safari/605.1.15',
+    ipad: 'Mozilla/5.0 (iPad; CPU OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+    ipadDesktopMode: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
+    macSafari: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
+    chrome: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    macChrome: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36',
+    edge: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0',
+    opera: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 OPR/111.0.0.0',
+    androidChrome: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Mobile Safari/537.36',
+    samsung: 'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/25.0 Chrome/121.0.0.0 Mobile Safari/537.36',
+    firefox: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:127.0) Gecko/20100101 Firefox/127.0',
+  };
+  const is = (ua, plat = 'Win32', touch = 0) => app.ev(`isSafariFamily(${JSON.stringify(ua)}, ${JSON.stringify(plat)}, ${touch})`);
+  for (const k of ['iphoneSafari', 'iphoneChrome', 'iphoneFirefox', 'ipad', 'macSafari']) assert.equal(await is(UA[k], 'MacIntel', 0), true, k);
+  assert.equal(await is(UA.ipadDesktopMode, 'MacIntel', 5), true, 'iPadOS in desktop mode');
+  for (const k of ['chrome', 'edge', 'opera', 'androidChrome', 'samsung', 'firefox']) assert.equal(await is(UA[k]), false, k);
+  assert.equal(await is(UA.macChrome, 'MacIntel', 0), false, 'Chrome on a Mac');
+  assert.equal(await app.ev('SYNC_SILENT_NO_GESTURE'), true, 'Chromium: silent tries on');
+  const safari = await newApp(h, { now: AFTER });
+  assert.equal(await safari.ev('SYNC_SILENT_NO_GESTURE'), false, 'Safari UA: silent tries off');
+});
+
+t.test('not Safari: opened with a connected account, one silent request (prompt none, login_hint) with no tap, quietly synced', async (h) => {
+  const app = await newApp(h, { now: AFTER, seed: SEED, chrome: true });
+  await waitReqs(app.page, 1);
+  await app.until(SYNCED, { what: 'synced without a tap', timeout: 20000 });
+  const r = await reqs(app.page);
+  assert.equal(r.length, 1);
+  assert.equal(r[0].prompt, 'none');
+  assert.equal(r[0].login_hint, EMAIL);
+  assert.match(r[0].scope, /drive\.appdata/);
+  assert.equal(await app.ev('hasFreshSyncToken()'), true);
+  await tap(app.page);
+  await sleep(150);
+  assert.equal((await reqs(app.page)).length, 1, 'a fresh token needs no tap');
+});
+
+t.test('Safari: no silent request on load or on return to the tab; the first tap asks with prompt ""', async (h) => {
+  const app = await newApp(h, { now: AFTER, seed: SEED });
+  await app.until(`!!state.driveSyncClient`);
+  await sleep(700);
+  await visit(app.page);
+  await sleep(200);
+  assert.equal((await reqs(app.page)).length, 0);
+  await tap(app.page);
+  await app.until(SYNCED, { timeout: 20000 });
+  const r = await reqs(app.page);
+  assert.equal(r.length, 1); assert.equal(r[0].prompt, '');
+});
+
+t.test('not Safari: returning to the tab renews an ended or nearly ended token, not a fresh one; one try per return', async (h) => {
+  const app = await newApp(h, { now: AFTER, seed: SEED, chrome: true });
+  await waitReqs(app.page, 1);
+  await app.until(SYNCED, { timeout: 20000 });
+  await visit(app.page); await sleep(200);
+  assert.equal((await reqs(app.page)).length, 1, 'fresh: nothing');
+  // 2 minutes before the end (the stored end already has a 60 s margin): due
+  await app.page.clock.fastForward(Math.max(0, (await app.ev('state.driveSyncTokenExpiresAt - Date.now()')) - 90e3));
+  assert.equal(await app.ev('hasFreshSyncToken()'), true);
+  await app.page.evaluate(() => { window.__gis.mode = 'hold'; });
+  await visit(app.page); await visit(app.page); await visit(app.page);
+  await app.until(`!!syncTokenInflight`);
+  await sleep(100);
+  let r = await reqs(app.page);
+  assert.equal(r.length, 2, 'one request for three returns');
+  assert.equal(r[1].prompt, 'none');
+  await app.page.evaluate(() => window.__gis.complete('ok'));
+  await app.until(`state.driveSyncTokenExpiresAt - Date.now() > 3400e3`, { what: 'renewed', timeout: 20000 });
+  await app.until(SYNCED, { what: 'push after the renewal', timeout: 20000 });
+  assert.equal(app.drive.byName('sth-userdata-v1.json').length, 1);
+  // ended altogether
+  await app.page.clock.fastForward(3700e3);
+  await app.page.evaluate(() => { window.__gis.mode = 'ok'; });
+  await visit(app.page);
+  await app.until(`state.driveSyncTokenExpiresAt - Date.now() > 3400e3`, { what: 'renewed after it ended', timeout: 20000 });
+  r = await reqs(app.page);
+  assert.equal(r.length, 3); assert.equal(r[2].prompt, 'none');
+});
+
+t.test('not Safari: a failed silent try is quiet; the first tap asks with prompt "" and works', async (h) => {
+  for (const none of ['blocked', 'interaction_required', 'closed']) {
+    const app = await newApp(h, { now: AFTER, seed: SEED, chrome: true, wait: false });
+    await app.page.waitForFunction(() => window.__gis, null, { timeout: 15000 });
+    await app.page.evaluate((m) => { window.__gis.noneMode = m; }, none);
+    await app.ready();
+    await app.until(`!syncTokenInflight`);
+    // the load-time try has run (and failed quietly): start a clean one
+    await app.page.evaluate(() => { window.__gis.requests.length = 0; });
+    await app.ev('syncSilentLast = 0; syncSilentFails = 0; state.driveSyncToken = null; true');
+    await visit(app.page);
+    await waitReqs(app.page, 1);
+    await app.until(`!syncTokenInflight && syncSilentFails === 1`, { what: `silent ${none} over` });
+    assert.equal((await noneReqs(app.page)).length, 1, none);
+    assert.equal(await toastShown(app.page), false, `no toast for a silent ${none}`);
+    assert.equal(await signedOutShown(app.page), false, 'no button yet');
+    assert.match(await status(app.page), /Paused/);
+    assert.equal(await app.ev('state.syncAuto'), true, 'the tap flow is armed');
+    await tap(app.page);
+    await app.until(SYNCED, { what: 'tap flow', timeout: 20000 });
+    const r = await reqs(app.page);
+    assert.equal(r.length, 2);
+    assert.equal(r[1].prompt, '', 'the tap asks with prompt ""');
+    await app.close();
+  }
+});
+
+t.test('not Safari: silent fails, then the tap fails too: the Re-connect button, and nothing else is tried', async (h) => {
+  const app = await newApp(h, { now: AFTER, seed: SEED, chrome: true, wait: false });
+  await app.page.waitForFunction(() => window.__gis);
+  await app.page.evaluate(() => { window.__gis.noneMode = 'blocked'; window.__gis.mode = 'blocked'; });
+  await app.ready();
+  await app.page.evaluate(() => { window.__gis.requests.length = 0; });
+  await app.ev('syncSilentLast = 0; syncSilentFails = 0; syncTokenInflight = null; state.driveSyncToken = null; true');
+  await visit(app.page);
+  await waitReqs(app.page, 1);
+  await app.until(`!syncTokenInflight && syncSilentFails >= 1`);
+  assert.equal(await toastShown(app.page), false);
+  await tap(app.page);
+  await app.until(`state.syncAuto === false`, { what: 'tap flow failed' });
+  assert.match(await toastText(app.page), /blocked/i);
+  assert.equal(await btnText(app.page), 'Re-connect Google');
+  assert.equal(await linkShown(app.page), true);
+  await app.ev('syncSilentLast = 0; true');
+  await visit(app.page); await tap(app.page);
+  await sleep(300);
+  const r = await reqs(app.page);
+  assert.equal(r.length, 2, 'one silent, one tap, no more');
+  assert.deepEqual(r.map(x => x.prompt), ['none', '']);
+});
+
+t.test('not Safari: silent tries are limited to one per 60 s and stop after 2 failures in a row', async (h) => {
+  const app = await newApp(h, { now: AFTER, seed: SEED, chrome: true, wait: false });
+  await app.page.waitForFunction(() => window.__gis);
+  await app.page.evaluate(() => { window.__gis.noneMode = 'interaction_required'; });
+  await app.ready();
+  await app.page.waitForFunction(() => window.__gis.requests.length >= 1, null, { timeout: 15000 }).catch(() => {});
+  await app.until(`!syncTokenInflight`);
+  await app.page.evaluate(() => { window.__gis.requests.length = 0; });
+  await app.ev('syncSilentLast = 0; syncSilentFails = 0; state.driveSyncToken = null; true');
+  await visit(app.page);
+  await app.until(`!syncTokenInflight && syncSilentFails === 1`);
+  await visit(app.page); await visit(app.page);
+  await sleep(200);
+  assert.equal((await noneReqs(app.page)).length, 1, 'a second return within 60 s asks nothing');
+  await app.page.clock.fastForward(61e3);
+  await visit(app.page);
+  await app.until(`!syncTokenInflight && syncSilentFails === 2`);
+  assert.equal((await noneReqs(app.page)).length, 2);
+  await app.page.clock.fastForward(120e3);
+  await visit(app.page); await visit(app.page);
+  await sleep(300);
+  assert.equal((await noneReqs(app.page)).length, 2, 'stopped for the visit after 2 failures');
+  assert.equal(await toastShown(app.page), false);
+  // a success resets the count (the tap flow is still there)
+  await tap(app.page);
+  await app.until(SYNCED, { timeout: 20000 });
+  assert.equal((await reqs(app.page)).length, 3);
+});
+
+t.test('not Safari: a silent answer for another account never merges; it is revoked and the button is shown', async (h) => {
+  const app = await newApp(h, { now: AFTER, seed: SEED, chrome: true, wait: false });
+  app.drive.add('sth-userdata-v1.json', { kbItems: [], tutorChats: [], createdDocs: [], removedDocIds: [], syncedAt: 1 });
+  await app.page.waitForFunction(() => window.__gis);
+  await app.page.evaluate(() => { window.__gis.mode = 'hold'; });
+  await app.ready();
+  await waitReqs(app.page, 1);
+  assert.equal((await reqs(app.page))[0].prompt, 'none');
+  const before = JSON.stringify([...app.drive.files.values()]);
+  await app.page.evaluate(() => window.__gis.complete('otherAccount'));
+  await app.until(`state.syncAuto === false`, { what: 'mismatch' });
+  assert.match(await toastText(app.page), /different Google account/);
+  assert.equal(await app.ev('state.driveSyncToken'), null);
+  assert.deepEqual(app.drive.log.map(l => new URL(l.url).pathname), ['/oauth2/v3/userinfo']);
+  assert.equal(JSON.stringify([...app.drive.files.values()]), before);
+  assert.deepEqual(await app.page.evaluate(() => window.__gis.revoked), ['fake-other-token']);
+  assert.equal(await btnText(app.page), 'Re-connect Google');
+});
+
+t.test('not Safari: nothing silent on the sign-in gate, without a stored e-mail, or after sign-out', async (h) => {
+  const gate = await newApp(h, { now: AFTER, seed: SEED, chrome: true, signedIn: false, wait: false });
+  await gate.page.waitForSelector('#loginOverlay');
+  await sleep(1200);
+  await visit(gate.page);
+  assert.equal((await gate.page.evaluate(() => (window.__gis ? window.__gis.requests.length : 0))), 0, 'gate');
+  const nomail = await newApp(h, { now: AFTER, seed: { sth_sync_user: JSON.stringify({ name: 'No Mail' }) }, chrome: true });
+  await nomail.until(`!!state.driveSyncClient`);
+  await sleep(700); await visit(nomail.page);
+  assert.equal((await reqs(nomail.page)).length, 0, 'no e-mail');
+  const app = await newApp(h, { now: AFTER, seed: SEED, chrome: true });
+  await waitReqs(app.page, 1);
+  await app.until(SYNCED, { timeout: 20000 });
+  await app.page.click('#btnSyncSignOut');
+  await app.until(`!storageGet('sth_sync_user')`);
+  await app.page.clock.fastForward(4000e3);
+  await visit(app.page);
+  await sleep(300);
+  assert.equal((await reqs(app.page)).length, 1, 'after sign-out');
+});
+
+t.test('not Safari: export that meets a silent request in flight falls back to a visible one when the silent one fails', async (h) => {
+  const app = await newApp(h, { now: AFTER, seed: SEED, chrome: true, wait: false });
+  await app.page.waitForFunction(() => window.__gis);
+  await app.page.evaluate(() => { window.__gis.mode = 'hold'; });
+  await app.ready();
+  await waitReqs(app.page, 1);
+  const exp = app.ev(`ensureGoogleToken()`);
+  await app.page.evaluate(() => { window.__gis.mode = 'ok'; window.__gis.complete('blocked'); });
+  assert.equal(await exp, 'fake-drive-token');
+  const r = await reqs(app.page);
+  assert.deepEqual(r.map(x => x.prompt), ['none', '']);
+});
+
+t.test('not Safari: no token in localStorage, sessionStorage or IndexedDB after a silent renewal', async (h) => {
+  const app = await newApp(h, { now: AFTER, seed: SEED, chrome: true });
+  await waitReqs(app.page, 1);
+  await app.until(SYNCED, { timeout: 20000 });
+  await sleep(300);
+  const dump = await app.page.evaluate(async () => {
+    const out = [];
+    for (const st of [localStorage, sessionStorage]) for (let i = 0; i < st.length; i++) out.push(st.key(i), st.getItem(st.key(i)));
+    for (const d of await indexedDB.databases()) {
+      const db = await new Promise((res, rej) => { const r = indexedDB.open(d.name); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+      for (const name of db.objectStoreNames) {
+        const rows = await new Promise((res) => { const q = db.transaction(name).objectStore(name).getAll(); q.onsuccess = () => res(q.result); q.onerror = () => res([]); });
+        try { out.push(JSON.stringify(rows)); } catch { /* blobs */ }
+      }
+      db.close();
+    }
+    return out.join('\n');
+  });
+  assert.ok(dump.length > 100);
+  assert.equal(/fake-drive-token/.test(dump), false);
 });
 
 t.run();

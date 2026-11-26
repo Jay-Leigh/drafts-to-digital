@@ -2268,10 +2268,9 @@
       background: #faf8f3; border-left: 1px solid rgba(212,201,168,0.55);
       display: flex; flex-direction: column;
       transform: translateX(100%);
-      transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
-      box-shadow: -6px 0 32px rgba(26,46,28,0.12);
+      transition: transform 0.28s cubic-bezier(0.4,0,0.2,1), box-shadow 0.28s ease;
     }
-    .history-panel.open { transform: translateX(0); }
+    .history-panel.open { transform: translateX(0); box-shadow: -6px 0 32px rgba(26,46,28,0.12); }
     .history-panel-head {
       display: flex; align-items: center; justify-content: space-between;
       padding: 18px 20px 14px;
@@ -2754,8 +2753,8 @@
   <style id="ux-soft-bg">
     body { background-color: #f5f0e1; background-image:
       radial-gradient(1100px 700px at 8% -10%, rgba(255,252,242,0.9), transparent 70%),
-      radial-gradient(900px 700px at 100% 0%, rgba(107,143,113,0.14), transparent 70%),
-      radial-gradient(1000px 800px at 90% 110%, rgba(212,201,168,0.35), transparent 70%);
+      radial-gradient(630px 700px at calc(100% - 630px) 0%, rgba(107,143,113,0.14), transparent 100%),
+      radial-gradient(700px 800px at calc(100% - 700px) 110%, rgba(212,201,168,0.35), transparent 100%);
       background-attachment: fixed; }
     .sidebar { box-shadow: 0 2px 6px rgba(26,46,28,0.03), 0 12px 40px -8px rgba(26,46,28,0.10); }
     .main-area.tutor-mode .tutor-shell { box-shadow: 0 2px 6px rgba(26,46,28,0.03), 0 16px 48px -12px rgba(26,46,28,0.10); }
@@ -8921,7 +8920,7 @@
       if (hasFreshGoogleToken()) return Promise.resolve(state.googleAccessToken);
       // A connected user already holds drive.file in the sync token: reuse it, or share the one sync request, so there is never a second window
       if (hasFreshSyncToken()) return Promise.resolve(state.driveSyncToken);
-      if (syncTokenInflight) return syncTokenInflight.promise;
+      if (syncTokenInflight) return requestSyncToken(); // joins it (or follows a failed silent try with a visible one)
       if (storedSyncUser()) {
         if (!state.driveSyncClient) initDriveSyncClient();
         if (state.driveSyncClient) return requestSyncToken();
@@ -9141,25 +9140,32 @@
       if (err) flight.reject(err); else flight.resolve(token);
     }
 
-    // The one place that asks Google for a sync token. Call it directly inside a tap or key press (no await before it).
-    function requestSyncToken() {
-      if (syncTokenInflight) return syncTokenInflight.promise;
+    // The one place that asks Google for a sync token. Call it directly inside a tap or key press (no await before it), except
+    // { silent: true }: that asks with prompt 'none' and no gesture, and fails quietly (no toast, no button).
+    function requestSyncToken(opts) {
+      const silent = !!(opts && opts.silent);
+      if (syncTokenInflight) {
+        // A visible request (tap, button, export) that meets a silent try still in flight tries again visibly when the silent one fails
+        if (syncTokenInflight.silent && !silent) return syncTokenInflight.promise.catch(() => requestSyncToken());
+        return syncTokenInflight.promise;
+      }
       if (!state.driveSyncClient) initDriveSyncClient();
       if (!state.driveSyncClient) return Promise.reject(handledGoogleAuthError('google_not_loaded'));
-      const flight = {};
+      const flight = { silent };
       flight.promise = new Promise((resolve, reject) => { flight.resolve = resolve; flight.reject = reject; });
       flight.promise.catch(() => {}); // callers handle it; nobody may be waiting
       flight.timer = setTimeout(() => {
         if (syncTokenInflight !== flight) return;
+        if (silent) { settleSyncTokenRequest(handledGoogleAuthError('google_auth_timeout')); return; }
         clearSyncSignInBusy();
         showToast('Google sign-in did not complete. Please try again.', 'error');
         state.syncAuto = false;
         if (storedSyncUser()) updateSyncUI('expired');
         settleSyncTokenRequest(handledGoogleAuthError('google_auth_timeout'));
-      }, 3 * 60 * 1000);
+      }, silent ? 20 * 1000 : 3 * 60 * 1000);
       syncTokenInflight = flight;
       const email = storedSyncEmail();
-      try { state.driveSyncClient.requestAccessToken(email ? { prompt: '', login_hint: email } : {}); }
+      try { state.driveSyncClient.requestAccessToken(email ? { prompt: silent ? 'none' : '', login_hint: email } : {}); }
       catch (err) { settleSyncTokenRequest(err); }
       return flight.promise;
     }
@@ -9167,6 +9173,10 @@
     // Blocked, closed or refused window: say so once, show the button, stop trying by itself this visit
     function onSyncRequestFailed(err) {
       clearSyncSignInBusy();
+      if (syncTokenInflight && syncTokenInflight.silent) { // a silent try ends quietly: the first tap is the next step
+        settleSyncTokenRequest(handledGoogleAuthError(err && err.type ? err.type : 'google_auth_error'));
+        return;
+      }
       showGoogleAuthToast(err);
       state.syncAuto = false;
       if (storedSyncUser()) updateSyncUI('expired');
@@ -9176,6 +9186,10 @@
     function onDriveSyncToken(resp) {
       clearSyncSignInBusy();
       if (resp.error) {
+        if (syncTokenInflight && syncTokenInflight.silent) { // interaction_required, login_required, consent_required ...
+          settleSyncTokenRequest(handledGoogleAuthError(resp.error));
+          return;
+        }
         if (isGoogleAuthCancel(resp)) showToast('Google sign-in was cancelled.');
         else showToast('Google sign-in did not complete. Please try again.', 'error');
         state.syncAuto = false;
@@ -9190,12 +9204,14 @@
     async function acceptSyncToken(resp) {
       const token = resp.access_token;
       const epoch = syncEpoch;
+      const silent = !!(syncTokenInflight && syncTokenInflight.silent);
       const wanted = storedSyncEmail();
       if (wanted) {
         let user = null;
         try { user = await driveFetchUserInfo(token); } catch { user = null; }
         if (epoch !== syncEpoch) return; // signed out meanwhile
         if (!user || !user.email) {
+          if (silent) { settleSyncTokenRequest(handledGoogleAuthError('google_account_unchecked')); return; } // nothing merged; the first tap tries again
           showToast('Could not check which Google account this is. Please try again.', 'error');
           state.syncAuto = false;
           updateSyncUI('expired');
@@ -9234,6 +9250,34 @@
       updateSyncUI(state.syncAuto ? 'paused' : 'expired');
     }
 
+    // ── Renewing without a tap (not Safari) ─────────
+    // Safari and every iOS browser (WebKit, tracking prevention) keep the tap flow only. Elsewhere the app asks for a new token by itself
+    // when it opens and when the person comes back to the tab, with prompt 'none' and the account's e-mail, and no gesture. A browser may block a
+    // window that no tap opened (pop-up blocker) or Google may need the person (sign in, consent): that is expected and quiet. The next steps are
+    // the tap flow (the first trusted tap asks again with prompt ''), and only if that fails too the "Re-connect Google" button.
+    // Limits: one silent try per return to the tab, at most one per 60 s, none for the rest of the visit after 2 failures in a row.
+    function isSafariFamily(ua = navigator.userAgent, platform = navigator.platform, touchPoints = navigator.maxTouchPoints) {
+      if (/iPhone|iPad|iPod/.test(ua) || (platform === 'MacIntel' && touchPoints > 1)) return true; // all iOS and iPadOS browsers are WebKit
+      return /Safari\//.test(ua) && !/Chrome|Chromium|CriOS|FxiOS|Edg|OPR|Android/.test(ua);
+    }
+    let SYNC_SILENT_NO_GESTURE = !isSafariFamily();
+    const SYNC_SILENT_MIN_GAP = 60 * 1000;
+    const SYNC_SILENT_MAX_FAILS = 2;
+    let syncSilentLast = 0;
+    let syncSilentFails = 0;
+
+    function trySilentRenew() {
+      if (!SYNC_SILENT_NO_GESTURE || !state.syncAuto || !storedSyncEmail()) return;
+      if (syncSilentFails >= SYNC_SILENT_MAX_FAILS || syncTokenInflight || document.visibilityState !== 'visible') return;
+      if (state.driveSyncToken && Date.now() < state.driveSyncTokenExpiresAt - 2 * 60 * 1000) return; // fresh for 2 more minutes
+      if (!document.getElementById('loginOverlay').classList.contains('dismissed')) return; // not on the sign-in gate
+      if (Date.now() - syncSilentLast < SYNC_SILENT_MIN_GAP) return;
+      if (!state.driveSyncClient) initDriveSyncClient();
+      if (!state.driveSyncClient) return;
+      syncSilentLast = Date.now();
+      requestSyncToken({ silent: true }).then(() => { syncSilentFails = 0; }, () => { syncSilentFails++; });
+    }
+
     // ── Tap or key press renews the token ───────────
     // Controls that need their own tap to open something (file pickers, links, fullscreen): Google's window must never take that tap's activation
     const SYNC_GESTURE_SKIP = '#btnSyncSignIn, #btnSyncSignOut, #btnSyncSignOutLink, input[type="file"], label, a[href], .dropzone, #kbDropzone, #btnTutorAttach, #tutorMenuAttach, [data-add="upload"], #studioMmFull, .studio-mm-fullbtn';
@@ -9260,7 +9304,11 @@
       // Bubble phase: the tapped control runs first and keeps its own activation
       document.addEventListener('click', onSyncGesture);
       document.addEventListener('keydown', onSyncGesture);
-      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') askOtherTabsForToken(); });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible') return;
+        askOtherTabsForToken();
+        trySilentRenew();
+      });
       if (SHARE_SYNC_TOKEN) gtokenOpen();
     }
 
@@ -17923,6 +17971,7 @@
           initGoogleOAuth();
           initDriveSyncClient();
           clearInterval(gisInterval);
+          trySilentRenew(); // opened with a connected account: no tap needed (not Safari)
         }
       }, 500);
       setTimeout(() => {
