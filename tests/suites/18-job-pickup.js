@@ -68,7 +68,7 @@ t.test('start on A, B picks it up and applies it once, A sees `collected`, nothi
   const toasts = await B.ev(`(() => { window.__toasts = []; const o = showToast; showToast = (...a) => { window.__toasts.push(String(a[0])); return o(...a); }; })()`);
   A.n8n.plan(null, { type: 'hold' });
   const { jobId, itemId, key } = await startAid(h, A);
-  await A.until(`[...jobs.recs.values()].some(r => r.pub)`, { what: 'listed' });
+  await A.until(`[...jobs.recs.values()].some(r => r.pub && !r.pickupDue)`, { what: 'listed' });
   let f = listed(A.drive);
   assert.equal(f.v, 1);
   assert.equal(f.jobs.length, 1);
@@ -79,8 +79,7 @@ t.test('start on A, B picks it up and applies it once, A sees `collected`, nothi
   assert.equal(Math.round((f.jobs[0].expiresAt - f.jobs[0].createdAt) / 3600e3), 72);
   assert.equal(Object.keys(f.jobs[0]).sort().join(), 'createdAt,ctx,doneAt,expiresAt,id,key,kind,label,mode,state');
   await stop(A); // A is "away": only B works on it
-  await B.ev('pickup.step(true)');
-  await B.until(`jobs.recs.has('${jobId}')`, { what: 'B took the entry' });
+  await untilPoking(B, `jobs.recs.has('${jobId}')`, 'taken up');
   assert.deepEqual((await recOf(B, jobId)).foreign, true);
   assert.equal(await itemOf(B, itemId), null, 'nothing is created on B before there is a result');
   // the tray row says where it comes from
@@ -124,9 +123,8 @@ t.test('both devices race for the answer: exactly one applies, the other ends `d
   await countApplies(A); await countApplies(B);
   A.n8n.plan(null, { type: 'hold' });
   const { jobId, itemId } = await startAid(h, A);
-  await A.until(`[...jobs.recs.values()].some(r => r.pub)`, { what: 'listed' });
-  await B.ev('pickup.step(true)');
-  await B.until(`jobs.recs.has('${jobId}')`);
+  await A.until(`[...jobs.recs.values()].some(r => r.pub && !r.pickupDue)`, { what: 'listed' });
+  await untilPoking(B, `jobs.recs.has('${jobId}')`, 'taken up');
   A.n8n.release();
   await untilPoking([A, B], [`jobs.recs.get('${jobId}').state === 'done'`, `jobs.recs.get('${jobId}').state === 'done'`], 'both finished', 40000);
   assert.equal((await applies(A)) + (await applies(B)), 1, 'exactly one device applied it');
@@ -148,10 +146,9 @@ t.test('the winner dies mid-claim: the loser keeps watching, takes the answer af
   await countApplies(A);
   A.n8n.plan(null, { type: 'hold' });
   const { jobId, itemId } = await startAid(h, A);
-  await A.until(`[...jobs.recs.values()].some(r => r.pub)`, { what: 'listed' });
+  await A.until(`[...jobs.recs.values()].some(r => r.pub && !r.pickupDue)`, { what: 'listed' });
   await stop(A);
-  await B.ev('pickup.step(true)');
-  await B.until(`jobs.recs.has('${jobId}')`);
+  await untilPoking(B, `jobs.recs.has('${jobId}')`, 'taken up');
   A.n8n.release();
   // B wins the claim and hangs in the apply (its tab dies)
   await B.ev(`pickup.applyStudio = () => new Promise(() => {})`);
@@ -174,30 +171,52 @@ t.test('the winner dies mid-claim: the loser keeps watching, takes the answer af
   assert.equal(A.n8n.creates().length, 1);
 }, { timeout: 90000 });
 
-t.test('origin: `unknown` for a listed job is never a resend (calm "collected elsewhere"); an unlisted job still resends as before', async (h) => {
-  // listed
+t.test('origin: `unknown` for a listed job is never a resend; "collected elsewhere" only when the file says done, else a neutral end with Try again; a job the server never admitted still resends', async (h) => {
+  // listed, the file says done (the other device marked it)
   const { A } = await pair(h);
   A.n8n.plan(null, { type: 'hold' });
   const s = await startAid(h, A);
-  await A.until(`[...jobs.recs.values()].some(r => r.pub)`);
-  await A.ev(`jobs.recs.get('${s.jobId}').lastCreateAt = Date.now() - 600000`);
-  A.n8n.jobs.delete(s.jobId); // collected elsewhere and the note is gone (or Redis lost it)
-  await untilPoking(A, `jobs.recs.get('${s.jobId}').state === 'done'`, 'no resend');
+  await A.until(`[...jobs.recs.values()].some(r => r.pub && !r.pickupDue)`);
+  await A.until(`jobs.recs.get('${s.jobId}').sawServer`, { what: 'seen running' }).catch(async () => { await A.ev(POKE); });
+  await A.ev(`jobs.update('${s.jobId}', x => { x.sawServer = true; x.lastCreateAt = Date.now() - 600000; })`);
+  const f = listed(A.drive); f.jobs[0].state = 'done'; f.jobs[0].key = ''; f.jobs[0].doneAt = Date.now();
+  A.drive.put(A.drive.byName(FILE)[0].id, f);
+  A.n8n.jobs.delete(s.jobId); // collected elsewhere and the note is gone
+  await untilPoking(A, `jobs.recs.get('${s.jobId}').state === 'done'`, 'collected elsewhere');
   assert.equal((await recOf(A, s.jobId)).doneElsewhere, true);
   assert.equal(A.n8n.creates().length, 1, 'never sent again');
-  assert.equal(await A.ev(`document.getElementById('jobsAlert').textContent`), '');
   assert.equal((await itemOf(A, s.itemId)).pickedUp, true);
-  // not listed (sync not connected): the old rule
+  // listed, seen running, the file still says open: nobody is known to have it: neutral end, Try again, still no resend
+  const { A: A2 } = await pair(h);
+  A2.n8n.plan(null, { type: 'hold' });
+  const s2 = await startAid(h, A2);
+  await A2.until(`[...jobs.recs.values()].some(r => r.pub && !r.pickupDue)`);
+  await A2.ev(`jobs.update('${s2.jobId}', x => { x.sawServer = true; x.lastCreateAt = Date.now() - 600000; })`);
+  A2.n8n.jobs.delete(s2.jobId);
+  await untilPoking(A2, `jobs.recs.get('${s2.jobId}').state === 'expired'`, 'neutral end');
+  assert.equal((await recOf(A2, s2.jobId)).doneElsewhere, false);
+  assert.equal((await itemOf(A2, s2.itemId)).status, 'failed');
+  assert.equal(A2.n8n.creates().length, 1, 'no resend');
+  // listed but never admitted (never seen running), inside the 72 hours: the old path, the same attempt is sent again
+  const { A: A3 } = await pair(h);
+  A3.n8n.plan(null, { type: 'hold' });
+  const s3 = await startAid(h, A3);
+  await A3.until(`[...jobs.recs.values()].some(r => r.pub && !r.pickupDue)`);
+  await A3.ev(`jobs.update('${s3.jobId}', x => { x.sawServer = false; x.lastCreateAt = Date.now() - 600000; })`);
+  A3.n8n.jobs.delete(s3.jobId);
+  for (let i = 0; i < 100 && A3.n8n.creates().length < 2; i++) { await A3.ev(POKE).catch(() => {}); await sleep(100); }
+  assert.equal(A3.n8n.creates().length, 2, 'resent (it was never admitted)');
+  // not listed: the old rule
   const C = await h.newApp({ v: 8 });
   C.n8n.plan(null, { type: 'hold' });
   const c = await startAid(h, C);
-  await C.ev(`(() => { const r = jobs.recs.get('${c.jobId}'); r.sawServer = true; r.lastCreateAt = Date.now() - 600000; })()`);
+  await C.ev(`jobs.update('${c.jobId}', x => { x.sawServer = true; x.lastCreateAt = Date.now() - 600000; })`);
   assert.equal((await recOf(C, c.jobId)).pub, false);
   C.n8n.jobs.delete(c.jobId);
   await untilPoking(C, `jobs.recs.get('${c.jobId}').attempt === 2`, 'resent as attempt 2');
   for (let i = 0; i < 100 && C.n8n.creates().length < 2; i++) { await C.ev(POKE).catch(() => {}); await sleep(100); }
   assert.equal(C.n8n.creates().length, 2);
-}, { timeout: 60000 });
+}, { timeout: 90000 });
 
 t.test('stale or wrong entries are never applied: deleted aid (tombstone), an item of another job, a result of another mode', async (h) => {
   const { B } = await pair(h);
@@ -213,8 +232,7 @@ t.test('stale or wrong entries are never applied: deleted aid (tombstone), an it
   ] });
   await B.ev(`studio.saveTombs(new Map([['item_gone', { at: Date.now() }]]))`);
   await B.seedItems([{ id: 'item_taken', tool: 'quiz', title: 'my quiz', language: 'en', topic: '', options: {}, sourceIds: [], sourceNames: [], status: 'ready', createdAt: Date.now(), updatedAt: Date.now(), seen: true, error: null, artifact: null }]);
-  await B.ev('pickup.step(true)');
-  await B.until(`jobs.recs.size === 3`, { what: 'three foreign records' });
+  await untilPoking(B, `jobs.recs.size === 3`, 'three foreign records');
   await untilPoking(B, `[...jobs.recs.values()].every(r => r.state === 'cancelled')`, 'all three dropped', 30000);
   assert.equal(await itemOf(B, 'item_gone'), null, 'a deleted aid is not recreated');
   assert.deepEqual(await itemOf(B, 'item_taken'), { status: 'ready', tool: 'quiz', jobId: null, pickedUp: false, title: 'my quiz' }, 'another item is not written to');
@@ -253,7 +271,7 @@ t.test('hostile files: oversize is ignored without a download, prototype polluti
   const big = putFile(app.drive, JSON.stringify({ v: 1, jobs: [], pad: 'x'.repeat(300 * 1024) }));
   app.n8n.plan(null, { type: 'hold' });
   const s = await startAid(h, app);
-  await app.until(`[...jobs.recs.values()].some(r => r.pub)`, { what: 'listed over the oversize file' });
+  await app.until(`[...jobs.recs.values()].some(r => r.pub && !r.pickupDue)`, { what: 'listed over the oversize file' });
   assert.equal(app.drive.log.filter((l) => l.method === 'GET' && l.url.includes(big) && l.url.includes('alt=media')).length, 0, 'not downloaded');
   assert.equal(listed(app.drive).jobs.length, 1);
   assert.equal(listed(app.drive).jobs[0].id, s.jobId);
@@ -272,8 +290,7 @@ t.test('hostile text in a listed entry is only ever text (XSS), and the aid is m
   const evil = '<img src=x onerror="window.__xss=1"><script>window.__xss=2</script>';
   seedJob(B.n8n, rid('H'), rkey('h'));
   putFile(B.drive, { v: 1, jobs: [entry({ id: rid('H'), key: rkey('h'), label: evil, ctx: { ...entry().ctx, itemId: 'item_xss', title: evil, topic: evil, sourceNames: [evil] } })] });
-  await B.ev('pickup.step(true)');
-  await B.until(`jobs.recs.has('${rid('H')}')`);
+  await untilPoking(B, `jobs.recs.has('${rid('H')}')`, 'taken up');
   await B.ev('jobs.openTray(true)');
   const html = await B.ev(`document.getElementById('jobsTrayList').innerHTML`);
   assert.ok(!/<img|<script/i.test(html), 'escaped in the tray');
@@ -315,14 +332,13 @@ t.test('a one-request template run: B picks it up into its History (once), A set
   await A.until(`!document.getElementById('btnAction').disabled`);
   await A.page.click('#btnAction');
   await A.until(`[...jobs.recs.values()].some(r => (r.state === 'submitted' || r.state === 'running') && r.kind === 'group')`, { what: 'run sent' });
-  await A.until(`[...jobs.recs.values()].some(r => r.pub)`, { what: 'listed' });
+  await A.until(`[...jobs.recs.values()].some(r => r.pub && !r.pickupDue)`, { what: 'listed' });
   const f = listed(A.drive);
   assert.equal(f.jobs[0].kind, 'tool');
   assert.deepEqual([f.jobs[0].mode, f.jobs[0].ctx.mode, f.jobs[0].ctx.fileNames, f.jobs[0].ctx.pages, f.jobs[0].ctx.batch], ['template', 'template', ['brief.txt'], 1, 5]);
   const gid = f.jobs[0].ctx.groupId, jobId = f.jobs[0].id;
   await stop(A);
-  await B.ev('pickup.step(true)');
-  await B.until(`jobs.recs.has('${jobId}')`);
+  await untilPoking(B, `jobs.recs.has('${jobId}')`, 'taken up');
   const toasts = await B.ev(`(() => { window.__toasts = []; const o = showToast; showToast = (...a) => { window.__toasts.push(String(a[0])); return o(...a); }; })()`);
   A.n8n.release();
   await untilPoking(B, `jobs.recs.get('${jobId}').state === 'done'`, 'B collected the run');
@@ -351,10 +367,9 @@ t.test('rollback to a v7 server: a claim answers STH-INPUT-400; the origin falls
   await countApplies(A); await countApplies(B);
   A.n8n.plan(null, { type: 'hold' });
   const { jobId, itemId } = await startAid(h, A);
-  await A.until(`[...jobs.recs.values()].some(r => r.pub)`);
+  await A.until(`[...jobs.recs.values()].some(r => r.pub && !r.pickupDue)`);
   await stop(A);
-  await B.ev('pickup.step(true)');
-  await B.until(`jobs.recs.has('${jobId}')`);
+  await untilPoking(B, `jobs.recs.has('${jobId}')`, 'taken up');
   // the owner rolls back while the job runs: the server is v7 now (no claim op, no collected note); neither device has heard of it yet
   A.n8n.v = 7;
   A.n8n.release();
@@ -392,8 +407,7 @@ t.test('lifetime: ended and old entries are pruned (done after 24 h, everything 
   putFile(B.drive, { v: 1, jobs: [entry({ id: rid('J'), key: rkey('j'), createdAt: now - 80 * 3600e3, expiresAt: now - 1000 }), entry({ id: rid('K'), key: rkey('k'), createdAt: now - 3000, expiresAt: now + 3 * 3600e3 })] });
   seedJob(B.n8n, rid('K'), rkey('k'), 'studio_mindmap', 'running');
   B.n8n.job(rid('K')).plan = { type: 'hold' };
-  await B.ev('pickup.step(true)');
-  await B.until(`jobs.recs.has('${rid('K')}')`);
+  await untilPoking(B, `jobs.recs.has('${rid('K')}')`, 'taken up');
   assert.equal(await B.ev(`jobs.recs.has('${rid('J')}')`), false, 'an ended entry is not taken up');
   assert.deepEqual(listed(B.drive).jobs.map((e) => e.id), [rid('K')], 'and the next write removes it');
   // a foreign record whose entry ended is dropped on the next start, quietly
@@ -412,7 +426,7 @@ t.test('sync not connected: no file, no list calls, the old behaviour (claim, ap
   assert.equal(await applies(app), 1);
   assert.equal(app.drive.byName(FILE).length, 0, 'no file');
   assert.equal(app.drive.log.length, 0, 'no Drive call at all');
-  assert.equal(await app.ev(`[...jobs.recs.values()].some(r => r.pub)`), false);
+  assert.equal(await app.ev(`[...jobs.recs.values()].some(r => r.pub && !r.pickupDue)`), false);
   assert.equal(app.n8n.ops('claim').length, 1);
   assert.equal(app.n8n.job(s.jobId).state, 'collected');
   // a v7 server: the same, with result and ack
@@ -430,9 +444,8 @@ t.test('the secret key appears only in the hidden file, the job calls and this d
   for (const a of [A, B]) a.page.on('console', (m) => logs.push(m.text()));
   A.n8n.plan(null, { type: 'hold' });
   const { jobId, itemId, key } = await startAid(h, A);
-  await A.until(`[...jobs.recs.values()].some(r => r.pub)`);
-  await B.ev('pickup.step(true)');
-  await B.until(`jobs.recs.has('${jobId}')`);
+  await A.until(`[...jobs.recs.values()].some(r => r.pub && !r.pickupDue)`);
+  await untilPoking(B, `jobs.recs.has('${jobId}')`, 'taken up');
   // while the entry is open the key is in the hidden file
   assert.equal(JSON.stringify(listed(A.drive)).includes(key), true);
   for (const f of A.drive.files.values()) if (f.name !== FILE) assert.equal(String(f.body).includes(key), false, `not in ${f.name}`);
@@ -472,10 +485,9 @@ t.test('claim and ack carry the nonce; a lease taken over elsewhere is `notYours
   const { A, B } = await pair(h);
   A.n8n.plan(null, { type: 'hold' });
   const { jobId, itemId } = await startAid(h, A);
-  await A.until(`[...jobs.recs.values()].some(r => r.pub)`);
+  await A.until(`[...jobs.recs.values()].some(r => r.pub && !r.pickupDue)`);
   await stop(A);
-  await B.ev('pickup.step(true)');
-  await B.until(`jobs.recs.has('${jobId}')`);
+  await untilPoking(B, `jobs.recs.has('${jobId}')`, 'taken up');
   A.n8n.release();
   // B's apply fails (storage trouble): not acknowledged, tried again later, the answer stays for the origin
   await B.ev(`pickup.applyStudio = () => { throw new AppError('STORE-507'); }`);
@@ -501,10 +513,9 @@ t.test('cancel works from either device: B cancels a request A started; A is tol
   const { A, B } = await pair(h);
   A.n8n.plan(null, { type: 'hold' });
   const { jobId, itemId } = await startAid(h, A);
-  await A.until(`[...jobs.recs.values()].some(r => r.pub)`);
+  await A.until(`[...jobs.recs.values()].some(r => r.pub && !r.pickupDue)`);
   await stop(A);
-  await B.ev('pickup.step(true)');
-  await B.until(`jobs.recs.has('${jobId}')`);
+  await untilPoking(B, `jobs.recs.has('${jobId}')`, 'taken up');
   await B.ev('jobs.openTray(true)');
   await B.page.click(`[data-jobs-act="cancel"][data-id="${jobId}"]`);
   await B.until(`jobs.recs.get('${jobId}').state === 'cancelled'`);
@@ -538,12 +549,155 @@ t.test('two files with the name (two devices created it at once): merged per id,
   putFile(B.drive, { v: 1, jobs: [e1, e2] });
   putFile(B.drive, { v: 1, jobs: [e1done] });
   seedJob(B.n8n, rid('N'), rkey('n'), 'studio_mindmap', 'running'); B.n8n.job(rid('N')).plan = { type: 'hold' };
-  await B.ev('pickup.step(true)');
-  await B.until(`jobs.recs.has('${rid('N')}')`);
+  await untilPoking(B, `jobs.recs.has('${rid('N')}')`, 'taken up');
   assert.equal(await B.ev(`jobs.recs.has('${rid('M')}')`), false, 'the one that is done is not taken up');
   assert.equal(B.drive.byName(FILE).length, 1);
   const f = listed(B.drive);
   assert.deepEqual(f.jobs.map((e) => [e.id[2], e.state]).sort(), [['M', 'done'], ['N', 'open']]);
 }, { timeout: 60000 });
+
+// ── fixes of the D review (M1-M6, N1, N2) ──
+const op = (app, name, jobs) => app.page.evaluate(async ({ url, body, token }) => { const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token }, body: JSON.stringify(body) }); return r.json(); },
+  { url: `https://${require('../lib/fake-n8n').HOST}/webhook/sth-job`, body: { v: 1, op: name, jobs }, token: app.n8n.issueToken().token });
+
+t.test('M1: Cancel on the other device after the answer is ready does not destroy it; before that it cancels (fake cancel = the real script)', async (h) => {
+  const { A, B } = await pair(h);
+  await countApplies(A);
+  A.n8n.plan(null, { type: 'hold' });
+  const { jobId, itemId } = await startAid(h, A);
+  await A.until(`[...jobs.recs.values()].some(r => r.pub && !r.pickupDue)`);
+  await stop(A);
+  await untilPoking(B, `jobs.recs.has('${jobId}')`, 'taken up');
+  await B.ev(`jobs.claimApply = async () => {}`); // B shows the finished answer but does not claim it
+  A.n8n.release();
+  await untilPoking(B, `jobs.recs.get('${jobId}').state === 'succeeded'`, 'B sees it finished');
+  await B.ev('jobs.openTray(true)');
+  await B.page.click(`[data-jobs-act="cancel"][data-id="${jobId}"]`);
+  await B.until(`jobs.recs.get('${jobId}').state === 'cancelled'`);
+  await sleep(500);
+  assert.equal(A.n8n.ops('cancel').length, 0, 'no cancel for a finished job');
+  assert.equal(A.n8n.ops('ack').length, 0, 'no ack from a foreign record');
+  assert.equal(A.n8n.job(jobId).state, 'succeeded');
+  assert.equal(await B.ev(`!!jobs.recs.get('${jobId}').ackDue`), false);
+  await go(A);
+  await untilPoking(A, `jobs.recs.get('${jobId}').state === 'done'`, 'A still applies it');
+  assert.equal(await applies(A), 1);
+  assert.equal((await itemOf(A, itemId)).status, 'ready');
+  assert.equal(A.n8n.job(jobId).state, 'collected');
+  assert.equal((await recOf(A, jobId)).doneElsewhere, false);
+  // the fake answers as the real cancel does
+  const k = rid('Q'); seedJob(A.n8n, k, rkey('q'), 'studio_mindmap', 'succeeded');
+  const r1 = await op(A, 'cancel', [{ id: k, key: rkey('q') }]);
+  assert.deepEqual([r1.state, A.n8n.job(k).cancelled], ['succeeded', false]);
+}, { timeout: 90000 });
+
+t.test('M3: a one-request run collected elsewhere keeps its files until its History entry is here; after 3 days without it, it fails with Try again', async (h) => {
+  const run = async () => {
+    const { A } = await pair(h);
+    A.n8n.plan(null, { type: 'hold' });
+    await A.goto('#template');
+    await A.until(`state.mode === 'template' && document.querySelector('[data-role] input[type=file]') !== null`);
+    await A.page.setInputFiles('[data-role="instructions"] input[type=file]', [{ name: 'brief.txt', mimeType: 'text/plain', buffer: Buffer.from('Write about water.') }]);
+    await A.until(`!document.getElementById('btnAction').disabled`);
+    await A.page.click('#btnAction');
+    await A.until(`[...jobs.recs.values()].some(r => r.pub && !r.pickupDue)`, { what: 'listed' });
+    const f = listed(A.drive);
+    const jobId = f.jobs[0].id, key = f.jobs[0].key, gid = f.jobs[0].ctx.groupId;
+    await stop(A);
+    A.n8n.release();
+    for (let i = 0; i < 50 && A.n8n.job(jobId).state !== 'succeeded'; i++) { await A.ev(`jobs.call({ v: 1, op: 'status', jobs: [{ id: '${jobId}', key: '${key}' }] })`); await sleep(100); }
+    const n = 'N'.repeat(43);
+    assert.equal((await op(A, 'claim', [{ id: jobId, key, nonce: n }])).ok, true); // another device takes it ...
+    assert.deepEqual((await op(A, 'ack', [{ id: jobId, key, nonce: n }])).acked, [jobId]); // ... and its entry in History has not reached this one
+    await go(A);
+    await untilPoking(A, `jobs.recs.get('${jobId}').state === 'done'`, 'collected');
+    return { A, gid, jobId };
+  };
+  const inputs = (A, gid) => A.ev(`jobs.store.getItem('gin:${gid}:0').then(x => !!x)`);
+  // the entry arrives: the kept files go
+  const one = await run();
+  assert.equal(await one.A.ev(`[...jobs.groups.values()].map(g => g.state + ':' + g.pickedUp).join()`), 'done:true');
+  assert.equal(await inputs(one.A, one.gid), true, 'files kept');
+  await one.A.ev(`saveToHistory('template', '# Template', ['brief.txt'], 'h_${one.gid}')`);
+  await one.A.ev('jobs.advanceGroups()');
+  await one.A.until(`[...jobs.groups.values()][0].pickedUp === 'arrived'`, { what: 'settled' });
+  assert.equal(await inputs(one.A, one.gid), false, 'files dropped once the entry is there');
+  // it never arrives: after 3 days a failed run with Try again, files still there
+  const two = await run();
+  await two.A.ev(`[...jobs.groups.values()][0].pickedUpAt = Date.now() - 4 * 86400000`);
+  await two.A.ev('jobs.advanceGroups()');
+  await two.A.until(`[...jobs.groups.values()][0].state === 'failed'`, { what: 'failed' });
+  assert.equal(await inputs(two.A, two.gid), true);
+  await two.A.ev('jobs.openTray(true)');
+  const row = await two.A.ev(`document.getElementById('jobsTrayList').textContent`);
+  assert.match(row, /did not reach this one/);
+  assert.match(row, /Try again/);
+}, { timeout: 120000 });
+
+t.test('M4: another device\'s request is claimed only with a fresh Drive token (no result stranded); with the token it goes through', async (h) => {
+  const { A, B } = await pair(h);
+  A.n8n.plan(null, { type: 'hold' });
+  const { jobId, itemId } = await startAid(h, A);
+  await A.until(`[...jobs.recs.values()].some(r => r.pub && !r.pickupDue)`);
+  await stop(A);
+  await untilPoking(B, `jobs.recs.has('${jobId}')`, 'taken up');
+  const tok = await B.ev(`[state.driveSyncToken, state.driveSyncTokenExpiresAt]`);
+  await B.ev(`state.driveSyncToken = null`);
+  A.n8n.release();
+  await untilPoking(B, `jobs.recs.get('${jobId}').state === 'succeeded'`, 'B sees it finished');
+  for (let i = 0; i < 5; i++) { await B.ev(POKE); await sleep(150); }
+  assert.equal(A.n8n.ops('claim').length, 0, 'no claim without a token');
+  assert.equal(await itemOf(B, itemId), null);
+  await B.ev(`state.driveSyncToken = ${JSON.stringify(tok[0])}; state.driveSyncTokenExpiresAt = ${tok[1]}`);
+  await untilPoking(B, `jobs.recs.get('${jobId}').state === 'done'`, 'claimed with the token');
+  assert.equal((await itemOf(B, itemId)).status, 'ready');
+}, { timeout: 90000 });
+
+t.test('M5/N2: the record says "listed" BEFORE the Drive write; when Drive fails the list is not asked at every poll (backoff)', async (h) => {
+  const app = await h.newApp({ v: 8 });
+  await connectDrive(app);
+  await app.ev(`driveUploadRawFile = async () => { throw Object.assign(new Error('boom'), { status: 500 }); }`);
+  app.n8n.plan(null, { type: 'hold' });
+  const s = await startAid(h, app);
+  await app.until(`jobs.recs.get('${s.jobId}').pub === true`, { what: 'pub before the write' });
+  assert.equal(await app.ev(`jobs.recs.get('${s.jobId}').pickupDue`), true, 'still due: the write did not happen');
+  assert.equal(app.drive.byName(FILE).length, 0);
+  await app.until(`pickup.failUntil > Date.now()`, { what: 'backoff' });
+  const lists = () => app.drive.log.filter((l) => /drive\/v3\/files\?spaces/.test(l.url) && l.url.includes(encodeURIComponent(FILE))).length;
+  const n = lists();
+  for (let i = 0; i < 6; i++) { await app.ev(`pickup.step(true)`); await app.ev('jobs.tick()'); }
+  await sleep(500);
+  assert.equal(lists(), n, 'no further list call while backing off');
+}, { timeout: 60000 });
+
+t.test('M6/N1: a listed request dropped before its end was written leaves a key-free note, is not taken up again as foreign, and its end is written; a stored record is never overwritten', async (h) => {
+  const { A } = await pair(h);
+  A.n8n.plan(null, { type: 'hold' });
+  const s = await startAid(h, A);
+  await A.until(`[...jobs.recs.values()].some(r => r.pub && !r.pickupDue)`);
+  const tok = await A.ev(`[state.driveSyncToken, state.driveSyncTokenExpiresAt]`);
+  await A.ev(`state.driveSyncToken = null`); // the end cannot be written now
+  A.n8n.release();
+  await untilPoking(A, `jobs.recs.get('${s.jobId}').state === 'done'`, 'done without a token');
+  assert.equal(await A.ev(`jobs.recs.get('${s.jobId}').pickupMark`), 'done');
+  await A.ev(`jobs.drop('${s.jobId}')`); // Dismiss
+  const note = await A.ev(`jobs.store.getItem('pk:${s.jobId}')`);
+  assert.equal(note.mark, 'done');
+  assert.ok(!JSON.stringify(note).includes(s.key), 'no key in the note');
+  await A.ev(`state.driveSyncToken = ${JSON.stringify(tok[0])}; state.driveSyncTokenExpiresAt = ${tok[1]}`);
+  // the entry is still open here: a scan must not adopt it
+  await A.ev(`pickup.take(new Map([['${s.jobId}', { ...pickupParse(JSON.parse(${JSON.stringify(JSON.stringify(listed(A.drive)))}), Date.now()).entries.get('${s.jobId}') }]]), Date.now())`);
+  assert.equal(await A.ev(`jobs.recs.has('${s.jobId}')`), false, 'not taken up as foreign');
+  await A.ev('pickup.step(true)');
+  await untilPoking(A, `jobs.store.getItem('pk:${s.jobId}').then(x => x === null)`, 'note removed');
+  assert.equal(listed(A.drive).jobs[0].state, 'done');
+  assert.equal(await A.ev(`jobs.recs.has('${s.jobId}')`), false);
+  // N1: a record that is stored but not in this tab's memory is not overwritten
+  const id = rid('R');
+  await A.ev(`jobs.store.setItem('job:${id}', { v: 1, id: '${id}', label: 'stored', state: 'running', kind: 'studio', mode: 'studio_mindmap', key: 'x' })`);
+  assert.equal(await A.ev(`jobs.addIfAbsent({ v: 1, id: '${id}', label: 'other' })`), false);
+  assert.equal(await A.ev(`jobs.store.getItem('job:${id}').then(r => r.label)`), 'stored');
+  assert.equal(await A.ev(`jobs.addIfAbsent({ v: 1, id: '${rid('S')}', label: 'new', state: 'running', kind: 'studio', mode: 'studio_mindmap' })`), true);
+}, { timeout: 90000 });
 
 t.run();

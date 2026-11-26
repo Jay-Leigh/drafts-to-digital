@@ -5780,6 +5780,17 @@
         return this.loadP;
       },
 
+      // Adds a record only when none is stored under that id (a tab that has not seen another tab's write yet must not overwrite it)
+      async addIfAbsent(rec) {
+        let added = false;
+        try { await withStoreLock('jobs', async () => { if (await this.store.getItem(`job:${rec.id}`)) return; await this.store.setItem(`job:${rec.id}`, rec); added = true; }); } catch { return false; }
+        if (!added) return false;
+        this.recs.set(rec.id, rec);
+        tabSync.post('jobs');
+        this.render();
+        return true;
+      },
+
       async add(rec) {
         this.recs.set(rec.id, rec);
         try { await withStoreLock('jobs', () => this.store.setItem(`job:${rec.id}`, rec)); } catch { /* kept in memory for this visit */ }
@@ -5807,8 +5818,11 @@
       },
 
       async drop(id) {
+        const old = this.recs.get(id);
         this.recs.delete(id);
-        try { await withStoreLock('jobs', async () => { await this.store.removeItem(`job:${id}`); await this.store.removeItem(`in:${id}`); }); } catch { /* nothing to remove */ }
+        // a listed request whose end is not in the pickup list yet leaves a note without the key, so it is neither forgotten there nor taken up again here
+        const note = old && !old.foreign && old.pub && !old.pickupEnded ? { id, mark: old.pickupMark || PICKUP_END[old.state] || 'cancelled', expiresAt: (old.lastCreateAt || old.createdAt || Date.now()) + PICKUP_TTL_MS } : null;
+        try { await withStoreLock('jobs', async () => { if (note) await this.store.setItem(`pk:${id}`, note); await this.store.removeItem(`job:${id}`); await this.store.removeItem(`in:${id}`); }); } catch { /* nothing to remove */ }
         tabSync.post('jobs');
         this.render();
       },
@@ -6161,9 +6175,11 @@
 
       async onUnknown(cur) {
         // A request that went to the pickup list may have been collected on another device and its note since deleted: it is never sent again (that would run and bill it twice)
-        if (cur.pub) {
+        // Listed: only a job the server has shown (or one older than its notes live) can have been collected elsewhere; one it never admitted keeps the old path below (resend of the same attempt)
+        if (cur.pub && (cur.sawServer || Date.now() - (cur.lastCreateAt || 0) >= PICKUP_TTL_MS - 3600000)) {
           if (Date.now() - (cur.lastCreateAt || 0) < JOBS_UNKNOWN_GRACE_MS) { this.stepPoll(cur); return; } // a job the server has just been given is not known to it for a moment
-          await this.onCollected(cur);
+          // "collected on your other device" only when the pickup list says so; otherwise a neutral end with Try again (never a resend)
+          if ((await pickup.entryState(cur.id)) === 'done') await this.onCollected(cur); else await this.expire(cur);
           return;
         }
         if (cur.sawServer) { await this.onFailed(cur, { error: null }, true); return; }
@@ -6246,6 +6262,8 @@
         const claim = serverHas(8) && Date.now() >= this.claimOffUntil;
         // a record that is not ours never uses the old `result` op (without the claim two devices would both apply it)
         if (foreign && !claim) { cur.nextPollAt = Date.now() + 10 * 60 * 1000; return; }
+        // and never without a Drive token: a result applied here that cannot be synced would be stranded (the device that started it keeps the right to collect)
+        if (foreign && !(hasFreshSyncToken() && syncKnownUser)) { cur.nextPollAt = Date.now() + 60 * 1000; return; }
         if (claim && !cur.nonce) cur = (await this.update(id, x => { if (x.state !== 'succeeded') return false; x.nonce = x.nonce || jobsRandom(32); })) || this.recs.get(id);
         if (!cur || cur.state !== 'succeeded') return;
         let data;
@@ -6312,7 +6330,7 @@
       },
 
       async expire(rec) {
-        const r = await this.update(rec.id, x => { if (x.state !== 'succeeded') return false; x.state = 'expired'; x.error = { code: 'STH-JOB-404', message: ERRORS['JOB-404'].message }; x.finishedAt = Date.now(); x.seen = false; });
+        const r = await this.update(rec.id, x => { if (x.state !== 'succeeded' && x.state !== 'submitted' && x.state !== 'running') return false; x.state = 'expired'; x.error = { code: 'STH-JOB-404', message: ERRORS['JOB-404'].message }; x.finishedAt = Date.now(); x.seen = false; });
         if (!r) return;
         await this.deleteInputs(rec.id);
         try { await this.handlers[rec.kind].fail(r, new AppError('JOB-404')); } catch { /* handler gone */ }
@@ -6354,14 +6372,17 @@
       // Cancel is a discard: the answer is never applied. silent: the caller handles the item itself.
       async cancel(id, silent) {
         if (!this.available) return;
-        const r = await this.update(id, x => { if (!JOBS_ACTIVE.has(x.state)) return false; x.state = 'cancelled'; x.error = { code: 'STH-JOB-410', message: ERRORS['JOB-410'].message }; x.finishedAt = Date.now(); x.seen = true; });
+        let was = '';
+        const r = await this.update(id, x => { if (!JOBS_ACTIVE.has(x.state)) return false; was = x.state; x.state = 'cancelled'; x.error = { code: 'STH-JOB-410', message: ERRORS['JOB-410'].message }; x.finishedAt = Date.now(); x.seen = true; });
         if (!r) return;
         await this.deleteInputs(id);
         if (!silent) { try { await this.handlers[r.kind].fail(r, new AppError('JOB-410')); } catch { /* handler gone */ } }
         if (!r.lastCreateAt) return;
+        // a request of another device: the server is told only while the job is still working (cross-device cancel); once it has finished the answer is left alone (no ack, the lease runs out and the device that started it collects it)
+        if (r.foreign && was !== 'submitted' && was !== 'running') return;
         try {
           const d = await this.call({ v: 1, op: 'cancel', jobs: [{ id, key: r.key }] });
-          if (d && d.state && d.state !== 'cancelled') await this.update(id, x => { x.ackDue = true; });
+          if (!r.foreign && d && d.state && d.state !== 'cancelled') await this.update(id, x => { x.ackDue = true; });
         } catch { /* the server drops it after 72 hours */ }
       },
 
@@ -6452,7 +6473,14 @@
         this.groupQ = (this.groupQ || Promise.resolve()).then(() => this.advanceNow()).catch(err => console.warn('[STH] Background group step failed:', errorFromException(err).code));
         return this.groupQ;
       },
+      // A one-request run another device collected: its History entry comes by sync (then the kept files go); after 3 days without it the run fails with Try again, as a study aid does
+      async settlePickedUp(g) {
+        if ((await getHistory()).some(e => e.id === `h_${g.id}`)) { await this.groupDropInputs(g.id, g.n); await this.groupUpdate(g.id, x => { x.pickedUp = 'arrived'; }); return; }
+        if (Date.now() - (g.pickedUpAt || g.finishedAt || 0) < STUDIO_PICKUP_WAIT_MS) return;
+        await this.groupUpdate(g.id, x => { if (x.pickedUp !== true) return false; x.pickedUp = false; x.handled = false; delete x.outcome; x.members[0].state = 'failed'; x.members[0].pickupLost = true; x.members[0].error = { code: 'STH-JOB-404', message: STUDIO_PICKUP_LOST }; x.state = 'failed'; });
+      },
       async advanceNow() {
+        for (const g of [...this.groups.values()]) if (g.state === 'done' && g.pickedUp === true) await this.settlePickedUp(g).catch(() => {});
         for (const g of [...this.groups.values()]) if (g.state === 'done' && !g.handled && !this.finishing.has(g.id) && this.groupHandler(g).done) await this.groupHandle(g);
         const list = [...this.groups.values()].filter(g => g.state === 'running' || g.state === 'failed').sort((a, b) => a.createdAt - b.createdAt);
         for (const g of list) await this.groupReconcile(g);
@@ -6638,7 +6666,7 @@
         window.addEventListener('pageshow', () => { this.elect(true); this.kick(); });
         window.addEventListener('online', () => this.kick());
         window.addEventListener('focus', () => this.kick());
-        setInterval(() => { if (document.visibilityState === 'visible') pickup.step(); }, PICKUP_SCAN_MS / 2); // another device's requests: looked for about once a minute, only while the tab is in view
+        setInterval(() => { if (document.visibilityState === 'visible') { pickup.step(); this.advanceGroups(); } }, PICKUP_SCAN_MS / 2); // another device's requests: looked for about once a minute, only while the tab is in view
       },
 
       openTray(open, restoreFocus) {
@@ -6801,8 +6829,8 @@
             if (!g || g.n !== 1 || g.kind !== 'tool') return;
             if (await jobs.store.getItem(`out:${g.id}:0`).catch(() => null)) { await jobs.groupMemberDone(g.id, j.group.i, j.id); return; } // the answer was kept here after all
             const now = Date.now();
-            await jobs.groupUpdate(g.id, x => { if (x.state !== 'running' && x.state !== 'failed') return false; x.members[0].state = 'done'; x.members[0].error = null; x.state = 'done'; x.finishedAt = now; x.pickedUp = true; x.handled = true; x.outcome = 'ok'; x.seen = true; });
-            await jobs.groupDropInputs(g.id, g.n);
+            // the files stay on this device until the History entry has arrived (see settlePickedUp)
+            await jobs.groupUpdate(g.id, x => { if (x.state !== 'running' && x.state !== 'failed') return false; x.members[0].state = 'done'; x.members[0].error = null; x.state = 'done'; x.finishedAt = now; x.pickedUp = true; x.pickedUpAt = now; x.handled = true; x.outcome = 'ok'; x.seen = true; });
           },
         },
         // a request another device started, collected here from the pickup list (see `pickup`)
@@ -7046,7 +7074,7 @@
     };
 
     const pickup = {
-      running: false, again: false, kickT: null, lastScan: 0, future: false,
+      running: false, again: false, kickT: null, lastScan: 0, future: false, fails: 0, failUntil: 0,
 
       // A request that may go to the list: one study aid job, or the single member of a one-request tool run. Never a tutor reply, a big run or a run of several batches.
       eligible(rec) {
@@ -7080,12 +7108,18 @@
         if (this.running) { this.again = true; return; }
         if (!this.active()) return;
         const now = Date.now();
+        if (now < this.failUntil) return; // Drive failed: wait (a minute, doubling to 15) instead of asking again at every poll
         const due = [...jobs.recs.values()].some(r => r.pickupDue || (r.pickupMark && (r.pub || r.foreign)));
         const scan = !!force || (document.visibilityState === 'visible' && now - this.lastScan >= PICKUP_SCAN_MS);
         if (!due && !scan) return;
         this.running = true;
-        try { await this.round(scan, now); }
-        catch (err) { console.warn('[STH] Pickup list skipped:', errorFromException(err).code); handleDriveTokenError(err); }
+        try { await this.round(scan, now); this.fails = 0; }
+        catch (err) {
+          console.warn('[STH] Pickup list skipped:', errorFromException(err).code);
+          handleDriveTokenError(err);
+          this.fails++;
+          this.failUntil = Date.now() + Math.min(15 * 60 * 1000, 60 * 1000 * Math.pow(2, this.fails - 1));
+        }
         finally { this.running = false; if (this.again) { this.again = false; this.kick(); } }
       },
 
@@ -7107,8 +7141,22 @@
         return pickupCleanEntry({ id: r.id, key: r.key, mode: r.mode, kind, label: r.label, createdAt: r.createdAt, expiresAt: (r.lastCreateAt || r.createdAt) + PICKUP_TTL_MS, state: 'open', doneAt: 0, ctx }, Date.now());
       },
 
+      // What the pickup list says about one request ('open' | 'done' | 'cancelled'), or null when it is not listed (or cannot be read now)
+      async entryState(id) {
+        let e = pickupIo.cache && pickupIo.cache.entries.get(id);
+        if ((!e || e.state !== 'done') && hasFreshSyncToken()) {
+          try { const res = await pickupIo.mutate(() => false); e = res.entries ? res.entries.get(id) : e; } catch { /* keep what the cache said */ }
+        }
+        return e ? e.state : null;
+      },
+
       async round(scan, now) {
         const work = [];
+        for (const k of (await jobs.store.keys().catch(() => [])).filter(k => k.startsWith('pk:'))) {
+          const n = await jobs.store.getItem(k).catch(() => null);
+          if (!n || !n.id || now > n.expiresAt) { await jobs.store.removeItem(k).catch(() => {}); continue; }
+          work.push({ id: n.id, mark: n.mark, tomb: k });
+        }
         for (const r of [...jobs.recs.values()]) {
           if (r.pickupMark && (r.pub || r.foreign)) work.push({ id: r.id, mark: r.pickupMark });
           else if (r.pickupDue && JOBS_ACTIVE.has(r.state)) {
@@ -7117,6 +7165,8 @@
           }
         }
         if (!work.length && !scan) return;
+        // listed means "never sent again" (D1): the record says so BEFORE the write, so a crash or a token change in between cannot leave an entry with a record that does not know it
+        for (const w of work) if (w.entry) await jobs.update(w.id, x => { x.pub = true; });
         const res = await pickupIo.mutate((entries, t) => {
           let changed = false;
           for (const w of work) {
@@ -7131,16 +7181,18 @@
         if (scan) this.lastScan = now;
         for (const w of work) {
           await jobs.update(w.id, x => {
-            if (w.entry) { x.pub = true; x.pickupDue = false; }
+            if (w.entry) x.pickupDue = false;
             else if (w.skip) x.pickupDue = false;
             else { x.pickupMark = null; x.pickupEnded = true; }
           });
+          if (w.tomb) await jobs.store.removeItem(w.tomb).catch(() => {});
         }
         if (res.entries) await this.take(res.entries, now);
       },
 
       // What the list says about requests this device does not own (new ones are taken up) and about the ones it has (a hint to ask the server soon)
       async take(entries, now) {
+        const tombs = new Set((await jobs.store.keys().catch(() => [])).filter(k => k.startsWith('pk:')).map(k => k.slice(3)));
         for (const e of entries.values()) {
           const mine = jobs.recs.get(e.id);
           if (mine) {
@@ -7151,7 +7203,8 @@
           }
           if (e.state !== 'open' || !e.key || now > e.expiresAt) continue;
           if (e.kind === 'studio' && !studioKnownTool(e.ctx.tool)) continue;
-          await jobs.add(this.recFor(e));
+          if (tombs.has(e.id)) continue; // a request this device started and dropped: not a foreign one
+          await jobs.addIfAbsent(this.recFor(e));
         }
         jobs.schedule();
       },
@@ -9303,6 +9356,7 @@
     function toolFailText(g, i, e) {
       const m = g.members[i];
       if (m && m.stale) return `${toolBatchText(g, i)} was not sent within a day, because the app was closed. Retry batch sends it now.`;
+      if (m && m.pickupLost) return `${TOOL_JOB_TEXT[g.ref.mode].name} was collected on your other device, but did not reach this one. Try again sends it again.`;
       if (m && m.noInputs) return `${toolBatchText(g, i)} could not be sent again, because the files are no longer kept on this device. Start again with your files.`;
       return `${toolBatchText(g, i)} failed. ${e.message} (Code ${e.code})`;
     }
@@ -9361,7 +9415,7 @@
         return { label: t.name, text, actions: [{ act: 'cancel', label: 'Cancel' }] };
       }
       if (g.state === 'done') {
-        if (g.pickedUp) return { label: t.name, text: 'Collected on your other device. It shows up in History after the next sync.', actions: [{ act: 'dismiss', label: 'Dismiss' }] };
+        if (g.pickedUp === true) return { label: t.name, text: 'Collected on your other device. It shows up in History after the next sync.', actions: [{ act: 'dismiss', label: 'Dismiss' }] };
         if (g.outcome && g.outcome !== 'ok') return { label: t.name, failed: true, text: `${escapeHtml(g.outcome.message)} (Code ${escapeHtml(g.outcome.code)})`, actions: [{ act: 'dismiss', label: 'Dismiss' }] };
         return { label: t.name, text: 'Ready', actions: [{ act: 'open', label: 'Open' }, { act: 'dismiss', label: 'Dismiss' }] };
       }

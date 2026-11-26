@@ -325,7 +325,17 @@ class FakeN8n {
       });
       return send(200, { ok: true, acked, notYours });
     }
-    if (body.op === 'cancel') { for (const x of mine) if (x) { x.cancelled = true; x.cancelAt = Date.now(); } return send(200, { ok: true, jobs: list.map((j, k) => ({ id: j.id, state: mine[k] ? 'cancelled' : 'unknown' })) }); }
+    if (body.op === 'cancel') {
+      // as job-cancel.lua / job-cancel-reply.js: a running or refused job becomes cancelled; any other state is returned unchanged (a finished job keeps its answer); `state` is the first job's
+      const states = list.map((j, k) => {
+        const x = mine[k];
+        if (!x) return 'unknown';
+        if (x.cancelled) return 'cancelled';
+        if (x.state === 'running' || x.state === 'rejected') { x.cancelled = true; x.cancelAt = Date.now(); return 'cancelled'; }
+        return x.state;
+      });
+      return send(200, { ok: true, state: states[0], jobs: list.map((j, k) => ({ id: j.id, state: states[k] })) });
+    }
     return send(400, { ok: false });
   }
 }
