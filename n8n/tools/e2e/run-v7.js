@@ -6,6 +6,7 @@ const L = require('./lib7');
 const { t, post, state, reset, setKey, queue, redis, usageNow, gcalls, login, mkJob, hdr, create, op, stOne, waitState, hgetall, errOf, sleep, today } = L;
 
 async function main() {
+  const E0 = (await L.execs()).length;
   await reset();
   const tok = await login('71.1.1.1'); const H = hdr(tok);
 
@@ -69,7 +70,7 @@ async function main() {
   const t1 = mkJob('transcribe'), t2 = mkJob('transcribe'), t3 = mkJob('template');
   const slowJ4 = (mode) => L.j4Body(mode, 'hello [[mock:hang5000]]');
   await create(t1, slowJ4('transcribe'), H); await create(t2, slowJ4('transcribe'), H); await sleep(1200);
-  t((await stOne(t1, H)).state === 'running' && (await stOne(t2, H)).state === 'running' && redis('ZCARD', 'sth:jobs:run:bulk') === '2' && redis('ZCARD', 'sth:jobs:run:transcribe') === '2', '2 transcribe jobs running: both in the bulk set (transcribe cap 2)');
+  t((await stOne(t1, H)).state === 'running' && (await stOne(t2, H)).state === 'running' && redis('ZCARD', 'sth:jobs:run:bulk') === '2' && redis('ZCARD', 'sth:jobs:run:transcribe') === '0', '2 transcribe jobs running: both in the bulk set only (a bulk job is not in its mode set)');
   await create(t3, slowJ4('template'), H); s = await waitState(t3, H, ['rejected', 'failed', 'running', 'succeeded'], 8000);
   t(s.state === 'rejected' && errOf(s) === 'STH-JOB-429', 'a 3rd bulk job (template) is busy: STH-JOB-429, although only 2 of 4 slots are used', s);
   const d1 = mkJob('studio_digest'); await create(d1, L.dgBody(), H); s = await waitState(d1, H, ['rejected', 'failed', 'running', 'succeeded'], 8000); t(s.state === 'rejected' && errOf(s) === 'STH-JOB-429', 'a digest job is busy too (same bulk cap)', s);
@@ -89,7 +90,10 @@ async function main() {
   t(redis('ZCARD', 'sth:jobs:run:bulk') === '2', 'a quiz part (bulk: true) and a digest part: 2 in the bulk set');
   const p3 = mkJob('studio_digest'); await create(p3, L.dgBody(), H); s = await waitState(p3, H, ['rejected', 'running', 'succeeded', 'failed'], 8000); t(s.state === 'rejected', 'a third bulk job is refused', s);
   const p4 = mkJob('studio_quiz'); await create(p4, L.base('quiz', 'studio_quiz', { options: { count: 10, difficulty: 'easy' } }), H); s = await waitState(p4, H, ['rejected', 'running', 'succeeded', 'failed'], 8000);
-  t(s.state === 'rejected' && errOf(s) === 'STH-JOB-429', 'an ordinary quiz job is refused while a quiz part runs (mode cap 1, v6 rule unchanged)', s);
+  t(s.state === 'running', 'an ordinary quiz job is admitted while a quiz part runs (a bulk job does not hold the per-mode slot of other users)', s);
+  const p5 = mkJob('studio_quiz'); await create(p5, L.base('quiz', 'studio_quiz', { options: { count: 10, difficulty: 'easy' } }), H); const s5 = await waitState(p5, H, ['rejected', 'running', 'succeeded', 'failed'], 8000);
+  t(s5.state === 'rejected' && errOf(s5) === 'STH-JOB-429', 'a second ordinary quiz job is still refused (per-mode cap 1 for non-bulk jobs, as v6)', s5);
+  await waitState(p4, H, DONE_S, 30000);
   await waitState(p1, H, DONE_S, 30000); await waitState(p2, H, DONE_S, 30000);
   await queue('', 'valid');
   t(hgetall('sth:jobs:n:' + today).busy >= '3', 'busy counted');
@@ -153,7 +157,7 @@ async function main() {
   t(s.state === 'succeeded' && r.json.result.text === 'MOCK GEMINI REPLY' && Object.keys(r.json.result).join() === 'text', 'transcribe JOB, good answer: succeeded, result {text} (the direct answer)', r.text.slice(0, 120));
   const direct = await post('student-tools-v2', L.j4Body('transcribe', 'ok text'), H); t(JSON.stringify(direct.json) === JSON.stringify(r.json.result), 'the stored result equals the direct answer byte for byte');
   console.log('[the workflow stays healthy]');
-  const bad = (await L.execs()).filter((e) => e.status === 'crashed');
+  const bad = (await L.execs()).slice(E0).filter((e) => e.status === 'crashed'); // only this run's executions (an earlier n8n kill leaves old 'crashed' rows)
   t(bad.length === 0, 'no crashed execution', bad.map((b) => b.id));
   L.done('E2E v7 gate / bulk / metering');
 }

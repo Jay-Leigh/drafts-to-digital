@@ -5,6 +5,7 @@ const { t, post, reset, queue, usageNow, gcalls, login, mkJob, hdr, create, op, 
 const UNITS = Math.round(5000 + 8.33 * 1200);
 const strip = (j) => { const c = JSON.parse(JSON.stringify(j)); if (c.artifact) delete c.artifact.generatedAt; return JSON.stringify(c); };
 (async () => {
+  const E0 = (await execs()).length;
   await reset(); const H = hdr(await login('73.1.1.1'));
   console.log('[slides: success path and options]');
   await queue('valid'); const u0 = usageNow(); let r = await post('student-tools-v2', L.slBody(), H); const a = r.json && r.json.artifact;
@@ -25,6 +26,6 @@ const strip = (j) => { const c = JSON.parse(JSON.stringify(j)); if (c.artifact) 
   await reset(); H.authorization = 'Bearer ' + (await login('73.1.2.2')); await queue('valid');
   const jf = mkJob('studio_slides'); await create(jf, L.slBody(), H); const s = await waitState(jf, H); const sync = await post('student-tools-v2', L.slBody(), H); r = await op('result', [jf], H);
   t(s.state === 'succeeded' && r.json.mode === 'studio_slides' && strip(r.json.result) === strip(sync.json), 'job succeeded; stored answer == the sync answer');
-  t((await execs()).filter((e) => e.status === 'crashed').length === 0, 'no crashed execution');
+  t((await execs()).slice(E0).filter((e) => e.status === 'crashed').length === 0, 'no crashed execution');
   L.done('E2E slides');
 })().catch((e) => { console.log('CRASH', e); process.exit(1); });

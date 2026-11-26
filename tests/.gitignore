@@ -1,0 +1,5 @@
+# downloaded CDN libraries (see lib/vendor.js), build output and run results
+.cache/
+.results/
+.tmp/
+node_modules/

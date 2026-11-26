@@ -9,15 +9,15 @@ local o=tonumber(redis.call('GET',KEYS[4]) or '') local cap=tonumber(ARGV[8]) if
 local function rej(code) redis.call('HSET',KEYS[1],'kh',ARGV[1],'m',ARGV[2],'st','rejected','a',att,'c',now,'e',code) redis.call('EXPIRE',KEYS[1],ARGV[13]) end
 if cap==0 then rej('{"code":"STH-JOB-503"}') return {'off'} end
 local total,mine,bulk=0,0,0
-for i=5,#KEYS do local n=redis.call('ZCOUNT',KEYS[i],'('..ARGV[4],'+inf') if i==6 then bulk=n else total=total+n end if i==5 then mine=n end end
+for i=5,#KEYS do local n=redis.call('ZCOUNT',KEYS[i],'('..ARGV[4],'+inf') total=total+n if i==6 then bulk=n end if i==5 then mine=n end end
 redis.call('ZREMRANGEBYSCORE',KEYS[5],'-inf',now) redis.call('ZREMRANGEBYSCORE',KEYS[6],'-inf',now)
 local isb=ARGV[14]=='1' local bl=math.min(tonumber(ARGV[15]),math.max(1,cap-tonumber(ARGV[16])))
-if total>=cap or mine>=tonumber(ARGV[7]) or (isb and bulk>=bl) then rej('{"code":"STH-JOB-429"}') redis.call('HINCRBY',KEYS[3],'busy',1) redis.call('EXPIRE',KEYS[3],2592000) return {'busy'} end
+if total>=cap or (isb and bulk>=bl) or (not isb and mine>=tonumber(ARGV[7])) then rej('{"code":"STH-JOB-429"}') redis.call('HINCRBY',KEYS[3],'busy',1) redis.call('EXPIRE',KEYS[3],2592000) return {'busy'} end
 if c[1] then redis.call('HDEL',KEYS[1],'f','fa','rb') end
 redis.call('HSET',KEYS[1],'kh',ARGV[1],'m',ARGV[2],'st','running','a',att,'s',now,'d',ARGV[5],'x',ARGV[10],'e','')
 redis.call('HSETNX',KEYS[1],'c',now) redis.call('EXPIRE',KEYS[1],ARGV[6])
-redis.call('ZADD',KEYS[5],tonumber(ARGV[5])+tonumber(ARGV[9]),ARGV[11]..':'..att) redis.call('EXPIRE',KEYS[5],86400)
-if isb then redis.call('ZADD',KEYS[6],tonumber(ARGV[5])+tonumber(ARGV[9]),ARGV[11]..':'..att) redis.call('EXPIRE',KEYS[6],86400) end
+local k=KEYS[5] if isb then k=KEYS[6] end
+redis.call('ZADD',k,tonumber(ARGV[5])+tonumber(ARGV[9]),ARGV[11]..':'..att) redis.call('EXPIRE',k,86400)
 redis.call('SET',KEYS[2],ARGV[11]..'|'..att..'|'..ARGV[2],'EX',ARGV[12])
 redis.call('HINCRBY',KEYS[3],'admitted',1) redis.call('EXPIRE',KEYS[3],2592000)
 return {'admitted'}

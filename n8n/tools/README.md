@@ -9,4 +9,5 @@ Builds `../sth-workflow-v1..v7*.json` from `live.json` (export of the live workf
 - `./run-all.sh`: build, validate, every suite for v1..v7, then copies `sth-workflow-v7-bundle.json` to `..`. `WF_V7=1` (with `WF_V6=1`) switches the few v6 expectations that v7 changes on purpose (15 sources, ten hello modes, J4 meter factor 8.33).
 - Regenerate `live.json`: n8n > the live workflow > Download, save here; check it holds no secret (`grep -iE "AIza|ya29|secret|token"` must show code only).
 - All keys, tokens and secrets in `tests/` and `e2e/` are fixed fake test values.
+- `STH_EXTRA_ORIGIN=https://<domain> node build.js` adds a second allowed app origin to the four webhook nodes of the v7 bundle (comma-separated `allowedOrigins`); unset = the single origin `https://jay-leigh.github.io`, bundle unchanged. Do not commit a bundle built with it unless the domain is real.
 - New v7 sources: `src/job7-*`, `quota7-*`, `studio7*`, `j4-settle.js`, `route7-unknown.js`; the patching is `buildV7` in `build.js`.
