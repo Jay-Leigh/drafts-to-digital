@@ -53,7 +53,7 @@ t.test('storage keys the app writes versus the keys privacy.html names', async (
   await app.goto('#jobs?flag=0'); await h.sleep(300); await app.goto('#jobs?flag=1'); await h.sleep(300);
   await connectDrive(app);
   await app.ev('pushToDrive()');
-  const notice = await app.ev(`document.getElementById('noticeBanner').hidden`);
+  const noticeGone = await app.ev(`document.getElementById('noticeBanner') === null && typeof showUpdateNotice === 'undefined'`);
   const written = await app.page.evaluate(() => ({ local: [...window.__sk], session: [...window.__sess] }));
   const dbs = await app.page.evaluate(async () => (await indexedDB.databases()).map(d => d.name));
 
@@ -75,7 +75,8 @@ t.test('storage keys the app writes versus the keys privacy.html names', async (
   // legal text naming a key the page no longer has
   const legalKeys = new Set([...fs.readFileSync(path.join(app.pg.dir, 'privacy.html'), 'utf8').matchAll(/\bsth[_.][A-Za-z_.0-9]*[A-Za-z0-9]/g)].map(m => m[0]));
   for (const k of legalKeys) if (!src.includes(k)) h.warn(`privacy.html names "${k}", which the page does not contain (stale text?)`);
-  console.log(`       keys seen: ${[...keys].sort().join(', ')}\n       databases: ${dbs.join(', ')}; notice banner hidden after release: ${notice}`);
+  console.log(`       keys seen: ${[...keys].sort().join(', ')}\n       databases: ${dbs.join(', ')}; notice banner removed: ${noticeGone}`);
+  assert.equal(noticeGone, true, 'the 8 December notice banner and its code are gone after the release');
   assert.ok(keys.size >= 10, 'the scan found the app\'s keys');
   assert.ok(dbs.length >= 3, 'the app\'s IndexedDB databases were created');
 });

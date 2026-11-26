@@ -10,8 +10,9 @@ const CACHE = path.join(__dirname, '..', '.cache');
 // pattern -> { file, url } fetched, or { stub } served as it is
 const LIBS = [
   { re: /^https:\/\/cdn\.tailwindcss\.com\/?$/, file: 'tailwind.js', url: 'https://cdn.tailwindcss.com', stub: 'window.tailwind = window.tailwind || {};' },
+  { re: /dompurify|purify(\.min)?\.js/, file: 'purify.min.js', url: 'https://cdn.jsdelivr.net/npm/dompurify@3.5.0/dist/purify.min.js', required: true },
   { re: /localforage/, file: 'localforage.min.js', url: 'https://cdn.jsdelivr.net/npm/localforage@1.10.0/dist/localforage.min.js', required: true },
-  { re: /\/marked(\.min)?\.js|npm\/marked\//, file: 'marked.min.js', url: 'https://cdn.jsdelivr.net/npm/marked/marked.min.js', stub: 'window.marked = { parse: (t) => String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;"), setOptions(){} };' },
+  { re: /\/marked(\.min)?\.js|npm\/marked\//, file: 'marked.min.js', url: 'https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js', stub: 'window.marked = { parse: (t) => String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;"), setOptions(){} };' },
   { re: /jszip/, file: 'jszip.min.js', url: 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js', stub: 'window.JSZip = undefined;' },
   { re: /pdf-lib/, file: 'pdf-lib.min.js', url: 'https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js', stub: 'window.PDFLib = undefined;' },
   { re: /browser-image-compression/, stub: 'window.imageCompression = async (f) => f;' },

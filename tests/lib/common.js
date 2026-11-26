@@ -2,9 +2,9 @@
 // Helpers the suites share.
 const fx = require('./fixtures');
 
-const RELEASE_MS = Date.UTC(2026, 11, 8); // STUDIO_V7_RELEASE_MS in the page
-const AFTER = RELEASE_MS + 36 * 3600e3; // 9 Dec 2026 12:00 UTC
-const BEFORE = RELEASE_MS - 7 * 86400e3; // 1 Dec 2026
+const RELEASE_MS = Date.UTC(2026, 10, 26); // STUDIO_V7_RELEASE_MS in the page
+const AFTER = RELEASE_MS + 36 * 3600e3; // 27 Nov 2026 12:00 UTC
+const BEFORE = RELEASE_MS - 7 * 86400e3; // 19 Nov 2026
 
 function studioItem(tool, over = {}) {
   const art = { envelope: fx.ENVELOPE, tool, schema: fx.SCHEMA[tool], promptVersion: 'x', generatedAt: '2026-12-09T00:00:00.000Z', usage: fx.usage(), repairs: [],

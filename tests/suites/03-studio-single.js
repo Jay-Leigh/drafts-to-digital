@@ -87,7 +87,8 @@ t.test('XSS strings from the model are shown as text in every viewer and in the 
 
 // ── request bodies, BASE vs NEW ──
 async function captureBodies(h, kind, jobsOn) {
-  const app = await h.newApp({ page: kind, now: AFTER, jobs: jobsOn, clock: true });
+  // a date after the release gate of BOTH pages (the baseline may still carry the older gate date)
+  const app = await h.newApp({ page: kind, now: Date.UTC(2026, 11, 10, 12), jobs: jobsOn, clock: true });
   await app.seedKb(kbs());
   const bodies = {};
   // with the jobs flag off the page never hears the server's hello, so the v7 tools (infographic, slides) are not on offer: only the three older tools

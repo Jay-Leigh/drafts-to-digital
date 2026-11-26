@@ -43,7 +43,7 @@ t.test('gate: valid token but old consent version asks only for the tick', async
   assert.equal(await stale.ev('JSON.parse(storageGet("sth_consent")).termsVersion === TERMS_VERSION'), true);
 });
 
-t.test('hello v7: 15 sources, jobs on; v7 tools wait for 8 Dec 2026', async (h) => {
+t.test('hello v7: 15 sources, jobs on; v7 tools wait for 26 Nov 2026', async (h) => {
   const before = await h.newApp({ now: BEFORE });
   assert.equal(await before.ev('serverHas(7)'), true);
   assert.equal(await before.ev('studioMaxSources()'), 15);
@@ -60,7 +60,7 @@ t.test('hello v7: 15 sources, jobs on; v7 tools wait for 8 Dec 2026', async (h) 
   assert.equal(await after.ev('service.server.reduceMax'), 300000);
 });
 
-t.test('release boundary: 8 Dec 2026 00:00 UTC exactly', async (h) => {
+t.test('release boundary: 26 Nov 2026 00:00 UTC exactly', async (h) => {
   const app = await h.newApp({ now: RELEASE_MS - 3600e3 });
   const at = (ms) => app.ev(`(() => { const real = Date.now; Date.now = () => ${ms}; try { return studioV7Released(); } finally { Date.now = real; } })()`);
   assert.equal(await at(RELEASE_MS - 1), false);
