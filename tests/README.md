@@ -30,6 +30,7 @@ tests/
     09-mr-journeys      map-reduce journeys: consent, 5-part run, resume, retry, skip, cancel, replaced run, delete
     10-mr-gates         map-reduce gate (v6 / date / flag), busy 429, budget and limits, retry limits, tutor next to a run
     11-ig-sources-icon  infographic "Show sources on the picture" (default, toggle, reload, sync, exports, request unchanged) and the app icon in the SVG/PNG/PDF/mind map/.pptx footers
+    12-history-studio   History panel with study aids: live rows (badge, title, date, size line), interleaved by date, All / Documents / Study aids chips (sth_history_filter), open in Studio, delete through Studio (Drive file, tombstone), button dot, XSS, 320/390/1280
 ```
 
 ## Running
